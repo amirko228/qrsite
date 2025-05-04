@@ -105,6 +105,30 @@ interface Stats {
   expiredSubscriptions: number;
 }
 
+// Определяем интерфейсы состояния и действий для редюсера
+interface AdminPanelState {
+  loading: boolean;
+  refreshing: boolean;
+  users: User[];
+  actionLoading: boolean;
+  searchQuery: string;
+  searchInputValue: string;
+  page: number;
+  rowsPerPage: number;
+  currentTab: number;
+}
+
+type AdminPanelAction = 
+  | { type: 'SET_LOADING'; payload: boolean }
+  | { type: 'SET_REFRESHING'; payload: boolean }
+  | { type: 'SET_USERS'; payload: User[] }
+  | { type: 'SET_ACTION_LOADING'; payload: boolean }
+  | { type: 'SET_SEARCH_QUERY'; payload: string }
+  | { type: 'SET_SEARCH_VALUE'; payload: string }
+  | { type: 'SET_PAGE'; payload: number }
+  | { type: 'SET_ROWS_PER_PAGE'; payload: number }
+  | { type: 'SET_CURRENT_TAB'; payload: number };
+
 // Стили компонентов
 const StyledTableRow = styled(TableRow)(({ theme }) => ({
   '&:nth-of-type(odd)': {
@@ -327,29 +351,6 @@ const AdminPanel: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   // Состояние и редюсер
-  interface AdminPanelState {
-    loading: boolean;
-    refreshing: boolean;
-    users: User[];
-    actionLoading: boolean;
-    searchQuery: string;
-    searchInputValue: string;
-    page: number;
-    rowsPerPage: number;
-    currentTab: number;
-  }
-  
-  type AdminPanelAction = 
-    | { type: 'SET_LOADING'; payload: boolean }
-    | { type: 'SET_REFRESHING'; payload: boolean }
-    | { type: 'SET_USERS'; payload: User[] }
-    | { type: 'SET_ACTION_LOADING'; payload: boolean }
-    | { type: 'SET_SEARCH_QUERY'; payload: string }
-    | { type: 'SET_SEARCH_VALUE'; payload: string }
-    | { type: 'SET_PAGE'; payload: number }
-    | { type: 'SET_ROWS_PER_PAGE'; payload: number }
-    | { type: 'SET_CURRENT_TAB'; payload: number };
-  
   const [state, dispatch] = useReducer(adminPanelReducer, {
     loading: true,
     refreshing: false,
