@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from pydantic import BaseModel
@@ -43,13 +43,15 @@ fake_users_db = {
 
 app = FastAPI(title="SocialQR API")
 
-# CORS middleware
+# Улучшенная настройка CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,  # Кэшируем предварительные проверки на 1 час
 )
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -278,3 +280,94 @@ async def check_admin_rights(current_user: User = Depends(get_current_active_use
         "is_admin": is_admin,
         "message": "У вас есть права администратора" if is_admin else "У вас нет прав администратора"
     }
+
+# Улучшенный эндпоинт для получения состояния авторизации и роли пользователя
+@app.get("/auth/status")
+async def auth_status(current_user: User = Depends(get_current_active_user)):
+    """Возвращает информацию о текущем пользователе и его правах доступа"""
+    return {
+        "authenticated": True,
+        "user": {
+            "username": current_user.username,
+            "email": current_user.email,
+            "full_name": current_user.full_name,
+            "is_admin": current_user.is_admin or False,
+        },
+        "permissions": {
+            "can_view_admin": current_user.is_admin or False,
+            "can_edit_users": current_user.is_admin or False,
+            "can_edit_qrcodes": True,  # Все могут редактировать свои QR-коды
+        },
+        "menu": {
+            "items": [
+                {"id": "profile", "title": "Мой профиль", "url": "/profile", "icon": "user", "order": 1},
+                {"id": "qrcodes", "title": "Мои QR-коды", "url": "/my-qrcodes", "icon": "qrcode", "order": 2},
+            ] + ([{"id": "admin", "title": "Админ панель", "url": "/admin", "icon": "shield", "order": 3}] if (current_user.is_admin or False) else [])
+        }
+    }
+
+# Более подробный эндпоинт для панели администратора
+@app.get("/admin/config")
+async def admin_config(current_user: User = Depends(get_current_active_user)):
+    """Возвращает конфигурацию админ-панели"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Доступ запрещен. Требуются права администратора"
+        )
+    
+    return {
+        "title": "Панель администратора SocialQR",
+        "user": {
+            "username": current_user.username,
+            "is_admin": True
+        },
+        "sections": [
+            {
+                "id": "dashboard",
+                "title": "Информационная панель",
+                "url": "/admin/dashboard",
+                "icon": "dashboard"
+            },
+            {
+                "id": "users",
+                "title": "Пользователи",
+                "url": "/admin/users",
+                "icon": "users"
+            },
+            {
+                "id": "qrcodes",
+                "title": "QR-коды",
+                "url": "/admin/qrcodes",
+                "icon": "qrcode"
+            },
+            {
+                "id": "settings",
+                "title": "Настройки",
+                "url": "/admin/settings",
+                "icon": "settings"
+            }
+        ]
+    }
+
+# Обеспечиваем неограниченный доступ к эндпоинтам для проверки админ-статуса
+# Это поможет фронтенду стабильно проверять права без мерцания
+@app.options("/auth/check-admin")
+@app.get("/auth/check-admin")
+def check_admin_status(token: str = Header(None)):
+    if not token:
+        return {"is_admin": False, "authenticated": False}
+    
+    try:
+        payload = jwt.decode(token.replace("Bearer ", ""), SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if not username or username not in fake_users_db:
+            return {"is_admin": False, "authenticated": True}
+        
+        return {
+            "is_admin": fake_users_db[username].get("is_admin", False),
+            "authenticated": True,
+            "username": username
+        }
+    except:
+        return {"is_admin": False, "authenticated": False}
