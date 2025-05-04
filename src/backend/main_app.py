@@ -7,6 +7,7 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from typing import Optional, List, Dict, Any
+from fastapi.responses import Response
 
 # Конфигурация JWT
 SECRET_KEY = "socialqr_secret_key_replace_in_production"
@@ -92,12 +93,12 @@ fake_qr_codes = [
 
 app = FastAPI(title="SocialQR API")
 
-# CORS конфигурация - более стабильная
+# Улучшенная CORS конфигурация
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
     allow_headers=["*"],
     expose_headers=["*"],
     max_age=3600,
@@ -383,7 +384,24 @@ async def admin_qrcodes(user: User = Depends(get_admin_user)):
 def root():
     return {"message": "SocialQR API работает!"}
 
-# Заглушки для обработки OPTIONS запросов
+# Функция для обработки CORS-заголовков в ответах
+@app.middleware("http")
+async def add_cors_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Max-Age"] = "3600"
+    return response
+
+# Специальный обработчик для всех OPTIONS запросов
 @app.options("/{path:path}")
-async def options_handler():
+async def options_route(path: str, response: Response):
+    """Обрабатывает preflight запросы для всех маршрутов"""
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD, PATCH"
+    response.headers["Access-Control-Allow-Headers"] = "*"
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Max-Age"] = "3600"
     return {}
