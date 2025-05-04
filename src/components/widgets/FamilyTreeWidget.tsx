@@ -419,8 +419,8 @@ const FamilyTreeWidget: React.FC<FamilyTreeWidgetProps> = ({ initialMembers = []
     return members.filter(m => member.spouseIds.includes(m.id));
   }, [members]);
   
-  // Рендеринг дерева семьи для выбранного члена
-  const renderSelectedFamily = useMemo(() => {
+  // Вместо useMemo используем обычную функцию для рендеринга семейного древа
+  const renderSelectedFamilyContent = () => {
     if (!selectedMemberId) return null;
     
     const selectedMember = members.find(m => m.id === selectedMemberId);
@@ -506,7 +506,7 @@ const FamilyTreeWidget: React.FC<FamilyTreeWidgetProps> = ({ initialMembers = []
         )}
       </Box>
     );
-  }, [selectedMemberId, members, getParents, getChildren, getSpouses, currentUserId, handleEditMember, handleDeleteMember]);
+  };
   
   return (
     <Box>
@@ -568,7 +568,7 @@ const FamilyTreeWidget: React.FC<FamilyTreeWidgetProps> = ({ initialMembers = []
             )}
           </Box>
         ) : (
-          renderSelectedFamily()
+          renderSelectedFamilyContent()
         )}
       </TreeContainer>
       
