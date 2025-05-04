@@ -1,35 +1,35 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Header, Request, Form
+from fastapi import FastAPI, Depends, HTTPException, status, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
-from typing import Optional, List, Dict, Any, Union
+from typing import Optional, List, Dict, Any
 
 # Конфигурация JWT
 SECRET_KEY = "socialqr_secret_key_replace_in_production"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7  # Увеличиваем срок жизни токена до недели
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
 # Модели данных
 class Token(BaseModel):
     access_token: str
     token_type: str
-    user_data: Dict[str, Any]
 
 class TokenData(BaseModel):
     username: Optional[str] = None
 
-class UserLogin(BaseModel):
-    username: str
-    password: str
+class MenuItem(BaseModel):
+    id: str
+    title: str
+    url: str
+    icon: str
+    order: int
 
-class PasswordChange(BaseModel):
-    username: str
-    new_password: str
-    current_password: Optional[str] = None
+class Navigation(BaseModel):
+    items: List[MenuItem]
 
 class User(BaseModel):
     username: str
@@ -41,7 +41,15 @@ class User(BaseModel):
 class UserInDB(User):
     hashed_password: str
 
-# Модель для QR-кодов
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class PasswordChange(BaseModel):
+    username: str
+    new_password: str
+    current_password: Optional[str] = None
+
 class QRCode(BaseModel):
     id: str
     owner: str
@@ -50,7 +58,7 @@ class QRCode(BaseModel):
     created_at: str
     visits: int
 
-# Временное хранилище пользователей
+# База данных пользователей
 fake_users_db = {
     "admin": {
         "username": "admin",
@@ -62,7 +70,7 @@ fake_users_db = {
     }
 }
 
-# Временное хранилище QR-кодов
+# База данных QR-кодов
 fake_qr_codes = [
     {
         "id": "qr1",
@@ -84,36 +92,23 @@ fake_qr_codes = [
 
 app = FastAPI(title="SocialQR API")
 
-# Отключаем стандартный обработчик ошибок, который может вызывать мерцание
-@app.exception_handler(HTTPException)
-async def custom_http_exception_handler(request: Request, exc: HTTPException):
-    return JSONResponse(
-        status_code=200,  # Всегда возвращаем 200 для предотвращения мерцания
-        content={
-            "success": False,
-            "error": exc.detail,
-            "code": exc.status_code
-        }
-    )
-
-# CORS настройки с поддержкой всех заголовков для предотвращения проблем в браузере
+# CORS конфигурация - более стабильная
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
     expose_headers=["*"],
-    max_age=86400,  # Кэшировать CORS предзапросы на сутки
+    max_age=3600,
 )
 
-# Добавляем сжатие ответов
-app.add_middleware(GZipMiddleware, minimum_size=500)
+# Добавляем сжатие ответов для ускорения работы
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 
-# OAuth2 с поддержкой Bearer токенов
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
-# Функции для JWT
+# Функции для работы с JWT и аутентификацией
 def verify_password(plain_password, hashed_password):
     # В реальном приложении здесь должна быть проверка хеша
     return plain_password == hashed_password
@@ -137,390 +132,258 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        expire = datetime.utcnow() + timedelta(minutes=15)
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-# Базовые функции авторизации
 async def get_current_user_optional(token: str = Depends(oauth2_scheme)):
+    """Получает пользователя без выбрасывания исключения"""
     if token is None:
         return None
+    
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
             return None
-        token_data = TokenData(username=username)
-    except JWTError:
+        user = get_user(fake_users_db, username=username)
+        if user is None:
+            return None
+        return user
+    except:
         return None
-    user = get_user(fake_users_db, username=token_data.username)
-    if user is None:
-        return None
-    return user
 
 async def get_current_user(token: str = Depends(oauth2_scheme)):
+    """Получает пользователя с проверкой авторизации"""
     user = await get_current_user_optional(token)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Требуется авторизация",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     return user
 
-async def get_current_active_user(current_user: User = Depends(get_current_user)):
-    if current_user.disabled:
-        raise HTTPException(status_code=400, detail="Неактивный пользователь")
-    return current_user
-
-async def get_admin_user(current_user: User = Depends(get_current_active_user)):
+async def get_admin_user(current_user: User = Depends(get_current_user)):
+    """Проверяет, что пользователь является администратором"""
     if not current_user.is_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Доступ запрещен. Только администратор может просматривать эту страницу"
+            detail="Доступ запрещен. Требуются права администратора.",
         )
     return current_user
 
-# Функция получения данных пользователя с токеном
-def get_user_data_with_token(user: User, token: str):
-    user_dict = user.dict()
-    user_dict.pop("disabled", None)
-    
-    # Информация для навигации в зависимости от прав
-    is_admin = user.is_admin or False
-    
-    return {
-        "user": user_dict,
-        "permissions": {
-            "is_admin": is_admin,
-            "can_edit_users": is_admin,
-            "can_edit_qrcodes": True,
-        },
-        "menu": [
-            {"id": "profile", "title": "Мой профиль", "url": "/profile", "icon": "user"},
-            {"id": "qrcodes", "title": "Мои QR-коды", "url": "/my-qrcodes", "icon": "qrcode"}
-        ] + ([{"id": "admin", "title": "Админ панель", "url": "/admin", "icon": "shield"}] if is_admin else []),
-        "token": token
-    }
-
-# ---------- ЭНДПОИНТЫ АУТЕНТИФИКАЦИИ ---------- #
-
-@app.post("/token")
-async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
-    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
-    if not user:
+# Перехватчик ошибок для улучшения UX
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    if exc.status_code == 401:
         return JSONResponse(
             status_code=200,
-            content={"success": False, "error": "Неверное имя пользователя или пароль"}
-        )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    
-    # Подготавливаем данные пользователя для ответа
-    user_data = get_user_data_with_token(user, access_token)
-    
-    return {
-        "success": True,
-        "access_token": access_token, 
-        "token_type": "bearer",
-        "user_data": user_data
-    }
-
-@app.post("/login")
-async def login_json(user_data: UserLogin):
-    user = authenticate_user(fake_users_db, user_data.username, user_data.password)
-    if not user:
-        return JSONResponse(
-            status_code=200,
-            content={"success": False, "error": "Неверное имя пользователя или пароль"}
-        )
-    
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    
-    # Подготавливаем данные пользователя для ответа
-    response_data = get_user_data_with_token(user, access_token)
-    
-    return {
-        "success": True,
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user_data": response_data
-    }
-
-# Эндпоинт для стандартной формы входа
-@app.post("/login", include_in_schema=True)
-async def standard_login_form(request: Request):
-    try:
-        form_data = await request.form()
-        username = form_data.get("username", "")
-        password = form_data.get("password", "")
-        
-        user = authenticate_user(fake_users_db, username, password)
-        if not user:
-            return JSONResponse(
-                status_code=200,
-                content={"success": False, "error": "Неверное имя пользователя или пароль"}
-            )
-        
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
-            data={"sub": user.username}, expires_delta=access_token_expires
-        )
-        
-        # Подготавливаем данные пользователя
-        user_data = get_user_data_with_token(user, access_token)
-        
-        response = JSONResponse(
             content={
-                "success": True,
-                "access_token": access_token,
-                "token_type": "bearer",
-                "user_data": user_data
+                "error": True,
+                "auth_required": True,
+                "message": "Требуется авторизация",
+                "redirect": "/login"
             }
         )
-        
-        # Устанавливаем cookie для сессии
-        response.set_cookie(
-            key="access_token",
-            value=f"Bearer {access_token}",
-            httponly=True,
-            max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            samesite="lax",
-            path="/"
-        )
-        
-        return response
-    except Exception as e:
+    elif exc.status_code == 403:
         return JSONResponse(
             status_code=200,
-            content={"success": False, "error": str(e)}
+            content={
+                "error": True,
+                "forbidden": True,
+                "message": exc.detail
+            }
         )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"error": True, "message": exc.detail}
+    )
 
-# Обработка авторизации через основной URL
-@app.post("/")
-async def root_login(request: Request):
-    # Перенаправляем на стандартный обработчик
-    return await standard_login_form(request)
+# Эндпоинты авторизации
+@app.post("/token", response_model=Dict[str, Any])
+async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
+    """Авторизация через form-data (стандартный метод)"""
+    user = authenticate_user(fake_users_db, form_data.username, form_data.password)
+    if not user:
+        return {
+            "error": True,
+            "message": "Неверное имя пользователя или пароль"
+        }
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    
+    return {
+        "error": False,
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "username": user.username,
+            "email": user.email,
+            "full_name": user.full_name,
+            "is_admin": user.is_admin
+        }
+    }
 
-# ---------- ПУБЛИЧНЫЕ ЭНДПОИНТЫ ---------- #
+@app.post("/login", response_model=Dict[str, Any])
+async def login_json(user_data: UserLogin):
+    """Авторизация через JSON"""
+    user = authenticate_user(fake_users_db, user_data.username, user_data.password)
+    if not user:
+        return {
+            "error": True, 
+            "message": "Неверное имя пользователя или пароль"
+        }
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    
+    return {
+        "error": False,
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": {
+            "username": user.username,
+            "email": user.email,
+            "full_name": user.full_name,
+            "is_admin": user.is_admin
+        }
+    }
 
+# Проверка авторизации - стабильный эндпоинт
+@app.get("/api/auth/status")
+async def auth_status(user: User = Depends(get_current_user_optional)):
+    """Проверка статуса авторизации и получение данных пользователя"""
+    if user is None:
+        return {
+            "authenticated": False,
+            "user": None,
+            "navigation": {
+                "items": [
+                    {"id": "login", "title": "Вход", "url": "/login", "icon": "login", "order": 1},
+                    {"id": "about", "title": "О сервисе", "url": "/about", "icon": "info", "order": 2}
+                ]
+            }
+        }
+    
+    # Базовая навигация для всех пользователей
+    nav_items = [
+        {"id": "profile", "title": "Мой профиль", "url": "/profile", "icon": "user", "order": 1},
+        {"id": "qrcodes", "title": "Мои QR-коды", "url": "/my-qrcodes", "icon": "qrcode", "order": 2}
+    ]
+    
+    # Добавляем админ-панель для админов
+    if user.is_admin:
+        nav_items.append({"id": "admin", "title": "Админ панель", "url": "/admin", "icon": "shield", "order": 3})
+    
+    return {
+        "authenticated": True,
+        "user": {
+            "username": user.username,
+            "email": user.email,
+            "full_name": user.full_name,
+            "is_admin": user.is_admin
+        },
+        "navigation": {
+            "items": nav_items
+        }
+    }
+
+# Эндпоинты для профиля пользователя
+@app.get("/api/user/profile")
+async def get_user_profile(user: User = Depends(get_current_user)):
+    """Получение профиля пользователя"""
+    return {
+        "error": False,
+        "user": {
+            "username": user.username,
+            "email": user.email,
+            "full_name": user.full_name,
+            "is_admin": user.is_admin
+        }
+    }
+
+@app.post("/api/user/change-password")
+async def user_change_password(data: PasswordChange, user: User = Depends(get_current_user)):
+    """Изменение пароля пользователем"""
+    if user.username != data.username:
+        return {"error": True, "message": "Вы можете изменить только свой пароль"}
+    
+    if not verify_password(data.current_password, fake_users_db[user.username]["hashed_password"]):
+        return {"error": True, "message": "Неверный текущий пароль"}
+    
+    fake_users_db[user.username]["hashed_password"] = data.new_password
+    return {"error": False, "message": "Пароль успешно изменен"}
+
+# Эндпоинты администратора
+@app.get("/api/admin/dashboard")
+async def admin_dashboard(user: User = Depends(get_admin_user)):
+    """Панель управления администратора"""
+    return {
+        "error": False,
+        "stats": {
+            "users_count": len(fake_users_db),
+            "qrcodes_count": len(fake_qr_codes),
+            "total_visits": sum(qr.get("visits", 0) for qr in fake_qr_codes)
+        }
+    }
+
+@app.get("/api/admin/navigation")
+async def admin_navigation(user: User = Depends(get_admin_user)):
+    """Структура навигации админ-панели"""
+    return {
+        "error": False,
+        "sections": [
+            {"id": "dashboard", "title": "Информационная панель", "url": "/admin", "icon": "dashboard"},
+            {"id": "users", "title": "Пользователи", "url": "/admin/users", "icon": "users"},
+            {"id": "qrcodes", "title": "QR-коды", "url": "/admin/qrcodes", "icon": "qrcode"},
+            {"id": "settings", "title": "Настройки", "url": "/admin/settings", "icon": "settings"}
+        ]
+    }
+
+@app.get("/api/admin/users")
+async def admin_users(user: User = Depends(get_admin_user)):
+    """Список пользователей для администратора"""
+    users_list = []
+    for username, user_data in fake_users_db.items():
+        user_copy = user_data.copy()
+        user_copy.pop("hashed_password", None)  # Не возвращаем пароль
+        users_list.append(user_copy)
+    
+    return {
+        "error": False,
+        "users": users_list
+    }
+
+@app.post("/api/admin/change-password")
+async def admin_change_password(data: PasswordChange, user: User = Depends(get_admin_user)):
+    """Изменение пароля администратором"""
+    if data.username not in fake_users_db:
+        return {"error": True, "message": f"Пользователь {data.username} не найден"}
+    
+    fake_users_db[data.username]["hashed_password"] = data.new_password
+    return {"error": False, "message": f"Пароль пользователя {data.username} успешно изменен"}
+
+@app.get("/api/admin/qrcodes")
+async def admin_qrcodes(user: User = Depends(get_admin_user)):
+    """Список всех QR-кодов для администратора"""
+    return {
+        "error": False,
+        "qrcodes": fake_qr_codes
+    }
+
+# Базовый эндпоинт
 @app.get("/")
 def root():
     return {"message": "SocialQR API работает!"}
 
-@app.get("/api/public/status")
-def api_status():
-    return {
-        "status": "online",
-        "version": "1.0.0",
-        "timestamp": datetime.now().isoformat()
-    }
-
-# ---------- ЭНДПОИНТЫ ПРОФИЛЯ ПОЛЬЗОВАТЕЛЯ ---------- #
-
-@app.get("/api/user/profile")
-async def get_profile(current_user: User = Depends(get_current_active_user)):
-    user_dict = current_user.dict()
-    user_dict.pop("disabled", None)
-    
-    return {
-        "success": True,
-        "data": user_dict
-    }
-
-@app.post("/api/user/change-password")
-async def change_password(
-    password_data: PasswordChange, 
-    current_user: User = Depends(get_current_active_user)
-):
-    # Проверяем, что пользователь меняет свой пароль
-    if current_user.username != password_data.username and not current_user.is_admin:
-        return {
-            "success": False,
-            "error": "Вы можете изменить только свой собственный пароль"
-        }
-    
-    # Если не админ, проверяем текущий пароль
-    if not current_user.is_admin:
-        if not verify_password(password_data.current_password, fake_users_db[current_user.username]["hashed_password"]):
-            return {
-                "success": False,
-                "error": "Неверный текущий пароль"
-            }
-    
-    # Если меняет свой пароль или админ меняет чужой
-    target_user = password_data.username
-    if target_user in fake_users_db:
-        fake_users_db[target_user]["hashed_password"] = password_data.new_password
-        return {
-            "success": True, 
-            "message": "Пароль успешно изменен"
-        }
-    else:
-        return {
-            "success": False,
-            "error": "Пользователь не найден"
-        }
-
-# ---------- ЭНДПОИНТЫ АДМИН-ПАНЕЛИ ---------- #
-
-@app.get("/api/admin/check")
-async def admin_check(admin_user: User = Depends(get_admin_user)):
-    return {
-        "success": True,
-        "message": "У вас есть права администратора"
-    }
-
-@app.get("/api/admin/users", response_model=Dict[str, Any])
-async def admin_users(admin_user: User = Depends(get_admin_user)):
-    users = []
-    for username, user_data in fake_users_db.items():
-        user_copy = {k: v for k, v in user_data.items() if k != "hashed_password"}
-        users.append(user_copy)
-    
-    return {
-        "success": True,
-        "data": users
-    }
-
-@app.get("/api/admin/qrcodes", response_model=Dict[str, Any])
-async def admin_qrcodes(admin_user: User = Depends(get_admin_user)):
-    return {
-        "success": True,
-        "data": fake_qr_codes
-    }
-
-@app.get("/api/admin/dashboard", response_model=Dict[str, Any])
-async def admin_dashboard(admin_user: User = Depends(get_admin_user)):
-    return {
-        "success": True, 
-        "data": {
-            "stats": {
-                "total_users": len(fake_users_db),
-                "total_qrcodes": len(fake_qr_codes),
-                "total_visits": sum(qr.get("visits", 0) for qr in fake_qr_codes)
-            }
-        }
-    }
-
-@app.post("/api/admin/change-password")
-async def admin_change_password(
-    password_data: PasswordChange, 
-    admin_user: User = Depends(get_admin_user)
-):
-    if password_data.username not in fake_users_db:
-        return {
-            "success": False,
-            "error": f"Пользователь {password_data.username} не найден"
-        }
-    
-    fake_users_db[password_data.username]["hashed_password"] = password_data.new_password
-    
-    return {
-        "success": True, 
-        "message": f"Пароль пользователя {password_data.username} успешно изменен"
-    }
-
-# ---------- ОБРАБОТЧИКИ ПРЕДЗАПРОСОВ (OPTIONS) ---------- #
-
-@app.options("/{full_path:path}")
-async def options_route(full_path: str):
-    return {"success": True}
-
-# Добавляем обработчик ошибок метода
-@app.exception_handler(405)
-async def method_not_allowed_handler(request, exc):
-    return JSONResponse(
-        status_code=200,
-        content={"success": False, "error": "Метод не разрешен. Пожалуйста, используйте правильный HTTP метод."}
-    )
-
-# Добавляем поддержку для дополнительных методов авторизации
-@app.post("/auth/login")
-async def form_login(username: str = Form(...), password: str = Form(...)):
-    user = authenticate_user(fake_users_db, username, password)
-    if not user:
-        return JSONResponse(
-            status_code=200,
-            content={"success": False, "error": "Неверное имя пользователя или пароль"}
-        )
-    
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    
-    # Подготавливаем данные пользователя для ответа
-    user_data = get_user_data_with_token(user, access_token)
-    
-    return {
-        "success": True,
-        "access_token": access_token, 
-        "token_type": "bearer",
-        "user_data": user_data
-    }
-
-# Обновляем эндпоинт JSON логина для поддержки всех возможных форматов данных
-@app.post("/api/login")
-@app.post("/api/auth/login")
-async def api_login(request: Request):
-    try:
-        # Пробуем получить данные разными способами
-        content_type = request.headers.get("Content-Type", "")
-        
-        # Для JSON данных
-        if "application/json" in content_type:
-            json_data = await request.json()
-            username = json_data.get("username", "")
-            password = json_data.get("password", "")
-        # Для данных формы
-        else:
-            form_data = await request.form()
-            username = form_data.get("username", "")
-            password = form_data.get("password", "")
-        
-        user = authenticate_user(fake_users_db, username, password)
-        if not user:
-            return JSONResponse(
-                status_code=200,
-                content={"success": False, "error": "Неверное имя пользователя или пароль"}
-            )
-        
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
-            data={"sub": user.username}, expires_delta=access_token_expires
-        )
-        
-        # Подготавливаем данные пользователя
-        user_data = get_user_data_with_token(user, access_token)
-        
-        response = JSONResponse(
-            content={
-                "success": True,
-                "access_token": access_token,
-                "token_type": "bearer",
-                "user_data": user_data
-            }
-        )
-        
-        # Устанавливаем cookie для сессии
-        response.set_cookie(
-            key="access_token",
-            value=f"Bearer {access_token}",
-            httponly=True,
-            max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            samesite="lax",
-            path="/"
-        )
-        
-        return response
-    except Exception as e:
-        return JSONResponse(
-            status_code=200,
-            content={"success": False, "error": str(e)}
-        )
+# Заглушки для обработки OPTIONS запросов
+@app.options("/{path:path}")
+async def options_handler():
+    return {}
