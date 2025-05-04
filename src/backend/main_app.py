@@ -5,6 +5,9 @@ from pydantic import BaseModel
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
 from typing import Optional
+from fastapi.responses import JSONResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.gzip import GZipMiddleware
 
 # Конфигурация JWT
 SECRET_KEY = "socialqr_secret_key_replace_in_production"
@@ -371,3 +374,173 @@ def check_admin_status(token: str = Header(None)):
         }
     except:
         return {"is_admin": False, "authenticated": False}
+
+# Модель для изменения пароля
+class PasswordChange(BaseModel):
+    username: str
+    new_password: str
+    current_password: Optional[str] = None  # Для админа может быть необязательным
+
+# Добавляем стабильные эндпоинты для админ-панели без мерцания
+@app.get("/api/admin/navigation")
+def admin_navigation(token: str = Header(None)):
+    """Возвращает структуру навигации для админ-панели"""
+    if not token:
+        return {"success": False, "error": "Требуется авторизация"}
+    
+    try:
+        payload = jwt.decode(token.replace("Bearer ", ""), SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if not username or username not in fake_users_db:
+            return {"success": False, "error": "Пользователь не найден"}
+        
+        user_data = fake_users_db[username]
+        if not user_data.get("is_admin", False):
+            return {"success": False, "error": "Отказано в доступе"}
+        
+        # Возвращаем фиксированную структуру навигации для стабильности
+        return {
+            "success": True,
+            "data": {
+                "main_menu": [
+                    {"id": "dashboard", "title": "Главная", "icon": "home", "url": "/admin"},
+                    {"id": "users", "title": "Пользователи", "icon": "users", "url": "/admin/users"},
+                    {"id": "qrcodes", "title": "QR-коды", "icon": "qrcode", "url": "/admin/qrcodes"},
+                    {"id": "settings", "title": "Настройки", "icon": "settings", "url": "/admin/settings"}
+                ],
+                "user_menu": [
+                    {"id": "profile", "title": "Мой профиль", "icon": "user", "url": "/profile"},
+                    {"id": "logout", "title": "Выход", "icon": "logout", "url": "/logout"}
+                ]
+            }
+        }
+    except:
+        return {"success": False, "error": "Недействительный токен"}
+
+# Эндпоинт для получения данных профиля пользователя
+@app.get("/api/user/profile")
+def user_profile(token: str = Header(None)):
+    """Возвращает информацию о профиле пользователя"""
+    if not token:
+        return {"success": False, "error": "Требуется авторизация"}
+    
+    try:
+        payload = jwt.decode(token.replace("Bearer ", ""), SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        if not username or username not in fake_users_db:
+            return {"success": False, "error": "Пользователь не найден"}
+        
+        user_data = fake_users_db[username]
+        # Копируем данные, чтобы не возвращать пароль
+        profile_data = {k: v for k, v in user_data.items() if k != "hashed_password"}
+        
+        return {
+            "success": True,
+            "data": profile_data,
+            "menu": [
+                {"id": "profile", "title": "Мой профиль", "icon": "user", "url": "/profile"},
+                {"id": "qrcodes", "title": "Мои QR-коды", "icon": "qrcode", "url": "/my-qrcodes"}
+            ] + ([{"id": "admin", "title": "Админ панель", "icon": "shield", "url": "/admin"}] if user_data.get("is_admin", False) else [])
+        }
+    except:
+        return {"success": False, "error": "Недействительный токен"}
+
+# Эндпоинт для изменения пароля (только для админа)
+@app.post("/admin/change-password")
+async def admin_change_password(
+    password_data: PasswordChange, 
+    current_user: User = Depends(get_current_active_user)
+):
+    """Позволяет администратору изменить пароль пользователя"""
+    if not current_user.is_admin:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Доступ запрещен. Только администратор может менять пароли."
+        )
+    
+    # Проверяем, существует ли пользователь
+    if password_data.username not in fake_users_db:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Пользователь {password_data.username} не найден"
+        )
+    
+    # Меняем пароль
+    fake_users_db[password_data.username]["hashed_password"] = password_data.new_password
+    
+    return {
+        "success": True, 
+        "message": f"Пароль пользователя {password_data.username} успешно изменен"
+    }
+
+# Эндпоинт для самостоятельного изменения пароля пользователем
+@app.post("/user/change-password")
+async def user_change_password(
+    password_data: PasswordChange, 
+    current_user: User = Depends(get_current_active_user)
+):
+    """Позволяет пользователю изменить свой пароль"""
+    # Проверяем, что пользователь меняет свой пароль
+    if current_user.username != password_data.username:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Вы можете изменить только свой собственный пароль"
+        )
+    
+    # Проверяем текущий пароль
+    if not verify_password(password_data.current_password, fake_users_db[current_user.username]["hashed_password"]):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Неверный текущий пароль"
+        )
+    
+    # Меняем пароль
+    fake_users_db[current_user.username]["hashed_password"] = password_data.new_password
+    
+    return {
+        "success": True, 
+        "message": "Ваш пароль успешно изменен"
+    }
+
+# Добавляем предварительные маршруты для всех основных эндпоинтов
+# Это помогает избежать мерцания при навигации
+@app.options("/api/admin/{path:path}")
+@app.options("/api/user/{path:path}")
+@app.options("/admin/{path:path}")
+@app.options("/users/{path:path}")
+def options_handler():
+    return {"status": "ok"}
+
+# Добавляем сжатие ответов для ускорения работы
+app.add_middleware(GZipMiddleware, minimum_size=1000)
+
+# Добавим публичные версии эндпоинтов для стабильной работы
+@app.get("/api/public/menu")
+def public_menu():
+    """Возвращает общее меню для неавторизованных пользователей"""
+    return {
+        "success": True,
+        "data": {
+            "main_menu": [
+                {"id": "login", "title": "Вход", "icon": "login", "url": "/login"},
+                {"id": "about", "title": "О сервисе", "icon": "info", "url": "/about"}
+            ]
+        }
+    }
+
+# Обработчик ошибок аутентификации без возврата 401, чтобы избежать мерцания
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request, exc):
+    if exc.status_code == 401:
+        return JSONResponse(
+            status_code=200,  # Возвращаем 200 вместо 401 для стабильности фронтенда
+            content={
+                "success": False,
+                "error": exc.detail,
+                "redirect_to": "/login"
+            }
+        )
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={"detail": exc.detail}
+    )
