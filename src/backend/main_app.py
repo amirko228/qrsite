@@ -105,6 +105,12 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
         raise HTTPException(status_code=400, detail="Неактивный пользователь")
     return current_user
 
+# Добавляем новый класс для JSON-логина
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+# Модифицируем существующий эндпоинт token и добавляем новый для JSON
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends()):
     user = authenticate_user(fake_users_db, form_data.username, form_data.password)
@@ -119,6 +125,32 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
+
+# Добавляем дополнительный эндпоинт для JSON-авторизации
+@app.post("/login", response_model=Token)
+async def login_json(user_data: UserLogin):
+    user = authenticate_user(fake_users_db, user_data.username, user_data.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Неверное имя пользователя или пароль",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+# Добавим эндпоинт для проверки состояния аутентификации
+@app.get("/check-auth")
+async def check_auth():
+    return {"status": "ok", "authenticated": False, "message": "Для получения доступа необходима авторизация"}
+
+# Защищенный эндпоинт для проверки после авторизации
+@app.get("/check-auth-protected")
+async def check_auth_protected(current_user: User = Depends(get_current_active_user)):
+    return {"status": "ok", "authenticated": True, "username": current_user.username}
 
 @app.get("/")
 def root():
