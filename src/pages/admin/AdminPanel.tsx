@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import { 
   Box, 
   Typography, 
@@ -146,11 +146,105 @@ const AdminToolbar = styled(Box)(({ theme }) => ({
   },
 }));
 
+// Мемоизированный компонент TableRow для предотвращения ненужных ререндеров
+const MemoizedTableRow = memo(({ user, onEdit, onDelete, onQR, actionLoading }: {
+  user: User,
+  onEdit: (user: User) => void,
+  onDelete: (user: User) => void,
+  onQR: (user: User) => void,
+  actionLoading: boolean
+}) => (
+  <TableRow hover>
+    <TableCell>{user.id}</TableCell>
+    <TableCell>{user.name}</TableCell>
+    <TableCell>{user.username}</TableCell>
+    <TableCell>
+      <Chip 
+        label={
+          user.subscription ? 
+            (user.subscription.is_active ? "Активна" : "Истекла") : 
+            "Не активирована"
+        }
+        color={
+          user.subscription ? 
+            (user.subscription.is_active ? "success" : "error") : 
+            "default"
+        }
+        size="small"
+      />
+    </TableCell>
+    <TableCell>
+      {user.subscription && typeof user.subscription.expiration_date === 'string' ? 
+        new Date(user.subscription.expiration_date).toLocaleDateString() : 
+        "-"
+      }
+    </TableCell>
+    <TableCell align="right">
+      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+        <Tooltip title="Редактировать пользователя">
+          <IconButton
+            size="small"
+            color="primary"
+            onClick={() => onEdit(user)}
+            disabled={actionLoading}
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Удалить пользователя">
+          <IconButton
+            size="small"
+            color="error"
+            onClick={() => onDelete(user)}
+            disabled={actionLoading}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+        <Tooltip title="Посмотреть QR код">
+          <IconButton
+            size="small"
+            color="secondary"
+            onClick={() => onQR(user)}
+            disabled={actionLoading}
+          >
+            <QrCodeIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      </Box>
+    </TableCell>
+  </TableRow>
+));
+
+// Мемоизированный компонент для статистики
+const StatCard = memo(({ title, value, color, loading }: {
+  title: string,
+  value: number,
+  color: string,
+  loading: boolean
+}) => (
+  <Card>
+    <CardContent>
+      <Typography variant="h6" component="div" gutterBottom>
+        {title}
+      </Typography>
+      {loading ? (
+        <Skeleton variant="rectangular" width="100%" height={40} />
+      ) : (
+        <Typography variant="h4" component="div" color={color}>
+          {value}
+        </Typography>
+      )}
+    </CardContent>
+  </Card>
+));
+
 // Главный компонент админ-панели
 const AdminPanel: React.FC = () => {
   // Состояния
   const [users, setUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [searchInputValue, setSearchInputValue] = useState(''); // Новое состояние для контроля ввода
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [openDialog, setOpenDialog] = useState(false);
@@ -174,15 +268,27 @@ const AdminPanel: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [lastFetchTime, setLastFetchTime] = useState(0); // Добавляем время последнего запроса
+  const [fetchCounter, setFetchCounter] = useState(0); // Счетчик для контроля перезапросов
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
 
-  // Оптимизированная функция загрузки пользователей
+  // Оптимизированная функция загрузки пользователей с защитой от дребезга
   const fetchUsers = useCallback(async (showRefreshing = false) => {
+    // Защита от слишком частых вызовов (не чаще раза в 2 секунды)
+    const now = Date.now();
+    if (now - lastFetchTime < 2000 && !showRefreshing) {
+      console.log('Запрос отклонен: слишком частые обращения к API');
+      return;
+    }
+    
     // Предотвращаем множественные вызовы функции
-    if (loading || refreshing) return;
+    if (loading || refreshing) {
+      console.log('Запрос отклонен: загрузка уже идет');
+      return;
+    }
     
     try {
       if (showRefreshing) {
@@ -191,37 +297,44 @@ const AdminPanel: React.FC = () => {
         setLoading(true);
       }
       
+      setLastFetchTime(now);
+      setFetchCounter(prev => prev + 1);
+      const currentFetchId = fetchCounter + 1;
+      
       const token = localStorage.getItem('accessToken');
       if (!token) {
         navigate('/login');
         return;
       }
 
-      console.log('Попытка загрузки пользователей...');
+      console.log('Загрузка пользователей...');
       
-      // Кешируем результаты запроса для предотвращения частых обращений к API
       const response = await axios.get('/api/admin/users', {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         timeout: 10000,
-        // Добавляем параметр для избежания кеширования в браузере
-        params: { _t: new Date().getTime() }
+        params: { _t: now } // Предотвращение кэширования
       });
 
-      console.log('Данные пользователей получены:', response.data);
+      // Проверяем, что это самый последний запрос
+      if (currentFetchId !== fetchCounter) {
+        console.log('Запрос устарел, игнорируем результаты');
+        return;
+      }
+
+      console.log('Данные пользователей получены');
       
-      // Используем функциональное обновление состояния для предотвращения гонок условий
+      // Используем функциональное обновление состояния
       setUsers(prevUsers => {
-        const newUsers = response.data;
-        // Только если новые данные отличаются от предыдущих, обновляем состояние
+        // Сортируем пользователей для предотвращения перестановок
+        const newUsers = [...response.data].sort((a, b) => a.id - b.id);
         return JSON.stringify(prevUsers) !== JSON.stringify(newUsers) ? newUsers : prevUsers;
       });
     } catch (error: any) {
       console.error('Ошибка при загрузке пользователей:', error);
       
-      // Более конкретное сообщение об ошибке на основе детального разбора
       let errorMessage = 'Не удалось загрузить список пользователей';
       
       if (error.response && error.response.status === 404) {
@@ -244,55 +357,42 @@ const AdminPanel: React.FC = () => {
         severity: 'error',
       });
     } finally {
-      // Задержка для сглаживания UI-эффектов и предотвращения мерцания
+      // Используем setTimeout для обеспечения плавных переходов
       setTimeout(() => {
         setLoading(false);
         setRefreshing(false);
       }, 300);
     }
-  }, [navigate, loading, refreshing]);
+  }, [navigate, loading, refreshing, lastFetchTime, fetchCounter]);
 
-  // Проверка авторизации и загрузка пользователей при монтировании - оптимизируем
+  // Проверка авторизации и загрузка пользователей при монтировании
   useEffect(() => {
-    let isMounted = true;
+    let mounted = true;
     
     const checkAdminAuth = async () => {
       try {
-        console.log('Проверка авторизации администратора...');
-        
         const token = localStorage.getItem('accessToken');
         if (!token) {
-          console.log('Токен не найден, перенаправление на страницу входа');
           navigate('/login');
           return;
         }
 
-        // Добавляем уникальный параметр для предотвращения кеширования
+        // Проверяем авторизацию, добавляем параметр для предотвращения кэширования
         const userResponse = await axios.get('/api/users/me', {
           headers: { Authorization: `Bearer ${token}` },
-          params: { _t: new Date().getTime() }
+          params: { _t: Date.now() }
         });
 
-        console.log('Данные пользователя получены:', userResponse.data);
-
         if (!userResponse.data.is_admin) {
-          console.log('Пользователь не является администратором, перенаправление на социальную страницу');
           navigate('/social');
           return;
         }
 
-        if (isMounted) {
-          console.log('Пользователь имеет права администратора, загрузка списка пользователей');
+        if (mounted) {
           fetchUsers();
         }
       } catch (error: any) {
         console.error('Ошибка аутентификации:', error);
-        
-        if (error.response) {
-          console.error('Статус ответа:', error.response.status);
-          console.error('Данные ответа:', error.response.data);
-        }
-        
         navigate('/login');
       }
     };
@@ -301,42 +401,44 @@ const AdminPanel: React.FC = () => {
     
     // Очистка при размонтировании
     return () => {
-      isMounted = false;
+      mounted = false;
     };
-  }, [navigate, fetchUsers]); // Теперь зависимость только от navigate и fetchUsers
+  }, [navigate, fetchUsers]);
 
-  // Обработчики пагинации
-  const handleChangePage = (_event: unknown, newPage: number) => {
+  // Обработчики пагинации с оптимизацией
+  const handleChangePage = useCallback((_event: unknown, newPage: number) => {
     setPage(newPage);
-  };
+  }, []);
 
-  const handleChangeRowsPerPage = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChangeRowsPerPage = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setRowsPerPage(parseInt(event.target.value, 10));
     setPage(0);
-  };
+  }, []);
 
-  // Создаем функцию debounce для поиска
-  const debouncedSearch = useMemo(
-    () => debounce((value: string) => {
+  // Оптимизированный обработчик поиска
+  const debouncedSearch = useMemo(() => 
+    debounce((value: string) => {
       setSearchQuery(value);
       setPage(0);
     }, 300),
     []
   );
 
-  // Обработчик изменения поля поиска  
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    debouncedSearch(e.target.value);
-  };
+  // Обработчик изменения поля поиска - контролируемый ввод для улучшения UX
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchInputValue(value); // Мгновенное обновление поля ввода
+    debouncedSearch(value); // Отложенное обновление запроса
+  }, [debouncedSearch]);
 
   // Обработчики формы
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData({ ...formData, [name]: value });
-  };
+    setFormData(prev => ({ ...prev, [name]: value }));
+  }, []);
 
   // Открытие диалога создания/редактирования пользователя
-  const handleOpenDialog = (user?: User) => {
+  const handleOpenDialog = useCallback((user?: User) => {
     if (user) {
       setFormData({
         name: user.name,
@@ -355,27 +457,58 @@ const AdminPanel: React.FC = () => {
       setEditMode(false);
     }
     setOpenDialog(true);
-  };
+  }, []);
 
   // Закрытие диалога
-  const handleCloseDialog = () => {
+  const handleCloseDialog = useCallback(() => {
     setOpenDialog(false);
     setShowPassword(false);
-  };
+  }, []);
 
   // Открытие диалога удаления
-  const handleOpenDeleteDialog = (user: User) => {
+  const handleOpenDeleteDialog = useCallback((user: User) => {
     setSelectedUser(user);
     setOpenDeleteDialog(true);
-  };
+  }, []);
 
   // Закрытие диалога удаления
-  const handleCloseDeleteDialog = () => {
+  const handleCloseDeleteDialog = useCallback(() => {
     setOpenDeleteDialog(false);
-  };
+  }, []);
+
+  // Переключение видимости пароля
+  const togglePasswordVisibility = useCallback(() => {
+    setShowPassword(prev => !prev);
+  }, []);
+
+  // Копирование текста в буфер обмена
+  const copyToClipboard = useCallback((text: string) => {
+    navigator.clipboard.writeText(text);
+    setSnackbar({
+      open: true,
+      message: 'Скопировано в буфер обмена',
+      severity: 'success',
+    });
+  }, []);
+
+  // Открытие диалога QR-кода
+  const handleOpenQRDialog = useCallback((user: User) => {
+    setQrUser(user);
+    setOpenQRDialog(true);
+  }, []);
+
+  // Закрытие диалога QR-кода
+  const handleCloseQRDialog = useCallback(() => {
+    setOpenQRDialog(false);
+  }, []);
+
+  // Закрытие уведомления
+  const handleCloseSnackbar = useCallback(() => {
+    setSnackbar(prev => ({ ...prev, open: false }));
+  }, []);
 
   // Создание нового пользователя
-  const handleCreateUser = async () => {
+  const handleCreateUser = useCallback(async () => {
     try {
       setActionLoading(true);
       const token = localStorage.getItem('accessToken');
@@ -395,10 +528,9 @@ const AdminPanel: React.FC = () => {
         return;
       }
 
-      if (editMode) {
+      if (editMode && selectedUser) {
         // Обновление существующего пользователя
-        console.log('Обновление пользователя:', selectedUser?.id, formData);
-        await axios.put(`/api/admin/users/${selectedUser?.id}`, formData, {
+        await axios.put(`/api/admin/users/${selectedUser.id}`, formData, {
           headers: { 
             Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
@@ -412,7 +544,6 @@ const AdminPanel: React.FC = () => {
         });
       } else {
         // Создание нового пользователя
-        console.log('Создание нового пользователя:', formData);
         await axios.post('/api/admin/users', formData, {
           headers: { 
             Authorization: `Bearer ${token}`,
@@ -428,19 +559,15 @@ const AdminPanel: React.FC = () => {
       }
 
       handleCloseDialog();
-      fetchUsers(); // Обновляем список пользователей
+      // Небольшая задержка перед обновлением списка для улучшения UX
+      setTimeout(() => fetchUsers(true), 300);
     } catch (error: any) {
       console.error('Ошибка при создании/обновлении пользователя:', error);
       
       let errorMessage = 'Не удалось создать/обновить пользователя';
       
-      if (error.response) {
-        console.error('Статус ответа:', error.response.status);
-        console.error('Данные ответа:', error.response.data);
-        
-        if (error.response.data && error.response.data.detail) {
-          errorMessage = `Ошибка: ${error.response.data.detail}`;
-        }
+      if (error.response && error.response.data && error.response.data.detail) {
+        errorMessage = `Ошибка: ${error.response.data.detail}`;
       }
       
       setSnackbar({
@@ -451,10 +578,10 @@ const AdminPanel: React.FC = () => {
     } finally {
       setActionLoading(false);
     }
-  };
+  }, [formData, editMode, selectedUser, navigate, handleCloseDialog, fetchUsers]);
 
   // Удаление пользователя
-  const handleDeleteUser = async () => {
+  const handleDeleteUser = useCallback(async () => {
     try {
       setActionLoading(true);
       const token = localStorage.getItem('accessToken');
@@ -463,7 +590,6 @@ const AdminPanel: React.FC = () => {
         return;
       }
 
-      console.log('Удаление пользователя:', selectedUser.id);
       await axios.delete(`/api/admin/users/${selectedUser.id}`, {
         headers: { 
           Authorization: `Bearer ${token}`,
@@ -478,19 +604,15 @@ const AdminPanel: React.FC = () => {
       });
 
       handleCloseDeleteDialog();
-      fetchUsers(); // Обновляем список пользователей
+      // Небольшая задержка перед обновлением списка
+      setTimeout(() => fetchUsers(true), 300);
     } catch (error: any) {
       console.error('Ошибка при удалении пользователя:', error);
       
       let errorMessage = 'Не удалось удалить пользователя';
       
-      if (error.response) {
-        console.error('Статус ответа:', error.response.status);
-        console.error('Данные ответа:', error.response.data);
-        
-        if (error.response.data && error.response.data.detail) {
-          errorMessage = `Ошибка: ${error.response.data.detail}`;
-        }
+      if (error.response && error.response.data && error.response.data.detail) {
+        errorMessage = `Ошибка: ${error.response.data.detail}`;
       }
       
       setSnackbar({
@@ -501,61 +623,19 @@ const AdminPanel: React.FC = () => {
     } finally {
       setActionLoading(false);
     }
-  };
-
-  // Закрытие уведомления
-  const handleCloseSnackbar = () => {
-    setSnackbar({ ...snackbar, open: false });
-  };
-
-  // Переключение видимости пароля
-  const togglePasswordVisibility = () => {
-    setShowPassword(!showPassword);
-  };
-
-  // Копирование текста в буфер обмена
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    setSnackbar({
-      open: true,
-      message: 'Скопировано в буфер обмена',
-      severity: 'success',
-    });
-  };
-
-  // Открытие диалога QR-кода
-  const handleOpenQRDialog = (user: User) => {
-    setQrUser(user);
-    setOpenQRDialog(true);
-  };
-
-  // Закрытие диалога QR-кода
-  const handleCloseQRDialog = () => {
-    setOpenQRDialog(false);
-  };
+  }, [selectedUser, navigate, handleCloseDeleteDialog, fetchUsers]);
 
   // Получение URL профиля пользователя
-  const getProfileUrl = (username: string) => {
+  const getProfileUrl = useCallback((username: string) => {
     return `${window.location.origin}/profile/${username}`;
-  };
+  }, []);
 
-  // Форматирование даты
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return 'Не задано';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('ru-RU', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  };
-  
-  // Изменение вкладки - оптимизируем для предотвращения мерцания
+  // Изменение вкладки
   const handleTabChange = useCallback((_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
   }, []);
 
-  // Оптимизируем расчет статистики для предотвращения ререндеров
+  // Мемоизированная статистика
   const statistics = useMemo(() => {
     const totalUsers = users.length;
     const activeSubscriptions = users.filter(
@@ -572,7 +652,7 @@ const AdminPanel: React.FC = () => {
     };
   }, [users]);
 
-  // Оптимизируем эффект фильтрации пользователей для предотвращения лишних ререндеров
+  // Мемоизированная фильтрация пользователей
   const filteredUsers = useMemo(() => {
     if (!searchQuery.trim()) {
       return users;
@@ -586,11 +666,95 @@ const AdminPanel: React.FC = () => {
     );
   }, [searchQuery, users]);
 
-  // Обновляем отображение таблицы пользователей - предотвращаем мерцание при обновлении
-  const renderUsersTable = useCallback(() => (
-    <Paper sx={{ mt: 2, overflow: 'hidden' }}>
+  // Обработчики событий для связывания с мемоизированными компонентами
+  const handleEditUser = useCallback((user: User) => {
+    handleOpenDialog(user);
+  }, [handleOpenDialog]);
+
+  const handleDeleteUserClick = useCallback((user: User) => {
+    handleOpenDeleteDialog(user);
+  }, [handleOpenDeleteDialog]);
+
+  const handleShowQR = useCallback((user: User) => {
+    handleOpenQRDialog(user);
+  }, [handleOpenQRDialog]);
+
+  // Отрисовка строк пользователей с виртуализацией для предотвращения лагов
+  const renderUserRows = useCallback(() => {
+    if (loading) {
+      return Array.from(new Array(5)).map((_, index) => (
+        <TableRow key={`skeleton-${index}`}>
+          <TableCell colSpan={6}>
+            <Skeleton variant="rectangular" height={40} animation="wave" />
+          </TableCell>
+        </TableRow>
+      ));
+    }
+    
+    if (filteredUsers.length === 0) {
+      return (
+        <TableRow>
+          <TableCell colSpan={6} align="center">
+            <Box sx={{ py: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+              <Typography variant="body1" color="textSecondary">
+                {searchQuery ? "Пользователи не найдены" : "Не удалось загрузить список пользователей"}
+              </Typography>
+              {!searchQuery && !loading && (
+                <Button 
+                  variant="outlined"
+                  startIcon={<RefreshIcon />} 
+                  onClick={() => fetchUsers()}
+                  disabled={loading || refreshing}
+                >
+                  Попробовать снова
+                </Button>
+              )}
+            </Box>
+          </TableCell>
+        </TableRow>
+      );
+    }
+    
+    // Используем только видимые строки для оптимизации
+    return filteredUsers
+      .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+      .map((user) => (
+        <MemoizedTableRow 
+          key={user.id} 
+          user={user} 
+          onEdit={handleEditUser}
+          onDelete={handleDeleteUserClick}
+          onQR={handleShowQR}
+          actionLoading={actionLoading}
+        />
+      ));
+  }, [
+    loading, 
+    filteredUsers, 
+    searchQuery, 
+    page, 
+    rowsPerPage, 
+    handleEditUser, 
+    handleDeleteUserClick, 
+    handleShowQR, 
+    actionLoading,
+    fetchUsers,
+    refreshing
+  ]);
+
+  // Мемоизированная таблица пользователей
+  const UsersTable = useMemo(() => (
+    <Paper sx={{ mt: 2, overflow: 'hidden' }} elevation={2}>
       {(loading || refreshing) && (
-        <LinearProgress sx={{ width: '100%' }} />
+        <LinearProgress 
+          sx={{ 
+            width: '100%', 
+            position: 'absolute', 
+            top: 0, 
+            left: 0, 
+            zIndex: 2 
+          }} 
+        />
       )}
       
       <AdminToolbar>
@@ -598,6 +762,7 @@ const AdminPanel: React.FC = () => {
           placeholder="Поиск пользователей..."
           variant="outlined"
           size="small"
+          value={searchInputValue}
           onChange={handleSearchChange}
           InputProps={{
             startAdornment: (
@@ -611,7 +776,7 @@ const AdminPanel: React.FC = () => {
         
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button 
-            startIcon={<RefreshIcon />} 
+            startIcon={refreshing ? <CircularProgress size={18} /> : <RefreshIcon />} 
             variant="outlined" 
             onClick={() => fetchUsers(true)}
             disabled={refreshing || loading}
@@ -623,7 +788,7 @@ const AdminPanel: React.FC = () => {
             color="primary"
             startIcon={<AddIcon />}
             onClick={() => handleOpenDialog()}
-            disabled={loading}
+            disabled={loading || refreshing}
           >
             Добавить пользователя
           </Button>
@@ -632,7 +797,13 @@ const AdminPanel: React.FC = () => {
       
       <Divider />
       
-      <StyledTableContainer>
+      <StyledTableContainer
+        sx={{
+          height: 'calc(100vh - 300px)',
+          maxHeight: 500,
+          position: 'relative'
+        }}
+      >
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
@@ -645,101 +816,7 @@ const AdminPanel: React.FC = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {loading ? (
-              Array.from(new Array(5)).map((_, index) => (
-                <TableRow key={`skeleton-${index}`}>
-                  <TableCell colSpan={6}>
-                    <Skeleton variant="rectangular" height={40} />
-                  </TableCell>
-                </TableRow>
-              ))
-            ) : filteredUsers.length > 0 ? (
-              // Используем срез массива для пагинации вместо создания нового массива при каждом рендере
-              filteredUsers
-                .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                .map((user) => (
-                  <TableRow key={user.id} hover>
-                    <TableCell>{user.id}</TableCell>
-                    <TableCell>{user.name}</TableCell>
-                    <TableCell>{user.username}</TableCell>
-                    <TableCell>
-                      <Chip 
-                        label={
-                          user.subscription ? 
-                            (user.subscription.is_active ? "Активна" : "Истекла") : 
-                            "Не активирована"
-                        }
-                        color={
-                          user.subscription ? 
-                            (user.subscription.is_active ? "success" : "error") : 
-                            "default"
-                        }
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {user.subscription && typeof user.subscription.expiration_date === 'string' ? 
-                        new Date(user.subscription.expiration_date).toLocaleDateString() : 
-                        "-"
-                      }
-                    </TableCell>
-                    <TableCell align="right">
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                        <Tooltip title="Редактировать пользователя">
-                          <IconButton
-                            size="small"
-                            color="primary"
-                            onClick={() => handleOpenDialog(user)}
-                            disabled={actionLoading}
-                          >
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Удалить пользователя">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            onClick={() => handleOpenDeleteDialog(user)}
-                            disabled={actionLoading}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Посмотреть QR код">
-                          <IconButton
-                            size="small"
-                            color="secondary"
-                            onClick={() => handleOpenQRDialog(user)}
-                            disabled={actionLoading}
-                          >
-                            <QrCodeIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={6} align="center">
-                  <Box sx={{ py: 3, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
-                    <Typography variant="body1" color="textSecondary">
-                      {searchQuery ? "Пользователи не найдены" : "Не удалось загрузить список пользователей"}
-                    </Typography>
-                    {!searchQuery && !loading && (
-                      <Button 
-                        variant="outlined"
-                        startIcon={<RefreshIcon />} 
-                        onClick={() => fetchUsers()}
-                        disabled={loading}
-                      >
-                        Попробовать снова
-                      </Button>
-                    )}
-                  </Box>
-                </TableCell>
-              </TableRow>
-            )}
+            {renderUserRows()}
           </TableBody>
         </Table>
       </StyledTableContainer>
@@ -756,66 +833,55 @@ const AdminPanel: React.FC = () => {
         labelDisplayedRows={({ from, to, count }) => `${from}–${to} из ${count}`}
       />
     </Paper>
-  ), [loading, refreshing, filteredUsers, page, rowsPerPage, actionLoading, searchQuery, handleSearchChange, fetchUsers, handleOpenDialog, handleOpenDeleteDialog, handleOpenQRDialog, handleChangePage, handleChangeRowsPerPage]);
+  ), [
+    loading, 
+    refreshing, 
+    searchInputValue,
+    handleSearchChange, 
+    fetchUsers, 
+    handleOpenDialog, 
+    renderUserRows, 
+    filteredUsers, 
+    rowsPerPage, 
+    page, 
+    handleChangePage, 
+    handleChangeRowsPerPage
+  ]);
 
-  // Оптимизируем функцию отображения статистики
-  const renderStats = useCallback(() => (
+  // Мемоизированная статистика
+  const StatsComponent = useMemo(() => (
     <Box sx={{ mt: 2 }}>
       <Grid container spacing={3}>
         <Grid item xs={12} sm={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" component="div" gutterBottom>
-                Всего пользователей
-              </Typography>
-              {loading ? (
-                <Skeleton variant="rectangular" width="100%" height={40} />
-              ) : (
-                <Typography variant="h4" component="div" color="primary">
-                  {statistics.totalUsers}
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
+          <StatCard
+            title="Всего пользователей"
+            value={statistics.totalUsers}
+            color="primary.main"
+            loading={loading}
+          />
         </Grid>
         <Grid item xs={12} sm={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" component="div" gutterBottom>
-                Активные подписки
-              </Typography>
-              {loading ? (
-                <Skeleton variant="rectangular" width="100%" height={40} />
-              ) : (
-                <Typography variant="h4" component="div" color="success.main">
-                  {statistics.activeSubscriptions}
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
+          <StatCard
+            title="Активные подписки"
+            value={statistics.activeSubscriptions}
+            color="success.main"
+            loading={loading}
+          />
         </Grid>
         <Grid item xs={12} sm={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" component="div" gutterBottom>
-                Истекшие подписки
-              </Typography>
-              {loading ? (
-                <Skeleton variant="rectangular" width="100%" height={40} />
-              ) : (
-                <Typography variant="h4" component="div" color="error.main">
-                  {statistics.expiredSubscriptions}
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
+          <StatCard
+            title="Истекшие подписки"
+            value={statistics.expiredSubscriptions}
+            color="error.main"
+            loading={loading}
+          />
         </Grid>
       </Grid>
     </Box>
-  ), [loading, statistics]);
+  ), [statistics, loading]);
 
   return (
-    <Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       <AppBar position="static">
         <Toolbar>
           <AdminIcon sx={{ mr: 1 }} />
@@ -828,7 +894,7 @@ const AdminPanel: React.FC = () => {
         </Toolbar>
       </AppBar>
       
-      <Container maxWidth="lg" sx={{ mt: 3, mb: 10 }}>
+      <Container maxWidth="lg" sx={{ mt: 3, mb: 10, flexGrow: 1, display: 'flex', flexDirection: 'column' }}>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
           <Tabs 
             value={currentTab} 
@@ -841,23 +907,29 @@ const AdminPanel: React.FC = () => {
         </Box>
       
         {currentTab === 0 && (
-          <Box sx={{ py: 2 }}>
+          <Box sx={{ py: 2, flexGrow: 1 }}>
             <Typography variant="h5" gutterBottom>
               Обзор системы
             </Typography>
-            {renderStats()}
+            {StatsComponent}
           </Box>
         )}
         
         {currentTab === 1 && (
-          <Box sx={{ py: 2 }}>
-            {renderUsersTable()}
+          <Box sx={{ py: 2, flexGrow: 1 }}>
+            {UsersTable}
           </Box>
         )}
       </Container>
 
       {/* Диалог добавления/редактирования пользователя */}
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+      <Dialog 
+        open={openDialog} 
+        onClose={handleCloseDialog} 
+        maxWidth="sm" 
+        fullWidth
+        keepMounted={false}
+      >
         <DialogTitle>
           {editMode ? 'Редактировать пользователя' : 'Добавить пользователя'}
         </DialogTitle>
@@ -873,6 +945,7 @@ const AdminPanel: React.FC = () => {
             value={formData.name}
             onChange={handleInputChange}
             sx={{ mb: 2 }}
+            disabled={actionLoading}
           />
           <TextField
             margin="dense"
@@ -884,6 +957,7 @@ const AdminPanel: React.FC = () => {
             value={formData.username}
             onChange={handleInputChange}
             sx={{ mb: 2 }}
+            disabled={actionLoading}
           />
           <TextField
             margin="dense"
@@ -894,10 +968,11 @@ const AdminPanel: React.FC = () => {
             variant="outlined"
             value={formData.password}
             onChange={handleInputChange}
+            disabled={actionLoading}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton onClick={togglePasswordVisibility} edge="end">
+                  <IconButton onClick={togglePasswordVisibility} edge="end" disabled={actionLoading}>
                     {showPassword ? <VisibilityOffIcon /> : <VisibilityIcon />}
                   </IconButton>
                 </InputAdornment>
@@ -919,7 +994,11 @@ const AdminPanel: React.FC = () => {
       </Dialog>
 
       {/* Диалог подтверждения удаления */}
-      <Dialog open={openDeleteDialog} onClose={handleCloseDeleteDialog}>
+      <Dialog 
+        open={openDeleteDialog} 
+        onClose={handleCloseDeleteDialog}
+        keepMounted={false}
+      >
         <DialogTitle>Подтверждение удаления</DialogTitle>
         <DialogContent>
           <DialogContentText>
@@ -942,7 +1021,11 @@ const AdminPanel: React.FC = () => {
       </Dialog>
 
       {/* Диалог QR-кода */}
-      <Dialog open={openQRDialog} onClose={handleCloseQRDialog}>
+      <Dialog 
+        open={openQRDialog} 
+        onClose={handleCloseQRDialog}
+        keepMounted={false}
+      >
         <DialogTitle>QR-код профиля</DialogTitle>
         <DialogContent>
           {qrUser && (
