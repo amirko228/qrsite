@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, memo } from 'react';
 import { Box, Typography, Button, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, TextField, Select, MenuItem, FormControl, InputLabel, Divider, Grid, Card, CardContent, Avatar, List, ListItem, ListItemButton, ListItemText, ListItemAvatar, FormControlLabel, Switch, CircularProgress } from '@mui/material';
 import { Person, PersonAdd, Link, CloudDownload, CloudUpload, ContentCopy, Delete, Edit, Close, FamilyRestroom } from '@mui/icons-material';
 import styled from 'styled-components';
@@ -28,7 +28,7 @@ interface FamilyTreeWidgetProps {
   readOnly?: boolean;
 }
 
-// Стили
+// Стили с оптимизацией CSS
 const TreeContainer = styled.div`
   position: relative;
   min-height: 400px;
@@ -36,6 +36,8 @@ const TreeContainer = styled.div`
   border-radius: 8px;
   padding: 20px;
   overflow: auto;
+  will-change: transform;
+  transform: translateZ(0);
 `;
 
 const TreeNode = styled.div<{ $isSelected: boolean; $isCurrentUser: boolean }>`
@@ -46,7 +48,7 @@ const TreeNode = styled.div<{ $isSelected: boolean; $isCurrentUser: boolean }>`
   margin: 8px 0;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
   max-width: 220px;
   
   &:hover {
@@ -91,6 +93,65 @@ const ImportExportButtons = styled(Box)`
   margin-top: 16px;
 `;
 
+// Мемоизированные компоненты для оптимизации
+const MemberCard = memo(({ 
+  member, 
+  isSelected, 
+  isCurrentUser, 
+  onSelect, 
+  onEdit, 
+  onDelete 
+}: { 
+  member: FamilyMember; 
+  isSelected: boolean; 
+  isCurrentUser: boolean; 
+  onSelect: () => void; 
+  onEdit: () => void; 
+  onDelete: () => void; 
+}) => {
+  return (
+    <TreeNode $isSelected={isSelected} $isCurrentUser={isCurrentUser} onClick={onSelect}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+        <Avatar 
+          src={member.avatar} 
+          sx={{ 
+            width: 40, 
+            height: 40, 
+            mr: 1, 
+            bgcolor: member.gender === 'male' ? '#bbdefb' : '#f8bbd0'
+          }}
+        >
+          {!member.avatar && member.name.substring(0, 1).toUpperCase()}
+        </Avatar>
+        <Typography variant="subtitle1" noWrap sx={{ fontWeight: 500 }}>
+          {member.name || 'Неизвестно'}
+        </Typography>
+      </Box>
+      
+      {member.birthDate && (
+        <Typography variant="caption" display="block" color="text.secondary">
+          {`Дата рождения: ${member.birthDate}`}
+        </Typography>
+      )}
+      
+      {isSelected && !isCurrentUser && (
+        <Box sx={{ mt: 1, display: 'flex', justifyContent: 'flex-end' }}>
+          <Tooltip title="Редактировать">
+            <IconButton size="small" onClick={e => { e.stopPropagation(); onEdit(); }}>
+              <Edit fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Удалить">
+            <IconButton size="small" onClick={e => { e.stopPropagation(); onDelete(); }}>
+              <Delete fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      )}
+    </TreeNode>
+  );
+});
+
 // Компонент семейного древа
 const FamilyTreeWidget: React.FC<FamilyTreeWidgetProps> = ({ initialMembers = [], currentUserId, onSave, readOnly = false }) => {
   const [members, setMembers] = useState<FamilyMember[]>(initialMembers);
@@ -122,12 +183,12 @@ const FamilyTreeWidget: React.FC<FamilyTreeWidgetProps> = ({ initialMembers = []
     }
   }, [currentUserId, members.length]);
 
-  // Обработчик поиска пользователей
-  const handleSearch = (term: string) => {
+  // Мемоизированный обработчик поиска пользователей
+  const handleSearch = useCallback((term: string) => {
     setSearchTerm(term);
     
     // Имитация API-запроса для поиска пользователей
-    setTimeout(() => {
+    const timeoutId = setTimeout(() => {
       // Мок-данные для демонстрации
       const mockSearchResults: FamilyMember[] = [
         {
@@ -172,10 +233,12 @@ const FamilyTreeWidget: React.FC<FamilyTreeWidgetProps> = ({ initialMembers = []
         
       setSearchResults(filteredResults);
     }, 500);
-  };
+    
+    return () => clearTimeout(timeoutId);
+  }, []);
   
   // Добавляем нового члена семьи вручную
-  const handleAddNewMember = () => {
+  const handleAddNewMember = useCallback(() => {
     const newMember: FamilyMember = {
       id: `member_${Date.now()}`,
       name: '',
@@ -188,60 +251,63 @@ const FamilyTreeWidget: React.FC<FamilyTreeWidgetProps> = ({ initialMembers = []
     
     setEditMember(newMember);
     setOpenEditor(true);
-  };
+  }, []);
   
   // Редактирование существующего члена семьи
-  const handleEditMember = (id: string) => {
+  const handleEditMember = useCallback((id: string) => {
     const member = members.find(m => m.id === id);
     if (member) {
       setEditMember({ ...member });
       setOpenEditor(true);
     }
-  };
+  }, [members]);
   
   // Сохранение изменений члена семьи
-  const handleSaveMember = () => {
-    if (!editMember) return;
-    
-    if (editMember.id.startsWith('member_')) {
-      // Новый член семьи
-      setMembers(prev => [...prev, editMember]);
-    } else {
-      // Обновление существующего
-      setMembers(prev => prev.map(m => m.id === editMember.id ? editMember : m));
+  const handleSaveMember = useCallback(() => {
+    if (editMember) {
+      // Проверяем, существует ли такой член в списке
+      const existingIndex = members.findIndex(m => m.id === editMember.id);
+      
+      if (existingIndex >= 0) {
+        // Обновляем существующего члена
+        const newMembers = [...members];
+        newMembers[existingIndex] = editMember;
+        setMembers(newMembers);
+      } else {
+        // Добавляем нового члена
+        setMembers(prev => [...prev, editMember]);
+      }
+      
+      setOpenEditor(false);
+      setEditMember(null);
+      onSave(existingIndex >= 0 ? [...members] : [...members, editMember]);
     }
-    
-    setOpenEditor(false);
-    setEditMember(null);
-    
-    // Сохраняем изменения через callback
-    onSave(members);
-  };
+  }, [editMember, members, onSave]);
   
   // Удаление члена семьи
-  const handleDeleteMember = (id: string) => {
-    const updatedMembers = members.filter(m => m.id !== id);
+  const handleDeleteMember = useCallback((id: string) => {
+    // Удаляем члена и все связи с ним
+    const newMembers = members
+      .filter(m => m.id !== id)
+      .map(m => ({
+        ...m,
+        parentIds: m.parentIds.filter(pid => pid !== id),
+        childrenIds: m.childrenIds.filter(cid => cid !== id),
+        spouseIds: m.spouseIds.filter(sid => sid !== id),
+      }));
     
-    // Удаляем все ссылки на удаленного члена семьи
-    const cleanedMembers = updatedMembers.map(member => ({
-      ...member,
-      parentIds: member.parentIds.filter(pid => pid !== id),
-      childrenIds: member.childrenIds.filter(cid => cid !== id),
-      spouseIds: member.spouseIds.filter(sid => sid !== id),
-    }));
+    setMembers(newMembers);
     
-    setMembers(cleanedMembers);
-    
+    // Если удаляемый член был выбран, снимаем выбор
     if (selectedMemberId === id) {
       setSelectedMemberId(null);
     }
     
-    // Сохраняем изменения через callback
-    onSave(cleanedMembers);
-  };
+    onSave(newMembers);
+  }, [members, onSave, selectedMemberId]);
   
   // Добавление связи между членами семьи
-  const handleAddRelationship = (targetMemberId: string) => {
+  const handleAddRelationship = useCallback((targetMemberId: string) => {
     if (!selectedMemberId) return;
     
     const updatedMembers = [...members];
@@ -250,67 +316,64 @@ const FamilyTreeWidget: React.FC<FamilyTreeWidgetProps> = ({ initialMembers = []
     
     if (selectedIndex === -1 || targetIndex === -1) return;
     
-    switch (relationshipType) {
+    const selectedMember = updatedMembers[selectedIndex];
+    const targetMember = updatedMembers[targetIndex];
+    
+    switch(relationshipType) {
       case 'parent':
-        // Добавляем targetMember как родителя selectedMember
-        if (!updatedMembers[selectedIndex].parentIds.includes(targetMemberId)) {
-          updatedMembers[selectedIndex].parentIds.push(targetMemberId);
-          // Добавляем selectedMember как ребенка targetMember
-          if (!updatedMembers[targetIndex].childrenIds.includes(selectedMemberId)) {
-            updatedMembers[targetIndex].childrenIds.push(selectedMemberId);
-          }
+        // Добавляем таргет как родителя для выбранного
+        if (!selectedMember.parentIds.includes(targetMemberId)) {
+          selectedMember.parentIds.push(targetMemberId);
+        }
+        // Добавляем выбранного как ребенка для таргета
+        if (!targetMember.childrenIds.includes(selectedMemberId)) {
+          targetMember.childrenIds.push(selectedMemberId);
         }
         break;
-        
       case 'child':
-        // Добавляем targetMember как ребенка selectedMember
-        if (!updatedMembers[selectedIndex].childrenIds.includes(targetMemberId)) {
-          updatedMembers[selectedIndex].childrenIds.push(targetMemberId);
-          // Добавляем selectedMember как родителя targetMember
-          if (!updatedMembers[targetIndex].parentIds.includes(selectedMemberId)) {
-            updatedMembers[targetIndex].parentIds.push(selectedMemberId);
-          }
+        // Добавляем таргет как ребенка для выбранного
+        if (!selectedMember.childrenIds.includes(targetMemberId)) {
+          selectedMember.childrenIds.push(targetMemberId);
+        }
+        // Добавляем выбранного как родителя для таргета
+        if (!targetMember.parentIds.includes(selectedMemberId)) {
+          targetMember.parentIds.push(selectedMemberId);
         }
         break;
-        
       case 'spouse':
-        // Взаимное добавление супругов
-        if (!updatedMembers[selectedIndex].spouseIds.includes(targetMemberId)) {
-          updatedMembers[selectedIndex].spouseIds.push(targetMemberId);
+        // Делаем их супругами друг друга (взаимная связь)
+        if (!selectedMember.spouseIds.includes(targetMemberId)) {
+          selectedMember.spouseIds.push(targetMemberId);
         }
-        if (!updatedMembers[targetIndex].spouseIds.includes(selectedMemberId)) {
-          updatedMembers[targetIndex].spouseIds.push(selectedMemberId);
+        if (!targetMember.spouseIds.includes(selectedMemberId)) {
+          targetMember.spouseIds.push(selectedMemberId);
         }
         break;
     }
     
+    // Обновляем состояние
     setMembers(updatedMembers);
     setOpenSearch(false);
     setSearchTerm('');
     setSearchResults([]);
     
-    // Сохраняем изменения через callback
+    // Сохраняем изменения
     onSave(updatedMembers);
-  };
+  }, [members, relationshipType, selectedMemberId, onSave]);
   
-  // Экспорт древа в CSV или JSON формат
-  const handleExportTree = () => {
-    // В реальном приложении здесь будет более сложная логика форматирования
-    const jsonData = JSON.stringify(members, null, 2);
-    const blob = new Blob([jsonData], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+  // Экспорт древа в JSON
+  const handleExportTree = useCallback(() => {
+    const dataStr = JSON.stringify(members, null, 2);
+    const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
     
     const a = document.createElement('a');
-    a.href = url;
-    a.download = 'family-tree.json';
-    document.body.appendChild(a);
+    a.setAttribute('href', dataUri);
+    a.setAttribute('download', 'family-tree.json');
     a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
+  }, [members]);
   
-  // Импорт древа из файла
-  const handleImportTree = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Импорт древа из JSON
+  const handleImportTree = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
     
@@ -319,203 +382,131 @@ const FamilyTreeWidget: React.FC<FamilyTreeWidgetProps> = ({ initialMembers = []
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
-        const importedData = JSON.parse(e.target?.result as string) as FamilyMember[];
-        // Проверка данных перед импортом
-        if (Array.isArray(importedData) && importedData.length > 0) {
-          // Объединение с существующими данными или их замена
-          // Здесь можно добавить логику обработки дубликатов
-          setMembers(importedData);
-          onSave(importedData);
-        }
+        const importedMembers = JSON.parse(e.target?.result as string) as FamilyMember[];
+        setMembers(importedMembers);
+        onSave(importedMembers);
+        setLoading(false);
       } catch (error) {
-        console.error('Ошибка при импорте:', error);
-        // Здесь добавить уведомление об ошибке
-      } finally {
+        console.error('Ошибка импорта файла:', error);
         setLoading(false);
       }
     };
     
     reader.readAsText(file);
     
-    // Сбрасываем значение input для возможности повторного выбора того же файла
+    // Сбрасываем input для повторной загрузки того же файла
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-  };
+  }, [onSave]);
   
-  // Получение всех родителей члена семьи
-  const getParents = (memberId: string) => {
+  // Мемоизированные селекторы
+  const getParents = useCallback((memberId: string) => {
     const member = members.find(m => m.id === memberId);
     if (!member) return [];
-    
     return members.filter(m => member.parentIds.includes(m.id));
-  };
+  }, [members]);
   
-  // Получение всех детей члена семьи
-  const getChildren = (memberId: string) => {
+  const getChildren = useCallback((memberId: string) => {
     const member = members.find(m => m.id === memberId);
     if (!member) return [];
-    
     return members.filter(m => member.childrenIds.includes(m.id));
-  };
+  }, [members]);
   
-  // Получение всех супругов члена семьи
-  const getSpouses = (memberId: string) => {
+  const getSpouses = useCallback((memberId: string) => {
     const member = members.find(m => m.id === memberId);
     if (!member) return [];
-    
     return members.filter(m => member.spouseIds.includes(m.id));
-  };
+  }, [members]);
   
-  // Рендерим карточку члена семьи
-  const renderMemberCard = (member: FamilyMember) => {
-    const isCurrentUser = member.id === currentUserId;
-    const isSelected = member.id === selectedMemberId;
-    
-    return (
-      <TreeNode 
-        key={member.id}
-        $isSelected={isSelected}
-        $isCurrentUser={isCurrentUser}
-        onClick={() => setSelectedMemberId(member.id)}
-      >
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-          <Avatar 
-            src={member.avatar}
-            sx={{ 
-              width: 32, 
-              height: 32, 
-              mr: 1,
-              bgcolor: member.gender === 'male' ? '#bbdefb' : member.gender === 'female' ? '#f8bbd0' : '#e0e0e0'
-            }}
-          >
-            {!member.avatar && <Person />}
-          </Avatar>
-          <Box sx={{ flex: 1 }}>
-            <Typography variant="subtitle2" noWrap>
-              {member.name || 'Без имени'}
-            </Typography>
-            {member.birthDate && (
-              <Typography variant="caption" color="textSecondary" display="block">
-                {member.birthDate}
-                {member.deathDate ? ` - ${member.deathDate}` : ''}
-              </Typography>
-            )}
-          </Box>
-          {!readOnly && (
-            <Box>
-              <IconButton 
-                size="small" 
-                onClick={(e) => { 
-                  e.stopPropagation(); 
-                  handleEditMember(member.id);
-                }}
-              >
-                <Edit fontSize="small" />
-              </IconButton>
-              {!isCurrentUser && (
-                <IconButton 
-                  size="small" 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteMember(member.id);
-                  }}
-                >
-                  <Delete fontSize="small" />
-                </IconButton>
-              )}
-            </Box>
-          )}
-        </Box>
-        
-        {member.isRegistered && (
-          <Tooltip title="Профиль на платформе">
-            <Button 
-              size="small" 
-              fullWidth
-              variant="outlined"
-              href={member.profileUrl}
-              sx={{ mt: 1 }}
-            >
-              Открыть профиль
-            </Button>
-          </Tooltip>
-        )}
-      </TreeNode>
-    );
-  };
-  
-  // Рендерим семью выбранного пользователя
-  const renderSelectedFamily = () => {
+  // Рендеринг дерева семьи для выбранного члена
+  const renderSelectedFamily = useMemo(() => {
     if (!selectedMemberId) return null;
     
     const selectedMember = members.find(m => m.id === selectedMemberId);
     if (!selectedMember) return null;
     
     const parents = getParents(selectedMemberId);
-    const spouses = getSpouses(selectedMemberId);
     const children = getChildren(selectedMemberId);
+    const spouses = getSpouses(selectedMemberId);
+    
+    const isCurrentUser = selectedMemberId === currentUserId;
     
     return (
-      <Box>
-        <Typography variant="h6" gutterBottom>
-          Семья {selectedMember.name}
-        </Typography>
-        
+      <Box sx={{ mt: 3 }}>
         {parents.length > 0 && (
-          <Box mb={2}>
-            <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+          <>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Родители:
             </Typography>
             <TreeLevel>
-              {parents.map(parent => renderMemberCard(parent))}
+              {parents.map(parent => (
+                <MemberCard 
+                  key={parent.id}
+                  member={parent}
+                  isSelected={false}
+                  isCurrentUser={parent.id === currentUserId}
+                  onSelect={() => setSelectedMemberId(parent.id)}
+                  onEdit={() => handleEditMember(parent.id)}
+                  onDelete={() => handleDeleteMember(parent.id)}
+                />
+              ))}
             </TreeLevel>
             <TreeConnection />
-          </Box>
+          </>
         )}
         
-        <Box mb={2}>
-          <TreeLevel>
-            {renderMemberCard(selectedMember)}
-            {spouses.map(spouse => renderMemberCard(spouse))}
-          </TreeLevel>
-        </Box>
+        <TreeLevel>
+          <MemberCard 
+            member={selectedMember}
+            isSelected={true}
+            isCurrentUser={isCurrentUser}
+            onSelect={() => {}}
+            onEdit={() => handleEditMember(selectedMember.id)}
+            onDelete={() => handleDeleteMember(selectedMember.id)}
+          />
+          
+          {spouses.length > 0 && spouses.map(spouse => (
+            <React.Fragment key={spouse.id}>
+              <Typography variant="subtitle2" sx={{ alignSelf: 'center' }}>
+                ♥
+              </Typography>
+              <MemberCard 
+                member={spouse}
+                isSelected={false}
+                isCurrentUser={spouse.id === currentUserId}
+                onSelect={() => setSelectedMemberId(spouse.id)}
+                onEdit={() => handleEditMember(spouse.id)}
+                onDelete={() => handleDeleteMember(spouse.id)}
+              />
+            </React.Fragment>
+          ))}
+        </TreeLevel>
         
         {children.length > 0 && (
-          <Box>
+          <>
             <TreeConnection />
-            <Typography variant="subtitle2" color="textSecondary" gutterBottom>
+            <Typography variant="subtitle2" color="text.secondary" gutterBottom>
               Дети:
             </Typography>
             <TreeLevel>
-              {children.map(child => renderMemberCard(child))}
+              {children.map(child => (
+                <MemberCard 
+                  key={child.id}
+                  member={child}
+                  isSelected={false}
+                  isCurrentUser={child.id === currentUserId}
+                  onSelect={() => setSelectedMemberId(child.id)}
+                  onEdit={() => handleEditMember(child.id)}
+                  onDelete={() => handleDeleteMember(child.id)}
+                />
+              ))}
             </TreeLevel>
-          </Box>
-        )}
-        
-        {!readOnly && (
-          <Box sx={{ mt: 3, display: 'flex', gap: 1 }}>
-            <Button 
-              variant="outlined" 
-              startIcon={<PersonAdd />}
-              onClick={handleAddNewMember}
-              size="small"
-            >
-              Добавить вручную
-            </Button>
-            <Button 
-              variant="outlined" 
-              startIcon={<Link />}
-              onClick={() => setOpenSearch(true)}
-              size="small"
-            >
-              Связать с человеком
-            </Button>
-          </Box>
+          </>
         )}
       </Box>
     );
-  };
+  }, [selectedMemberId, members, getParents, getChildren, getSpouses, currentUserId, handleEditMember, handleDeleteMember]);
   
   return (
     <Box>

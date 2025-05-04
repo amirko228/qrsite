@@ -1,5 +1,5 @@
-import React, { useState, useCallback, memo } from 'react';
-import { Box, Avatar, Typography, TextField, Button, IconButton, Paper, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import React, { useState, useCallback, memo, useEffect } from 'react';
+import { Box, Avatar, Typography, TextField, Button, IconButton, Paper } from '@mui/material';
 import { Edit as EditIcon, Save as SaveIcon, PhotoCamera as PhotoCameraIcon } from '@mui/icons-material';
 
 interface ProfileInfoWidgetProps {
@@ -12,11 +12,121 @@ interface ProfileInfoWidgetProps {
   readOnly?: boolean;
 }
 
+// Оптимизированные компоненты
+const AvatarDisplay = memo(({ avatar, name, size = 100 }: { avatar: string; name: string; size?: number }) => (
+  <Avatar
+    src={avatar}
+    sx={{
+      width: size,
+      height: size,
+      mb: 2,
+      bgcolor: 'primary.main',
+      fontSize: size / 2 + 'rem',
+      boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
+    }}
+  >
+    {!avatar && name.substring(0, 1).toUpperCase()}
+  </Avatar>
+));
+
+const ReadOnlyView = memo(({ name, bio, avatar }: { name: string; bio: string; avatar: string }) => (
+  <>
+    <AvatarDisplay avatar={avatar} name={name} />
+    <Typography variant="h6" align="center" gutterBottom>
+      {name}
+    </Typography>
+    <Typography
+      variant="body2"
+      align="center"
+      color="text.secondary"
+      sx={{ mt: 1, whiteSpace: 'pre-wrap' }}
+    >
+      {bio}
+    </Typography>
+  </>
+));
+
+const EditView = memo(({ 
+  name, 
+  bio, 
+  avatar, 
+  onNameChange, 
+  onBioChange, 
+  onAvatarChange, 
+  onSave 
+}: { 
+  name: string; 
+  bio: string; 
+  avatar: string; 
+  onNameChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onBioChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onAvatarChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  onSave: () => void;
+}) => (
+  <Paper elevation={2} sx={{ p: 2, width: '100%' }}>
+    <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+      <AvatarDisplay avatar={avatar} name={name} />
+      <IconButton
+        color="primary"
+        component="label"
+        sx={{ mt: 1 }}
+      >
+        <input
+          hidden
+          accept="image/*"
+          type="file"
+          onChange={onAvatarChange}
+        />
+        <PhotoCameraIcon />
+      </IconButton>
+    </Box>
+
+    <TextField
+      fullWidth
+      label="Имя"
+      variant="outlined"
+      size="small"
+      value={name}
+      onChange={onNameChange}
+      sx={{ mb: 2 }}
+    />
+
+    <TextField
+      fullWidth
+      label="О себе"
+      variant="outlined"
+      size="small"
+      multiline
+      rows={3}
+      value={bio}
+      onChange={onBioChange}
+      sx={{ mb: 2 }}
+    />
+
+    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+      <Button
+        variant="contained"
+        startIcon={<SaveIcon />}
+        onClick={onSave}
+      >
+        Сохранить
+      </Button>
+    </Box>
+  </Paper>
+));
+
 const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = memo(({ content, onContentChange, readOnly = false }) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(content.name || 'Имя Фамилия');
-  const [bio, setBio] = useState(content.bio || 'Краткая информация о себе');
-  const [avatar, setAvatar] = useState(content.avatar || '');
+  const [name, setName] = useState(() => content.name || 'Имя Фамилия');
+  const [bio, setBio] = useState(() => content.bio || 'Краткая информация о себе');
+  const [avatar, setAvatar] = useState(() => content.avatar || '');
+
+  // Обновляем локальное состояние при изменении пропсов
+  useEffect(() => {
+    if (content.name !== name) setName(content.name || 'Имя Фамилия');
+    if (content.bio !== bio) setBio(content.bio || 'Краткая информация о себе');
+    if (content.avatar !== avatar) setAvatar(content.avatar || '');
+  }, [content]);
 
   const handleSave = useCallback(() => {
     onContentChange({
@@ -58,34 +168,12 @@ const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = memo(({ content, onC
           flexDirection: 'column',
           alignItems: 'center',
           p: 2,
-          height: '100%'
+          height: '100%',
+          willChange: 'transform',
+          transform: 'translateZ(0)'
         }}
       >
-        <Avatar
-          src={avatar}
-          sx={{
-            width: 100,
-            height: 100,
-            mb: 2,
-            bgcolor: 'primary.main',
-            fontSize: '2rem'
-          }}
-        >
-          {!avatar && name.substring(0, 1).toUpperCase()}
-        </Avatar>
-
-        <Typography variant="h6" align="center" gutterBottom>
-          {name}
-        </Typography>
-
-        <Typography
-          variant="body2"
-          align="center"
-          color="text.secondary"
-          sx={{ mt: 1, whiteSpace: 'pre-wrap' }}
-        >
-          {bio}
-        </Typography>
+        <ReadOnlyView name={name} bio={bio} avatar={avatar} />
       </Box>
     );
   }
@@ -98,7 +186,9 @@ const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = memo(({ content, onC
         alignItems: 'center',
         p: 2,
         height: '100%',
-        position: 'relative'
+        position: 'relative',
+        willChange: 'transform',
+        transform: 'translateZ(0)'
       }}
     >
       {!isEditing ? (
@@ -109,96 +199,18 @@ const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = memo(({ content, onC
           >
             <EditIcon fontSize="small" />
           </IconButton>
-
-          <Avatar
-            src={avatar}
-            sx={{
-              width: 100,
-              height: 100,
-              mb: 2,
-              bgcolor: 'primary.main',
-              fontSize: '2rem'
-            }}
-          >
-            {!avatar && name.substring(0, 1).toUpperCase()}
-          </Avatar>
-
-          <Typography variant="h6" align="center" gutterBottom>
-            {name}
-          </Typography>
-
-          <Typography
-            variant="body2"
-            align="center"
-            color="text.secondary"
-            sx={{ mt: 1, whiteSpace: 'pre-wrap' }}
-          >
-            {bio}
-          </Typography>
+          <ReadOnlyView name={name} bio={bio} avatar={avatar} />
         </>
       ) : (
-        <Paper elevation={2} sx={{ p: 2, width: '100%' }}>
-          <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-            <Avatar
-              src={avatar}
-              sx={{
-                width: 100,
-                height: 100,
-                mb: 1,
-                bgcolor: 'primary.main',
-                fontSize: '2rem'
-              }}
-            >
-              {!avatar && name.substring(0, 1).toUpperCase()}
-            </Avatar>
-
-            <IconButton
-              color="primary"
-              component="label"
-              sx={{ mt: 1 }}
-            >
-              <input
-                hidden
-                accept="image/*"
-                type="file"
-                onChange={handleAvatarChange}
-              />
-              <PhotoCameraIcon />
-            </IconButton>
-          </Box>
-
-          <TextField
-            fullWidth
-            label="Имя"
-            variant="outlined"
-            size="small"
-            value={name}
-            onChange={handleNameChange}
-            sx={{ mb: 2 }}
-          />
-
-          <TextField
-            fullWidth
-            label="О себе"
-            variant="outlined"
-            size="small"
-            multiline
-            rows={3}
-            value={bio}
-            onChange={handleBioChange}
-            sx={{ mb: 2 }}
-          />
-
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Button
-              variant="contained"
-              startIcon={<SaveIcon />}
-              onClick={handleSave}
-            >
-              Сохранить
-            </Button>
-          </Box>
-        </Paper>
+        <EditView 
+          name={name}
+          bio={bio}
+          avatar={avatar}
+          onNameChange={handleNameChange}
+          onBioChange={handleBioChange}
+          onAvatarChange={handleAvatarChange}
+          onSave={handleSave}
+        />
       )}
     </Box>
   );

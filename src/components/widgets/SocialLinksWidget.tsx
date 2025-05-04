@@ -50,6 +50,8 @@ const LinksContainer = styled(Box)`
   background: #f5f5f5;
   border-radius: 8px;
   min-height: 100px;
+  will-change: transform;
+  transform: translateZ(0);
 `;
 
 const LinkItem = styled(ListItem)`
@@ -109,7 +111,9 @@ const SocialLinkItem = memo(({
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
         '&:hover': {
           bgcolor: 'action.hover'
-        }
+        },
+        willChange: 'transform, box-shadow',
+        transform: 'translateZ(0)'
       }}
     >
       <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
@@ -147,6 +151,97 @@ const SocialLinkItem = memo(({
   );
 });
 
+// Диалог добавления/редактирования социальной сети
+const SocialLinkDialog = memo(({
+  open,
+  onClose,
+  selectedNetwork,
+  networkUrl,
+  errors,
+  onNetworkChange,
+  onUrlChange,
+  onSave,
+  availableNetworks,
+  editingIndex
+}: {
+  open: boolean;
+  onClose: () => void;
+  selectedNetwork: string;
+  networkUrl: string;
+  errors: { network: boolean; url: boolean };
+  onNetworkChange: (event: SelectChangeEvent<string>) => void;
+  onUrlChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onSave: () => void;
+  availableNetworks: typeof socialNetworks;
+  editingIndex: number | null;
+}) => {
+  const urlPrefix = useMemo(() => {
+    const network = availableNetworks.find(n => n.id === selectedNetwork);
+    return network ? network.urlPrefix : '';
+  }, [selectedNetwork, availableNetworks]);
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        {editingIndex !== null ? 'Редактировать профиль' : 'Добавить профиль'}
+      </DialogTitle>
+      <DialogContent>
+        <FormControl 
+          fullWidth 
+          margin="normal" 
+          error={errors.network}
+        >
+          <InputLabel id="network-select-label">Социальная сеть</InputLabel>
+          <Select
+            labelId="network-select-label"
+            id="network-select"
+            value={selectedNetwork}
+            label="Социальная сеть"
+            onChange={onNetworkChange}
+          >
+            {availableNetworks.map((network) => (
+              <MenuItem key={network.id} value={network.id}>
+                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                  <Box sx={{ mr: 1 }}>{network.icon}</Box>
+                  {network.name}
+                </Box>
+              </MenuItem>
+            ))}
+          </Select>
+          {errors.network && <FormHelperText>Выберите социальную сеть</FormHelperText>}
+        </FormControl>
+
+        <TextField
+          margin="normal"
+          fullWidth
+          label="URL профиля"
+          value={networkUrl}
+          onChange={onUrlChange}
+          error={errors.url}
+          helperText={errors.url ? 'Введите корректный URL' : null}
+          InputProps={{
+            startAdornment: selectedNetwork ? (
+              <Box component="span" sx={{ color: 'text.secondary', fontSize: '0.875rem' }}>
+                {urlPrefix}
+              </Box>
+            ) : null
+          }}
+        />
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Отмена</Button>
+        <Button 
+          onClick={onSave} 
+          variant="contained" 
+          color="primary"
+        >
+          Сохранить
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+});
+
 const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = memo(({ content, onContentChange, readOnly = false }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
@@ -154,13 +249,16 @@ const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = memo(({ content, onC
   const [networkUrl, setNetworkUrl] = useState('');
   const [errors, setErrors] = useState({ network: false, url: false });
 
+  // Мемоизируем текущие социальные сети
+  const networks = useMemo(() => content.networks || [], [content.networks]);
+
   // Обработчик открытия диалога
   const handleOpenDialog = useCallback((index?: number) => {
     setErrors({ network: false, url: false });
     
     if (index !== undefined) {
       // Редактирование существующей социальной сети
-      const social = content.networks[index];
+      const social = networks[index];
       setEditingIndex(index);
       setSelectedNetwork(social.type);
       setNetworkUrl(social.url);
@@ -172,7 +270,7 @@ const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = memo(({ content, onC
     }
     
     setDialogOpen(true);
-  }, [content.networks]);
+  }, [networks]);
 
   // Обработчик закрытия диалога
   const handleCloseDialog = useCallback(() => {
@@ -200,163 +298,116 @@ const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = memo(({ content, onC
   // Сохранение социальной сети
   const handleSave = useCallback(() => {
     // Валидация
-    const hasNetworkError = !selectedNetwork;
-    const hasUrlError = !networkUrl.trim();
+    let networkError = false;
+    let urlError = false;
     
-    if (hasNetworkError || hasUrlError) {
-      setErrors({
-        network: hasNetworkError,
-        url: hasUrlError
-      });
+    if (!selectedNetwork) {
+      networkError = true;
+    }
+    
+    if (!networkUrl) {
+      urlError = true;
+    }
+    
+    if (networkError || urlError) {
+      setErrors({ network: networkError, url: urlError });
       return;
     }
-
-    // Создаем новый массив социальных сетей
-    let updatedNetworks;
+    
+    // Сохраняем сеть
+    const updatedNetworks = [...networks];
+    
+    const newSocial = {
+      type: selectedNetwork,
+      url: networkUrl
+    };
     
     if (editingIndex !== null) {
-      // Обновление существующей
-      updatedNetworks = [...content.networks];
-      updatedNetworks[editingIndex] = { type: selectedNetwork, url: networkUrl };
+      // Обновляем существующую запись
+      updatedNetworks[editingIndex] = newSocial;
     } else {
-      // Добавление новой
-      updatedNetworks = [...content.networks, { type: selectedNetwork, url: networkUrl }];
+      // Добавляем новую запись
+      updatedNetworks.push(newSocial);
     }
-
-    // Обновление компонента
-    onContentChange({ ...content, networks: updatedNetworks });
-    handleCloseDialog();
-  }, [content, editingIndex, networkUrl, selectedNetwork, onContentChange, handleCloseDialog]);
+    
+    // Вызываем родительский обработчик
+    onContentChange({ networks: updatedNetworks });
+    
+    // Закрываем диалог
+    setDialogOpen(false);
+  }, [selectedNetwork, networkUrl, networks, editingIndex, onContentChange]);
 
   // Удаление социальной сети
-  const handleDelete = useCallback((index: number) => {
-    const updatedNetworks = content.networks.filter((_, i) => i !== index);
-    onContentChange({ ...content, networks: updatedNetworks });
-  }, [content, onContentChange]);
+  const handleDeleteSocialLink = useCallback((index: number) => {
+    const updatedNetworks = networks.filter((_, i) => i !== index);
+    onContentChange({ networks: updatedNetworks });
+  }, [networks, onContentChange]);
 
-  // Получение иконки по типу социальной сети
-  const getSocialIcon = useCallback((type: string) => {
-    const network = socialNetworks.find(n => n.id === type);
-    return network ? network.icon : null;
-  }, []);
-
-  // Получение имени социальной сети
-  const getSocialName = useCallback((type: string) => {
-    const network = socialNetworks.find(n => n.id === type);
-    return network ? network.name : type;
-  }, []);
-
-  // Мемоизация сетевых элементов для предотвращения ненужных перерисовок
-  const networkItems = useMemo(() => {
-    return content.networks.map((social, index) => (
-      <SocialLinkItem
-        key={`${social.type}-${index}`}
-        social={social}
-        index={index}
-        icon={getSocialIcon(social.type)}
-        name={getSocialName(social.type)}
-        onEdit={handleOpenDialog}
-        onDelete={handleDelete}
-        readOnly={readOnly}
-      />
-    ));
-  }, [content.networks, getSocialIcon, getSocialName, handleOpenDialog, handleDelete, readOnly]);
-
-  // Мемоизация пунктов меню выбора сети
-  const networkMenuItems = useMemo(() => {
-    return socialNetworks.map(network => (
-      <MenuItem key={network.id} value={network.id}>
-        <Box sx={{ display: 'flex', alignItems: 'center' }}>
-          <Box sx={{ mr: 1 }}>{network.icon}</Box>
-          <Typography>{network.name}</Typography>
-        </Box>
-      </MenuItem>
-    ));
-  }, []);
+  // Мемоизируем отображаемые социальные сети
+  const socialItems = useMemo(() => {
+    return networks.map((social, index) => {
+      const network = socialNetworks.find(n => n.id === social.type);
+      
+      if (!network) return null;
+      
+      return (
+        <SocialLinkItem 
+          key={`${social.type}-${index}`}
+          social={social}
+          index={index}
+          icon={network.icon}
+          name={network.name}
+          onEdit={handleOpenDialog}
+          onDelete={handleDeleteSocialLink}
+          readOnly={readOnly}
+        />
+      );
+    });
+  }, [networks, handleOpenDialog, handleDeleteSocialLink, readOnly]);
 
   return (
-    <Box sx={{ width: '100%', height: '100%' }}>
+    <Box sx={{ py: 2, willChange: 'transform', transform: 'translateZ(0)' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="subtitle1">Социальные сети</Typography>
+        <Typography variant="h6">Социальные сети</Typography>
         {!readOnly && (
-          <IconButton 
-            color="primary" 
-            size="small" 
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<AddIcon />}
             onClick={() => handleOpenDialog()}
           >
-            <AddIcon />
-          </IconButton>
+            Добавить
+          </Button>
         )}
       </Box>
-
-      {content.networks.length > 0 ? (
-        <List disablePadding>
-          {networkItems}
-        </List>
-      ) : (
-        <Box 
-          sx={{ 
-            p: 2, 
-            bgcolor: 'background.default', 
-            borderRadius: 1, 
-            textAlign: 'center',
-            color: 'text.secondary'
-          }}
-        >
-          <Typography variant="body2">
-            {readOnly ? 'Социальные сети не добавлены' : 'Добавьте ваши социальные сети'}
+      
+      <LinksContainer>
+        {networks.length === 0 ? (
+          <Typography align="center" color="textSecondary" sx={{ py: 2 }}>
+            {readOnly 
+              ? 'Нет добавленных социальных сетей.' 
+              : 'Нажмите "Добавить", чтобы добавить социальную сеть.'
+            }
           </Typography>
-        </Box>
-      )}
-
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingIndex !== null ? 'Редактировать социальную сеть' : 'Добавить социальную сеть'}
-        </DialogTitle>
-        <DialogContent>
-          <FormControl 
-            fullWidth 
-            margin="normal" 
-            error={errors.network}
-          >
-            <InputLabel id="social-network-label">Выберите социальную сеть</InputLabel>
-            <Select
-              labelId="social-network-label"
-              value={selectedNetwork}
-              onChange={handleNetworkChange}
-              label="Выберите социальную сеть"
-            >
-              {networkMenuItems}
-            </Select>
-            {errors.network && (
-              <FormHelperText>Выберите социальную сеть</FormHelperText>
-            )}
-          </FormControl>
-
-          <TextField
-            fullWidth
-            margin="normal"
-            label="URL или username"
-            value={networkUrl}
-            onChange={handleUrlChange}
-            error={errors.url}
-            helperText={errors.url ? 'Введите URL или имя пользователя' : `Например: ${getUrlPrefix()}username`}
-            InputProps={{
-              startAdornment: selectedNetwork && (
-                <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
-                  {getSocialIcon(selectedNetwork)}
-                </Box>
-              ),
-            }}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Отмена</Button>
-          <Button onClick={handleSave} variant="contained" color="primary">
-            Сохранить
-          </Button>
-        </DialogActions>
-      </Dialog>
+        ) : (
+          <List sx={{ p: 0 }}>
+            {socialItems}
+          </List>
+        )}
+      </LinksContainer>
+      
+      <SocialLinkDialog
+        open={dialogOpen}
+        onClose={handleCloseDialog}
+        selectedNetwork={selectedNetwork}
+        networkUrl={networkUrl}
+        errors={errors}
+        onNetworkChange={handleNetworkChange}
+        onUrlChange={handleUrlChange}
+        onSave={handleSave}
+        availableNetworks={socialNetworks}
+        editingIndex={editingIndex}
+      />
     </Box>
   );
 });
