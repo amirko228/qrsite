@@ -1,31 +1,36 @@
-import React from 'react';
+import React, { lazy, Suspense, memo } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider, createTheme, CircularProgress, Box } from '@mui/material';
-import Landing from './pages/landing/Landing';
-import SocialPage from './pages/social/SocialPage';
-import About from './pages/about/About';
-import Navigation from './components/common/Navigation';
-import Auth from './pages/auth/Auth';
-import Subscription from './pages/subscription/Subscription';
-import TermsPage from './pages/legal/TermsPage';
-import PrivacyPage from './pages/legal/PrivacyPage';
-import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
-import Footer from './components/common/Footer';
-import Editor from './pages/editor/Editor';
-import AdminPanel from './pages/admin/AdminPanel';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
+// Ленивая загрузка компонентов для оптимизации
+const Landing = lazy(() => import('./pages/landing/Landing'));
+const Navigation = lazy(() => import('./components/common/Navigation'));
+const Footer = lazy(() => import('./components/common/Footer'));
+const Auth = lazy(() => import('./pages/auth/Auth'));
+const SocialPage = lazy(() => import('./pages/social/SocialPage'));
+const About = lazy(() => import('./pages/about/About'));
+const Subscription = lazy(() => import('./pages/subscription/Subscription'));
+const TermsPage = lazy(() => import('./pages/legal/TermsPage'));
+const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
+const Editor = lazy(() => import('./pages/editor/Editor'));
+const AdminPanel = lazy(() => import('./pages/admin/AdminPanel'));
+
+// Компонент загрузки для обеспечения лучшего UX во время загрузки страниц
+const LoadingScreen = () => (
+  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+    <CircularProgress />
+  </Box>
+);
+
 // Компонент для проверки авторизации
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+const ProtectedRoute = memo(({ children }: { children: React.ReactNode }) => {
   const { isLoggedIn, isLoading } = useAuth();
   const location = useLocation();
   
   if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <LoadingScreen />;
   }
   
   if (!isLoggedIn) {
@@ -33,19 +38,15 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   return <>{children}</>;
-};
+});
 
 // Компонент для проверки прав администратора
-const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+const AdminRoute = memo(({ children }: { children: React.ReactNode }) => {
   const { user, isLoggedIn, isLoading } = useAuth();
   const location = useLocation();
   
   if (isLoading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
-        <CircularProgress />
-      </Box>
-    );
+    return <LoadingScreen />;
   }
   
   if (!isLoggedIn) {
@@ -57,8 +58,9 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   return <>{children}</>;
-};
+});
 
+// Оптимизированная тема
 const theme = createTheme({
   palette: {
     primary: {
@@ -104,12 +106,35 @@ const theme = createTheme({
         },
       },
     },
+    // Добавляем оптимизации для улучшения производительности
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          padding: '8px 16px',
+        },
+      },
+    },
+    MuiTableRow: {
+      styleOverrides: {
+        root: {
+          '&:hover': {
+            backgroundColor: 'rgba(0, 0, 0, 0.04)',
+          },
+        },
+      },
+    },
+    MuiTextField: {
+      defaultProps: {
+        variant: 'outlined',
+        size: 'small',
+      },
+    },
   },
 });
 
-const AppRoutes = () => {
+const AppRoutes = memo(() => {
   return (
-    <>
+    <Suspense fallback={<LoadingScreen />}>
       <Navigation />
       <Routes>
         <Route path="/" element={<Landing />} />
@@ -146,9 +171,9 @@ const AppRoutes = () => {
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
       </Routes>
       <Footer />
-    </>
+    </Suspense>
   );
-};
+});
 
 const App: React.FC = () => {
   return (
@@ -162,4 +187,4 @@ const App: React.FC = () => {
   );
 };
 
-export default App;
+export default memo(App);

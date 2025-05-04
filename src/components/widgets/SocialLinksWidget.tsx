@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, memo, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -75,7 +75,79 @@ const socialNetworks = [
   { id: 'telegram', name: 'Telegram', icon: <TelegramIcon />, urlPrefix: 'https://t.me/' },
 ];
 
-const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = ({ content, onContentChange, readOnly = false }) => {
+// Мемоизированный компонент для отображения отдельной социальной сети
+const SocialLinkItem = memo(({ 
+  social, 
+  index, 
+  icon, 
+  name, 
+  onEdit, 
+  onDelete, 
+  readOnly 
+}: { 
+  social: { type: string; url: string }; 
+  index: number; 
+  icon: React.ReactNode; 
+  name: string; 
+  onEdit: (index: number) => void; 
+  onDelete: (index: number) => void;
+  readOnly: boolean;
+}) => {
+  const handleEdit = useCallback(() => onEdit(index), [index, onEdit]);
+  const handleDelete = useCallback(() => onDelete(index), [index, onDelete]);
+
+  return (
+    <ListItem
+      key={index}
+      sx={{ 
+        p: 1, 
+        mb: 1, 
+        bgcolor: 'background.paper', 
+        borderRadius: 1,
+        display: 'flex',
+        alignItems: 'center',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+        '&:hover': {
+          bgcolor: 'action.hover'
+        }
+      }}
+    >
+      <Box sx={{ display: 'flex', alignItems: 'center', flex: 1 }}>
+        <Box sx={{ mr: 1, color: 'primary.main' }}>
+          {icon}
+        </Box>
+        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+          <Typography variant="body2" fontWeight="bold">
+            {name}
+          </Typography>
+          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+            {social.url}
+          </Typography>
+        </Box>
+      </Box>
+      {!readOnly && (
+        <Box>
+          <IconButton 
+            size="small" 
+            onClick={handleEdit}
+            sx={{ ml: 1 }}
+          >
+            <EditIcon fontSize="small" />
+          </IconButton>
+          <IconButton 
+            size="small" 
+            onClick={handleDelete}
+            sx={{ ml: 0.5 }}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      )}
+    </ListItem>
+  );
+});
+
+const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = memo(({ content, onContentChange, readOnly = false }) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [selectedNetwork, setSelectedNetwork] = useState('');
@@ -83,7 +155,7 @@ const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = ({ content, onConten
   const [errors, setErrors] = useState({ network: false, url: false });
 
   // Обработчик открытия диалога
-  const handleOpenDialog = (index?: number) => {
+  const handleOpenDialog = useCallback((index?: number) => {
     setErrors({ network: false, url: false });
     
     if (index !== undefined) {
@@ -100,33 +172,33 @@ const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = ({ content, onConten
     }
     
     setDialogOpen(true);
-  };
+  }, [content.networks]);
 
   // Обработчик закрытия диалога
-  const handleCloseDialog = () => {
+  const handleCloseDialog = useCallback(() => {
     setDialogOpen(false);
-  };
+  }, []);
 
   // Обработчик выбора социальной сети
-  const handleNetworkChange = (event: SelectChangeEvent<string>) => {
+  const handleNetworkChange = useCallback((event: SelectChangeEvent<string>) => {
     setSelectedNetwork(event.target.value);
-    setErrors({ ...errors, network: false });
-  };
+    setErrors((prev) => ({ ...prev, network: false }));
+  }, []);
 
   // Обработчик изменения URL
-  const handleUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUrlChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     setNetworkUrl(event.target.value);
-    setErrors({ ...errors, url: false });
-  };
+    setErrors((prev) => ({ ...prev, url: false }));
+  }, []);
 
   // Получение URL префикса для выбранной сети
-  const getUrlPrefix = () => {
+  const getUrlPrefix = useCallback(() => {
     const network = socialNetworks.find(n => n.id === selectedNetwork);
     return network ? network.urlPrefix : '';
-  };
+  }, [selectedNetwork]);
 
   // Сохранение социальной сети
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     // Валидация
     const hasNetworkError = !selectedNetwork;
     const hasUrlError = !networkUrl.trim();
@@ -154,96 +226,89 @@ const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = ({ content, onConten
     // Обновление компонента
     onContentChange({ ...content, networks: updatedNetworks });
     handleCloseDialog();
-  };
+  }, [content, editingIndex, networkUrl, selectedNetwork, onContentChange, handleCloseDialog]);
 
   // Удаление социальной сети
-  const handleDelete = (index: number) => {
+  const handleDelete = useCallback((index: number) => {
     const updatedNetworks = content.networks.filter((_, i) => i !== index);
     onContentChange({ ...content, networks: updatedNetworks });
-  };
+  }, [content, onContentChange]);
 
   // Получение иконки по типу социальной сети
-  const getSocialIcon = (type: string) => {
+  const getSocialIcon = useCallback((type: string) => {
     const network = socialNetworks.find(n => n.id === type);
     return network ? network.icon : null;
-  };
+  }, []);
 
   // Получение имени социальной сети
-  const getSocialName = (type: string) => {
+  const getSocialName = useCallback((type: string) => {
     const network = socialNetworks.find(n => n.id === type);
     return network ? network.name : type;
-  };
+  }, []);
+
+  // Мемоизация сетевых элементов для предотвращения ненужных перерисовок
+  const networkItems = useMemo(() => {
+    return content.networks.map((social, index) => (
+      <SocialLinkItem
+        key={`${social.type}-${index}`}
+        social={social}
+        index={index}
+        icon={getSocialIcon(social.type)}
+        name={getSocialName(social.type)}
+        onEdit={handleOpenDialog}
+        onDelete={handleDelete}
+        readOnly={readOnly}
+      />
+    ));
+  }, [content.networks, getSocialIcon, getSocialName, handleOpenDialog, handleDelete, readOnly]);
+
+  // Мемоизация пунктов меню выбора сети
+  const networkMenuItems = useMemo(() => {
+    return socialNetworks.map(network => (
+      <MenuItem key={network.id} value={network.id}>
+        <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ mr: 1 }}>{network.icon}</Box>
+          <Typography>{network.name}</Typography>
+        </Box>
+      </MenuItem>
+    ));
+  }, []);
 
   return (
     <Box sx={{ width: '100%', height: '100%' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="subtitle1">Социальные сети</Typography>
-        <IconButton 
-          color="primary" 
-          size="small" 
-          onClick={() => handleOpenDialog()}
-        >
-          <AddIcon />
-        </IconButton>
+        {!readOnly && (
+          <IconButton 
+            color="primary" 
+            size="small" 
+            onClick={() => handleOpenDialog()}
+          >
+            <AddIcon />
+          </IconButton>
+        )}
       </Box>
 
       {content.networks.length > 0 ? (
         <List disablePadding>
-          {content.networks.map((social, index) => (
-            <ListItem
-              key={index}
-              sx={{ 
-                p: 1, 
-                mb: 1, 
-                bgcolor: 'background.paper', 
-                borderRadius: 1,
-                display: 'flex',
-                justifyContent: 'space-between'
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                {getSocialIcon(social.type)}
-                <Typography variant="body2" sx={{ ml: 1 }}>
-                  {getSocialName(social.type)}
-                </Typography>
-              </Box>
-              <Box>
-                <IconButton size="small" onClick={() => handleOpenDialog(index)}>
-                  <EditIcon fontSize="small" />
-                </IconButton>
-                <IconButton size="small" onClick={() => handleDelete(index)}>
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </Box>
-            </ListItem>
-          ))}
+          {networkItems}
         </List>
       ) : (
         <Box 
           sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            height: 'calc(100% - 40px)',
+            p: 2, 
+            bgcolor: 'background.default', 
+            borderRadius: 1, 
+            textAlign: 'center',
             color: 'text.secondary'
           }}
         >
-          <Typography variant="body2" sx={{ mb: 1 }}>
-            Добавьте свои социальные сети
+          <Typography variant="body2">
+            {readOnly ? 'Социальные сети не добавлены' : 'Добавьте ваши социальные сети'}
           </Typography>
-          <Button 
-            variant="outlined" 
-            startIcon={<AddIcon />} 
-            size="small"
-            onClick={() => handleOpenDialog()}
-          >
-            Добавить соцсеть
-          </Button>
         </Box>
       )}
 
-      {/* Диалог для добавления/редактирования социальной сети */}
       <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
           {editingIndex !== null ? 'Редактировать социальную сеть' : 'Добавить социальную сеть'}
@@ -254,21 +319,14 @@ const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = ({ content, onConten
             margin="normal" 
             error={errors.network}
           >
-            <InputLabel id="social-network-label">Социальная сеть</InputLabel>
+            <InputLabel id="social-network-label">Выберите социальную сеть</InputLabel>
             <Select
               labelId="social-network-label"
               value={selectedNetwork}
               onChange={handleNetworkChange}
-              label="Социальная сеть"
+              label="Выберите социальную сеть"
             >
-              {socialNetworks.map(network => (
-                <MenuItem key={network.id} value={network.id}>
-                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                    {React.cloneElement(network.icon as React.ReactElement, { style: { marginRight: 8 } })}
-                    {network.name}
-                  </Box>
-                </MenuItem>
-              ))}
+              {networkMenuItems}
             </Select>
             {errors.network && (
               <FormHelperText>Выберите социальную сеть</FormHelperText>
@@ -278,27 +336,29 @@ const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = ({ content, onConten
           <TextField
             fullWidth
             margin="normal"
-            label="URL или имя пользователя"
+            label="URL или username"
             value={networkUrl}
             onChange={handleUrlChange}
             error={errors.url}
-            helperText={errors.url ? 'Введите ссылку или имя пользователя' : `Пример: ${getUrlPrefix()}username`}
+            helperText={errors.url ? 'Введите URL или имя пользователя' : `Например: ${getUrlPrefix()}username`}
             InputProps={{
-              startAdornment: selectedNetwork ? (
-                <Box component="span" sx={{ color: 'text.secondary', mr: 1 }}>
-                  {getUrlPrefix()}
+              startAdornment: selectedNetwork && (
+                <Box sx={{ mr: 1, display: 'flex', alignItems: 'center' }}>
+                  {getSocialIcon(selectedNetwork)}
                 </Box>
-              ) : null,
+              ),
             }}
           />
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseDialog}>Отмена</Button>
-          <Button onClick={handleSave} variant="contained">Сохранить</Button>
+          <Button onClick={handleSave} variant="contained" color="primary">
+            Сохранить
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
   );
-};
+});
 
 export default SocialLinksWidget; 

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, memo, useRef, useReducer } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, memo, useRef, useReducer, lazy, Suspense } from 'react';
 import { 
   Box, 
   Typography, 
@@ -188,78 +188,6 @@ const LoadingProgress = memo(({ visible }: { visible: boolean }) => (
   />
 ));
 
-// Оптимизированный компонент для строк таблицы
-const MemoizedTableRow = memo(({ user, onEdit, onDelete, onQR, actionLoading }: {
-  user: User;
-  onEdit: (user: User) => void;
-  onDelete: (user: User) => void;
-  onQR: (user: User) => void;
-  actionLoading: boolean;
-}) => {
-  return (
-    <StyledTableRow key={user.id}>
-      <TableCell>{user.id}</TableCell>
-      <TableCell>{user.name}</TableCell>
-      <TableCell>{user.username}</TableCell>
-      <TableCell>
-        <Chip 
-          label={
-            user.subscription ? 
-              (user.subscription.is_active ? "Активна" : "Истекла") : 
-              "Не активирована"
-          }
-          color={
-            user.subscription ? 
-              (user.subscription.is_active ? "success" : "error") : 
-              "default"
-          }
-          size="small"
-        />
-      </TableCell>
-      <TableCell>
-        {user.subscription && typeof user.subscription.expiration_date === 'string' ? 
-          new Date(user.subscription.expiration_date).toLocaleDateString() : 
-          "-"
-        }
-      </TableCell>
-      <TableCell align="right">
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-          <Tooltip title="Редактировать пользователя" enterDelay={800}>
-            <IconButton
-              size="small"
-              color="primary"
-              onClick={() => onEdit(user)}
-              disabled={actionLoading}
-            >
-              <EditIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Удалить пользователя" enterDelay={800}>
-            <IconButton
-              size="small"
-              color="error"
-              onClick={() => onDelete(user)}
-              disabled={actionLoading}
-            >
-              <DeleteIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Посмотреть QR код" enterDelay={800}>
-            <IconButton
-              size="small"
-              color="secondary"
-              onClick={() => onQR(user)}
-              disabled={actionLoading}
-            >
-              <QrCodeIcon fontSize="small" />
-            </IconButton>
-          </Tooltip>
-        </Box>
-      </TableCell>
-    </StyledTableRow>
-  );
-});
-
 // Правильная функция сравнения компонента для оптимизации перерисовок
 const areTableRowsEqual = (
   prevProps: { 
@@ -277,28 +205,71 @@ const areTableRowsEqual = (
     actionLoading: boolean;
   }
 ): boolean => {
-  // Оптимизированное сравнение для предотвращения перерисовок
-  const prevSub = prevProps.user.subscription;
-  const nextSub = nextProps.user.subscription;
-  
-  const subscriptionEqual = 
-    (!prevSub && !nextSub) || 
-    (prevSub && nextSub && 
-     prevSub.is_active === nextSub.is_active && 
-     prevSub.expiration_date === nextSub.expiration_date);
-  
-  // Исправляем тип возвращаемого значения - всегда должен быть boolean
-  return Boolean(
+  return (
     prevProps.user.id === nextProps.user.id &&
-    prevProps.user.name === nextProps.user.name &&
     prevProps.user.username === nextProps.user.username &&
+    prevProps.user.name === nextProps.user.name &&
     prevProps.actionLoading === nextProps.actionLoading &&
-    subscriptionEqual
+    JSON.stringify(prevProps.user.subscription) === JSON.stringify(nextProps.user.subscription)
   );
 };
 
-// Применяем оптимизированное сравнение к компоненту
-const OptimizedTableRow = memo(MemoizedTableRow, areTableRowsEqual);
+// Оптимизированный компонент для строк таблицы
+const MemoizedTableRow = memo(({ user, onEdit, onDelete, onQR, actionLoading }: {
+  user: User;
+  onEdit: (user: User) => void;
+  onDelete: (user: User) => void;
+  onQR: (user: User) => void;
+  actionLoading: boolean;
+}) => {
+  // Мемоизируем обработчики для предотвращения ненужных ререндеров
+  const handleEdit = useCallback(() => onEdit(user), [user, onEdit]);
+  const handleDelete = useCallback(() => onDelete(user), [user, onDelete]);
+  const handleQR = useCallback(() => onQR(user), [user, onQR]);
+
+  return (
+    <StyledTableRow>
+      <TableCell>{user.id}</TableCell>
+      <TableCell>{user.username}</TableCell>
+      <TableCell>{user.name}</TableCell>
+      <TableCell>
+        {user.subscription && user.subscription.is_active 
+          ? <Chip label="Активна" color="success" size="small" />
+          : <Chip label="Не активна" color="error" size="small" />
+        }
+      </TableCell>
+      <TableCell>
+        {user.subscription ? new Date(user.subscription.activation_date || '').toLocaleDateString() : 'N/A'}
+      </TableCell>
+      <TableCell>
+        {user.subscription ? new Date(user.subscription.expiration_date || '').toLocaleDateString() : 'N/A'}
+      </TableCell>
+      <TableCell align="right">
+        <IconButton 
+          size="small" 
+          onClick={handleEdit} 
+          disabled={actionLoading}
+        >
+          <EditIcon fontSize="small" />
+        </IconButton>
+        <IconButton 
+          size="small" 
+          onClick={handleDelete} 
+          disabled={actionLoading}
+        >
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+        <IconButton 
+          size="small" 
+          onClick={handleQR} 
+          disabled={actionLoading}
+        >
+          <QrCodeIcon fontSize="small" />
+        </IconButton>
+      </TableCell>
+    </StyledTableRow>
+  );
+}, areTableRowsEqual);
 
 // Мемоизированный компонент для статистики
 const StatCard = memo(({ title, value, color, loading }: {
@@ -579,12 +550,25 @@ const AdminPanel: React.FC = () => {
     []
   );
 
-  // Обработчик изменения поля поиска - контролируемый ввод для улучшения UX
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    dispatch({ type: 'SET_SEARCH_VALUE', payload: value });
-    debouncedSearch(value); // Отложенное обновление запроса
-  }, [debouncedSearch]);
+  // Мемоизация всех фильтрованных данных для предотвращения ненужных вычислений
+  const filteredUsers = useMemo(() => {
+    if (!state.searchQuery.trim()) {
+      return state.users;
+    }
+    
+    const query = state.searchQuery.toLowerCase();
+    return state.users.filter(user => 
+      user.username.toLowerCase().includes(query) || 
+      user.name.toLowerCase().includes(query) ||
+      user.id.toString().includes(query)
+    );
+  }, [state.searchQuery, state.users]);
+
+  // Мемоизация отображаемых данных для текущей страницы
+  const paginatedUsers = useMemo(() => {
+    const startIndex = state.page * state.rowsPerPage;
+    return filteredUsers.slice(startIndex, startIndex + state.rowsPerPage);
+  }, [filteredUsers, state.page, state.rowsPerPage]);
 
   // Обработчики формы
   const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -807,20 +791,6 @@ const AdminPanel: React.FC = () => {
     };
   }, [users]);
 
-  // Мемоизированная фильтрация пользователей
-  const filteredUsers = useMemo(() => {
-    if (!searchQuery.trim()) {
-      return users;
-    }
-    
-    const query = searchQuery.toLowerCase();
-    return users.filter(user => 
-      user.name.toLowerCase().includes(query) || 
-      user.username.toLowerCase().includes(query) ||
-      user.id.toString().includes(query)
-    );
-  }, [searchQuery, users]);
-
   // Обработчики событий для связывания с мемоизированными компонентами
   const handleEditUser = useCallback((user: User) => {
     handleOpenDialog(user);
@@ -874,7 +844,7 @@ const AdminPanel: React.FC = () => {
     return filteredUsers
       .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
       .map((user) => (
-        <OptimizedTableRow 
+        <MemoizedTableRow 
           key={user.id} 
           user={user} 
           onEdit={handleEditUser}
@@ -1130,6 +1100,44 @@ const AdminPanel: React.FC = () => {
     };
   }, [fetchUsers]);
 
+  // Добавляем оптимизацию для отображения скелетонов загрузки
+  const TableSkeletons = memo(() => (
+    <>
+      {Array.from(new Array(TABLE_SKELETON_COUNT)).map((_, index) => (
+        <TableRow key={index}>
+          <TableCell><Skeleton animation="wave" /></TableCell>
+          <TableCell><Skeleton animation="wave" /></TableCell>
+          <TableCell><Skeleton animation="wave" /></TableCell>
+          <TableCell><Skeleton animation="wave" /></TableCell>
+          <TableCell><Skeleton animation="wave" /></TableCell>
+          <TableCell><Skeleton animation="wave" /></TableCell>
+          <TableCell align="right">
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Skeleton animation="wave" width={24} height={24} sx={{ mx: 0.5 }} />
+              <Skeleton animation="wave" width={24} height={24} sx={{ mx: 0.5 }} />
+              <Skeleton animation="wave" width={24} height={24} sx={{ mx: 0.5 }} />
+            </Box>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  ));
+
+  // Улучшаем функции для производительности
+  const handleSearchInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    dispatch({ type: 'SET_SEARCH_VALUE', payload: e.target.value });
+  }, []);
+
+  const debouncedSearch = useMemo(() => debounce((value: string) => {
+    dispatch({ type: 'SET_SEARCH_QUERY', payload: value });
+    dispatch({ type: 'SET_PAGE', payload: 0 });
+  }, THROTTLE_DELAY), []);
+
+  // Улучшенный эффект для обработки поиска
+  useEffect(() => {
+    debouncedSearch(state.searchInputValue);
+  }, [state.searchInputValue, debouncedSearch]);
+
   // Обновленная структура отрисовки с оптимизациями
   return (
     <Box 
@@ -1171,7 +1179,7 @@ const AdminPanel: React.FC = () => {
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 2 }}>
           <Tabs 
             value={currentTab} 
-            onChange={(_, newValue) => dispatch({ type: 'SET_CURRENT_TAB', payload: newValue })}
+            onChange={handleTabChange}
             variant={isMobile ? "fullWidth" : "standard"}
             sx={{
               // Предотвращаем shift табов при переключении

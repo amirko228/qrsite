@@ -1,9 +1,14 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 
 // Константа для URL API - меняйте этот URL при деплое
 const API_BASE_URL = 'http://localhost:8000';
 // const API_BASE_URL = 'https://socialqr-backend.onrender.com'; // URL для продакшн
+
+// Константы для оптимизации
+const TOKEN_KEY = 'accessToken';
+const AUTH_TIMEOUT = 30000; // 30 секунд для запросов аутентификации
+const CACHE_EXPIRY = 60 * 1000; // 1 минута кеширования данных пользователя
 
 interface User {
   id: number;
@@ -35,11 +40,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const lastAuthCheckRef = useRef<number>(0);
+  const authCheckPromiseRef = useRef<Promise<boolean> | null>(null);
 
-  // Проверка аутентификации при загрузке
-  const checkAuth = async (): Promise<boolean> => {
+  // Оптимизированная проверка аутентификации с кешированием и предотвращением гонок
+  const checkAuth = useCallback(async (): Promise<boolean> => {
+    const now = Date.now();
+    
+    // Если у нас уже идет проверка аутентификации, возвращаем тот же промис
+    if (authCheckPromiseRef.current && now - lastAuthCheckRef.current < CACHE_EXPIRY) {
+      return authCheckPromiseRef.current;
+    }
+    
+    lastAuthCheckRef.current = now;
     setIsLoading(true);
-    const token = localStorage.getItem('accessToken');
+    
+    const token = localStorage.getItem(TOKEN_KEY);
     
     if (!token) {
       setUser(null);
@@ -48,71 +64,73 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
 
-    try {
-      // Получаем данные пользователя с токеном
-      const userData = await axios.get(`${API_BASE_URL}/users/me`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      setUser(userData.data);
-      setIsLoggedIn(true);
-      setIsLoading(false);
-      return true;
-    } catch (error) {
-      console.error('Authentication check failed:', error);
-      localStorage.removeItem('accessToken');
-      setUser(null);
-      setIsLoggedIn(false);
-      setIsLoading(false);
-      return false;
-    }
-  };
+    // Создаем новый промис для проверки аутентификации
+    const authPromise = new Promise<boolean>(async (resolve) => {
+      try {
+        // Получаем данные пользователя с токеном
+        const userData = await axios.get(`${API_BASE_URL}/users/me`, {
+          headers: { 'Authorization': `Bearer ${token}` },
+          timeout: AUTH_TIMEOUT
+        });
+        
+        setUser(userData.data);
+        setIsLoggedIn(true);
+        setIsLoading(false);
+        resolve(true);
+      } catch (error) {
+        console.error('Authentication check failed:', error);
+        localStorage.removeItem(TOKEN_KEY);
+        setUser(null);
+        setIsLoggedIn(false);
+        setIsLoading(false);
+        resolve(false);
+      }
+    });
 
-  // Авторизация пользователя
-  const login = async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
+    // Сохраняем промис и возвращаем его
+    authCheckPromiseRef.current = authPromise;
+    return authPromise;
+  }, []);
+
+  // Авторизация пользователя с оптимизацией
+  const login = useCallback(async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      console.log('Попытка входа с логином:', username);
-      
       // Создаем данные формы
       const formData = new URLSearchParams();
       formData.append('username', username);
       formData.append('password', password);
       
-      console.log('Отправка запроса на:', `${API_BASE_URL}/token`);
-      
-      // Отправляем запрос напрямую к API
+      // Отправляем запрос с таймаутом
       const response = await axios.post(`${API_BASE_URL}/token`, formData, {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded'
         },
-        timeout: 10000 // Увеличиваем таймаут до 10 секунд
+        timeout: AUTH_TIMEOUT
       });
-
-      console.log('Ответ от сервера:', response.data);
 
       // Сохраняем токен в localStorage
       const token = response.data.access_token;
-      localStorage.setItem('accessToken', token);
+      localStorage.setItem(TOKEN_KEY, token);
       
       // Получаем данные пользователя
       const userData = await axios.get(`${API_BASE_URL}/users/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
-        }
+        },
+        timeout: AUTH_TIMEOUT
       });
       
       setUser(userData.data);
       setIsLoggedIn(true);
       
+      // Сбрасываем кэш проверки аутентификации
+      lastAuthCheckRef.current = Date.now();
+      
       return { success: true };
     } catch (error: any) {
-      console.error('Полная информация об ошибке:', error);
       let errorMessage = 'Ошибка при входе';
       
       if (error.response) {
-        console.error('Данные ответа с ошибкой:', error.response.data);
-        console.error('Статус ответа с ошибкой:', error.response.status);
-        
         if (error.response.status === 401) {
           errorMessage = 'Неверный логин или пароль';
         } else if (error.response.status === 404) {
@@ -125,32 +143,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           errorMessage = `Ошибка сервера: ${error.response.status}`;
         }
       } else if (error.request) {
-        console.error('Данные запроса:', error.request);
         errorMessage = 'Нет ответа от сервера. Убедитесь, что сервер запущен по адресу ' + API_BASE_URL;
       } else {
-        console.error('Сообщение об ошибке:', error.message);
         errorMessage = `Ошибка: ${error.message}`;
       }
       
       return { success: false, error: errorMessage };
     }
-  };
+  }, []);
 
-  // Выход пользователя
-  const logout = () => {
-    localStorage.removeItem('accessToken');
+  // Оптимизированный выход пользователя
+  const logout = useCallback(() => {
+    localStorage.removeItem(TOKEN_KEY);
     setUser(null);
     setIsLoggedIn(false);
-  };
+    lastAuthCheckRef.current = 0;
+    authCheckPromiseRef.current = null;
+  }, []);
 
-  // Проверяем авторизацию при загрузке компонента
+  // Настраиваем axios для всех запросов с токеном один раз при загрузке
   useEffect(() => {
+    // Первоначальная проверка аутентификации
     checkAuth();
     
     // Настраиваем глобальный перехватчик для всех запросов axios
     const requestInterceptor = axios.interceptors.request.use(
       (config) => {
-        const token = localStorage.getItem('accessToken');
+        const token = localStorage.getItem(TOKEN_KEY);
         if (token && config.headers) {
           config.headers['Authorization'] = `Bearer ${token}`;
         }
@@ -159,13 +178,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       (error) => Promise.reject(error)
     );
 
-    // Настраиваем глобальный перехватчик для ответов
+    // Настраиваем глобальный перехватчик для ответов с оптимизацией обработки 401
     const responseInterceptor = axios.interceptors.response.use(
       (response) => response,
       async (error) => {
+        // Проверяем только на 401 статус один раз
         if (error.response && error.response.status === 401) {
-          // Если получаем 401, значит токен истек или недействителен
-          logout();
+          // Выходим только если до этого пользователь был авторизован
+          if (isLoggedIn) {
+            logout();
+          }
         }
         return Promise.reject(error);
       }
@@ -176,10 +198,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       axios.interceptors.request.eject(requestInterceptor);
       axios.interceptors.response.eject(responseInterceptor);
     };
-  }, []);
+  }, [checkAuth, isLoggedIn, logout]);
+
+  // Мемоизируем контекст для предотвращения ненужных рендеров
+  const contextValue = useMemo(() => ({
+    user,
+    isLoggedIn,
+    isLoading,
+    login,
+    logout,
+    checkAuth
+  }), [user, isLoggedIn, isLoading, login, logout, checkAuth]);
 
   return (
-    <AuthContext.Provider value={{ user, isLoggedIn, isLoading, login, logout, checkAuth }}>
+    <AuthContext.Provider value={contextValue}>
       {children}
     </AuthContext.Provider>
   );

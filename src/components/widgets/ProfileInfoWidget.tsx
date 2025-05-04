@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, memo } from 'react';
 import { Box, Avatar, Typography, TextField, Button, IconButton, Paper, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
 import { Edit as EditIcon, Save as SaveIcon, PhotoCamera as PhotoCameraIcon } from '@mui/icons-material';
 
@@ -12,22 +12,22 @@ interface ProfileInfoWidgetProps {
   readOnly?: boolean;
 }
 
-const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = ({ content, onContentChange, readOnly = false }) => {
+const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = memo(({ content, onContentChange, readOnly = false }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState(content.name || 'Имя Фамилия');
   const [bio, setBio] = useState(content.bio || 'Краткая информация о себе');
   const [avatar, setAvatar] = useState(content.avatar || '');
 
-  const handleSave = () => {
+  const handleSave = useCallback(() => {
     onContentChange({
       name,
       bio,
       avatar
     });
     setIsEditing(false);
-  };
+  }, [name, bio, avatar, onContentChange]);
 
-  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const reader = new FileReader();
@@ -36,7 +36,59 @@ const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = ({ content, onConten
       };
       reader.readAsDataURL(file);
     }
-  };
+  }, []);
+
+  const handleToggleEdit = useCallback(() => {
+    setIsEditing(prev => !prev);
+  }, []);
+
+  const handleNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setName(e.target.value);
+  }, []);
+
+  const handleBioChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setBio(e.target.value);
+  }, []);
+
+  if (readOnly) {
+    return (
+      <Box
+        sx={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          p: 2,
+          height: '100%'
+        }}
+      >
+        <Avatar
+          src={avatar}
+          sx={{
+            width: 100,
+            height: 100,
+            mb: 2,
+            bgcolor: 'primary.main',
+            fontSize: '2rem'
+          }}
+        >
+          {!avatar && name.substring(0, 1).toUpperCase()}
+        </Avatar>
+
+        <Typography variant="h6" align="center" gutterBottom>
+          {name}
+        </Typography>
+
+        <Typography
+          variant="body2"
+          align="center"
+          color="text.secondary"
+          sx={{ mt: 1, whiteSpace: 'pre-wrap' }}
+        >
+          {bio}
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -53,7 +105,7 @@ const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = ({ content, onConten
         <>
           <IconButton
             sx={{ position: 'absolute', top: 0, right: 0 }}
-            onClick={() => setIsEditing(true)}
+            onClick={handleToggleEdit}
           >
             <EditIcon fontSize="small" />
           </IconButton>
@@ -121,7 +173,7 @@ const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = ({ content, onConten
             variant="outlined"
             size="small"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={handleNameChange}
             sx={{ mb: 2 }}
           />
 
@@ -133,7 +185,7 @@ const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = ({ content, onConten
             multiline
             rows={3}
             value={bio}
-            onChange={(e) => setBio(e.target.value)}
+            onChange={handleBioChange}
             sx={{ mb: 2 }}
           />
 
@@ -150,6 +202,6 @@ const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = ({ content, onConten
       )}
     </Box>
   );
-};
+});
 
 export default ProfileInfoWidget; 
