@@ -1,7 +1,7 @@
-from fastapi import FastAPI, Depends, HTTPException, status, Header, Request
+from fastapi import FastAPI, Depends, HTTPException, status, Header, Request, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from fastapi.middleware.gzip import GZipMiddleware
 from pydantic import BaseModel
 from datetime import datetime, timedelta
@@ -252,6 +252,61 @@ async def login_json(user_data: UserLogin):
         "user_data": response_data
     }
 
+# Эндпоинт для стандартной формы входа
+@app.post("/login", include_in_schema=True)
+async def standard_login_form(request: Request):
+    try:
+        form_data = await request.form()
+        username = form_data.get("username", "")
+        password = form_data.get("password", "")
+        
+        user = authenticate_user(fake_users_db, username, password)
+        if not user:
+            return JSONResponse(
+                status_code=200,
+                content={"success": False, "error": "Неверное имя пользователя или пароль"}
+            )
+        
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user.username}, expires_delta=access_token_expires
+        )
+        
+        # Подготавливаем данные пользователя
+        user_data = get_user_data_with_token(user, access_token)
+        
+        response = JSONResponse(
+            content={
+                "success": True,
+                "access_token": access_token,
+                "token_type": "bearer",
+                "user_data": user_data
+            }
+        )
+        
+        # Устанавливаем cookie для сессии
+        response.set_cookie(
+            key="access_token",
+            value=f"Bearer {access_token}",
+            httponly=True,
+            max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            samesite="lax",
+            path="/"
+        )
+        
+        return response
+    except Exception as e:
+        return JSONResponse(
+            status_code=200,
+            content={"success": False, "error": str(e)}
+        )
+
+# Обработка авторизации через основной URL
+@app.post("/")
+async def root_login(request: Request):
+    # Перенаправляем на стандартный обработчик
+    return await standard_login_form(request)
+
 # ---------- ПУБЛИЧНЫЕ ЭНДПОИНТЫ ---------- #
 
 @app.get("/")
@@ -375,4 +430,97 @@ async def admin_change_password(
 
 @app.options("/{full_path:path}")
 async def options_route(full_path: str):
-    return {"success": true}
+    return {"success": True}
+
+# Добавляем обработчик ошибок метода
+@app.exception_handler(405)
+async def method_not_allowed_handler(request, exc):
+    return JSONResponse(
+        status_code=200,
+        content={"success": False, "error": "Метод не разрешен. Пожалуйста, используйте правильный HTTP метод."}
+    )
+
+# Добавляем поддержку для дополнительных методов авторизации
+@app.post("/auth/login")
+async def form_login(username: str = Form(...), password: str = Form(...)):
+    user = authenticate_user(fake_users_db, username, password)
+    if not user:
+        return JSONResponse(
+            status_code=200,
+            content={"success": False, "error": "Неверное имя пользователя или пароль"}
+        )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    
+    # Подготавливаем данные пользователя для ответа
+    user_data = get_user_data_with_token(user, access_token)
+    
+    return {
+        "success": True,
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user_data": user_data
+    }
+
+# Обновляем эндпоинт JSON логина для поддержки всех возможных форматов данных
+@app.post("/api/login")
+@app.post("/api/auth/login")
+async def api_login(request: Request):
+    try:
+        # Пробуем получить данные разными способами
+        content_type = request.headers.get("Content-Type", "")
+        
+        # Для JSON данных
+        if "application/json" in content_type:
+            json_data = await request.json()
+            username = json_data.get("username", "")
+            password = json_data.get("password", "")
+        # Для данных формы
+        else:
+            form_data = await request.form()
+            username = form_data.get("username", "")
+            password = form_data.get("password", "")
+        
+        user = authenticate_user(fake_users_db, username, password)
+        if not user:
+            return JSONResponse(
+                status_code=200,
+                content={"success": False, "error": "Неверное имя пользователя или пароль"}
+            )
+        
+        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+        access_token = create_access_token(
+            data={"sub": user.username}, expires_delta=access_token_expires
+        )
+        
+        # Подготавливаем данные пользователя
+        user_data = get_user_data_with_token(user, access_token)
+        
+        response = JSONResponse(
+            content={
+                "success": True,
+                "access_token": access_token,
+                "token_type": "bearer",
+                "user_data": user_data
+            }
+        )
+        
+        # Устанавливаем cookie для сессии
+        response.set_cookie(
+            key="access_token",
+            value=f"Bearer {access_token}",
+            httponly=True,
+            max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+            samesite="lax",
+            path="/"
+        )
+        
+        return response
+    except Exception as e:
+        return JSONResponse(
+            status_code=200,
+            content={"success": False, "error": str(e)}
+        )
