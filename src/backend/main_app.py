@@ -163,3 +163,75 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
 @app.get("/users/me/items")
 async def read_own_items(current_user: User = Depends(get_current_active_user)):
     return [{"item_id": "1", "owner": current_user.username}]
+
+# Добавляем админ-панель и эндпоинты для неё
+
+# Модель для тестовых данных QR-кодов
+class QRCode(BaseModel):
+    id: str
+    owner: str
+    url: str
+    title: str
+    created_at: str
+    visits: int
+
+# Временное хранилище QR-кодов
+fake_qr_codes = [
+    {
+        "id": "qr1",
+        "owner": "admin",
+        "url": "https://example.com/1",
+        "title": "Тестовый QR код 1",
+        "created_at": "2023-11-01",
+        "visits": 10
+    },
+    {
+        "id": "qr2",
+        "owner": "admin",
+        "url": "https://example.com/2",
+        "title": "Тестовый QR код 2",
+        "created_at": "2023-11-05",
+        "visits": 5
+    }
+]
+
+# Административные эндпоинты
+@app.get("/admin/qrcodes", response_model=list[QRCode])
+async def get_all_qrcodes(current_user: User = Depends(get_current_active_user)):
+    if current_user.username != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Доступ запрещен. Только администратор может просматривать все QR-коды"
+        )
+    return fake_qr_codes
+
+@app.get("/admin/users")
+async def get_all_users(current_user: User = Depends(get_current_active_user)):
+    if current_user.username != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Доступ запрещен. Только администратор может просматривать всех пользователей"
+        )
+    users = []
+    for username, user_data in fake_users_db.items():
+        user_copy = user_data.copy()
+        user_copy.pop("hashed_password", None)
+        users.append(user_copy)
+    return users
+
+@app.get("/admin/dashboard")
+async def admin_dashboard(current_user: User = Depends(get_current_active_user)):
+    if current_user.username != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Доступ запрещен. Только администратор может просматривать эту страницу"
+        )
+    return {
+        "status": "ok", 
+        "message": "Добро пожаловать в административную панель",
+        "stats": {
+            "total_users": len(fake_users_db),
+            "total_qrcodes": len(fake_qr_codes),
+            "total_visits": sum(qr.get("visits", 0) for qr in fake_qr_codes)
+        }
+    }
