@@ -195,68 +195,70 @@ const MemoizedTableRow = memo(({ user, onEdit, onDelete, onQR, actionLoading }: 
   onDelete: (user: User) => void;
   onQR: (user: User) => void;
   actionLoading: boolean;
-}) => (
-  <StyledTableRow key={user.id}>
-    <TableCell>{user.id}</TableCell>
-    <TableCell>{user.name}</TableCell>
-    <TableCell>{user.username}</TableCell>
-    <TableCell>
-      <Chip 
-        label={
-          user.subscription ? 
-            (user.subscription.is_active ? "Активна" : "Истекла") : 
-            "Не активирована"
+}) => {
+  return (
+    <StyledTableRow key={user.id}>
+      <TableCell>{user.id}</TableCell>
+      <TableCell>{user.name}</TableCell>
+      <TableCell>{user.username}</TableCell>
+      <TableCell>
+        <Chip 
+          label={
+            user.subscription ? 
+              (user.subscription.is_active ? "Активна" : "Истекла") : 
+              "Не активирована"
+          }
+          color={
+            user.subscription ? 
+              (user.subscription.is_active ? "success" : "error") : 
+              "default"
+          }
+          size="small"
+        />
+      </TableCell>
+      <TableCell>
+        {user.subscription && typeof user.subscription.expiration_date === 'string' ? 
+          new Date(user.subscription.expiration_date).toLocaleDateString() : 
+          "-"
         }
-        color={
-          user.subscription ? 
-            (user.subscription.is_active ? "success" : "error") : 
-            "default"
-        }
-        size="small"
-      />
-    </TableCell>
-    <TableCell>
-      {user.subscription && typeof user.subscription.expiration_date === 'string' ? 
-        new Date(user.subscription.expiration_date).toLocaleDateString() : 
-        "-"
-      }
-    </TableCell>
-    <TableCell align="right">
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-        <Tooltip title="Редактировать пользователя" enterDelay={800}>
-          <IconButton
-            size="small"
-            color="primary"
-            onClick={() => onEdit(user)}
-            disabled={actionLoading}
-          >
-            <EditIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Удалить пользователя" enterDelay={800}>
-          <IconButton
-            size="small"
-            color="error"
-            onClick={() => onDelete(user)}
-            disabled={actionLoading}
-          >
-            <DeleteIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-        <Tooltip title="Посмотреть QR код" enterDelay={800}>
-          <IconButton
-            size="small"
-            color="secondary"
-            onClick={() => onQR(user)}
-            disabled={actionLoading}
-          >
-            <QrCodeIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
-      </Box>
-    </TableCell>
-  </StyledTableRow>
-}));
+      </TableCell>
+      <TableCell align="right">
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+          <Tooltip title="Редактировать пользователя" enterDelay={800}>
+            <IconButton
+              size="small"
+              color="primary"
+              onClick={() => onEdit(user)}
+              disabled={actionLoading}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Удалить пользователя" enterDelay={800}>
+            <IconButton
+              size="small"
+              color="error"
+              onClick={() => onDelete(user)}
+              disabled={actionLoading}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Посмотреть QR код" enterDelay={800}>
+            <IconButton
+              size="small"
+              color="secondary"
+              onClick={() => onQR(user)}
+              disabled={actionLoading}
+            >
+              <QrCodeIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </TableCell>
+    </StyledTableRow>
+  );
+});
 
 // Правильная функция сравнения компонента для оптимизации перерисовок
 const areTableRowsEqual = (
@@ -285,7 +287,8 @@ const areTableRowsEqual = (
      prevSub.is_active === nextSub.is_active && 
      prevSub.expiration_date === nextSub.expiration_date);
   
-  return (
+  // Исправляем тип возвращаемого значения - всегда должен быть boolean
+  return Boolean(
     prevProps.user.id === nextProps.user.id &&
     prevProps.user.name === nextProps.user.name &&
     prevProps.user.username === nextProps.user.username &&
