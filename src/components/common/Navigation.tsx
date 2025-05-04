@@ -251,12 +251,12 @@ const Navigation: React.FC = () => {
             transition={{ delay: index * 0.1 }}
           >
             <RouterLink 
-              to={item.path} 
+              to={item.path}
               style={{ textDecoration: 'none', color: 'inherit' }}
               onClick={handleDrawerToggle}
             >
               <ListItemButton 
-                selected={location.pathname === item.path}
+              selected={location.pathname === item.path}
                 sx={listItemStyles(theme)}
               >
                 <ListItemIcon sx={{ minWidth: 40, color: location.pathname === item.path ? theme.palette.primary.main : 'inherit' }}>
@@ -286,7 +286,7 @@ const Navigation: React.FC = () => {
               sx={{
                 ...listItemStyles(theme),
                 color: theme.palette.error.main,
-                '&:hover': {
+                  '&:hover': {
                   backgroundColor: `${theme.palette.error.light}20`,
                   transform: 'translateX(4px)'
                 }

@@ -168,12 +168,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           errorMessage = 'API эндпоинт не найден. Проверьте путь: ' + error.config?.url;
         } else if (error.response.status === 422) {
           errorMessage = 'Ошибка валидации данных. Проверьте формат запроса.';
+        } else if (error.response.status === 405) {
+          errorMessage = 'Метод не разрешен. Проблема с настройкой API. Обратитесь к администратору.';
         } else {
           errorMessage = `Ошибка сервера: ${error.response.status}`;
         }
       } else if (error.request) {
         console.error('Данные запроса:', error.request);
-        errorMessage = 'Нет ответа от сервера. Убедитесь, что сервер запущен.';
+        errorMessage = 'Нет ответа от сервера. Возможно, API сервер не запущен или недоступен.';
       } else {
         console.error('Сообщение об ошибке:', error.message);
         errorMessage = `Ошибка: ${error.message}`;
