@@ -546,9 +546,21 @@ const AdminPanel: React.FC = () => {
     debounce((value: string) => {
       dispatch({ type: 'SET_SEARCH_QUERY', payload: value });
       dispatch({ type: 'SET_PAGE', payload: 0 });
-    }, 300),
+    }, THROTTLE_DELAY),
     []
   );
+
+  // Обработчик изменения поля поиска
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    dispatch({ type: 'SET_SEARCH_VALUE', payload: value });
+    debouncedSearch(value);
+  }, [debouncedSearch]);
+
+  // Обработчик изменения вкладок
+  const handleTabChange = useCallback((_event: React.SyntheticEvent, newValue: number) => {
+    dispatch({ type: 'SET_CURRENT_TAB', payload: newValue });
+  }, []);
 
   // Мемоизация всех фильтрованных данных для предотвращения ненужных вычислений
   const filteredUsers = useMemo(() => {
@@ -767,11 +779,6 @@ const AdminPanel: React.FC = () => {
   // Получение URL профиля пользователя
   const getProfileUrl = useCallback((username: string) => {
     return `${window.location.origin}/profile/${username}`;
-  }, []);
-
-  // Изменение вкладки
-  const handleTabChange = useCallback((_event: React.SyntheticEvent, newValue: number) => {
-    dispatch({ type: 'SET_CURRENT_TAB', payload: newValue });
   }, []);
 
   // Мемоизированная статистика
@@ -1122,16 +1129,6 @@ const AdminPanel: React.FC = () => {
       ))}
     </>
   ));
-
-  // Улучшаем функции для производительности
-  const handleSearchInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    dispatch({ type: 'SET_SEARCH_VALUE', payload: e.target.value });
-  }, []);
-
-  const debouncedSearch = useMemo(() => debounce((value: string) => {
-    dispatch({ type: 'SET_SEARCH_QUERY', payload: value });
-    dispatch({ type: 'SET_PAGE', payload: 0 });
-  }, THROTTLE_DELAY), []);
 
   // Улучшенный эффект для обработки поиска
   useEffect(() => {
