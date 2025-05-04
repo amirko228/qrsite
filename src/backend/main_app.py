@@ -24,6 +24,7 @@ class User(BaseModel):
     email: Optional[str] = None
     full_name: Optional[str] = None
     disabled: Optional[bool] = None
+    is_admin: Optional[bool] = None
 
 class UserInDB(User):
     hashed_password: str
@@ -36,6 +37,7 @@ fake_users_db = {
         "email": "admin@example.com",
         "hashed_password": "admin",  # В реальном приложении должен быть хешированный пароль
         "disabled": False,
+        "is_admin": True,
     }
 }
 
@@ -127,7 +129,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Добавляем дополнительный эндпоинт для JSON-авторизации
-@app.post("/login", response_model=Token)
+@app.post("/login")
 async def login_json(user_data: UserLogin):
     user = authenticate_user(fake_users_db, user_data.username, user_data.password)
     if not user:
@@ -140,7 +142,23 @@ async def login_json(user_data: UserLogin):
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    
+    # Возвращаем больше информации для фронтенда
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "user": {
+            "username": user.username,
+            "email": user.email,
+            "full_name": user.full_name,
+            "is_admin": user.is_admin,
+        },
+        "has_admin_panel": user.is_admin,
+        "menu_items": [
+            {"name": "profile", "title": "Мой профиль", "url": "/profile", "icon": "user"},
+            {"name": "qrcodes", "title": "Мои QR-коды", "url": "/my-qrcodes", "icon": "qrcode"},
+        ] + ([{"name": "admin", "title": "Админ панель", "url": "/admin", "icon": "shield"}] if user.is_admin else [])
+    }
 
 # Добавим эндпоинт для проверки состояния аутентификации
 @app.get("/check-auth")
