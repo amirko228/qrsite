@@ -150,7 +150,6 @@ const AdminToolbar = styled(Box)(({ theme }) => ({
 const AdminPanel: React.FC = () => {
   // Состояния
   const [users, setUsers] = useState<User[]>([]);
-  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -171,11 +170,6 @@ const AdminPanel: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [openQRDialog, setOpenQRDialog] = useState(false);
   const [qrUser, setQrUser] = useState<User | null>(null);
-  const [stats, setStats] = useState<Stats>({
-    totalUsers: 0,
-    activeSubscriptions: 0,
-    expiredSubscriptions: 0
-  });
   const [currentTab, setCurrentTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
@@ -185,57 +179,15 @@ const AdminPanel: React.FC = () => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const navigate = useNavigate();
 
-  // Мемоизированный фильтр пользователей
-  useEffect(() => {
-    // Используем отложенное выполнение, чтобы не блокировать основной поток
-    const timeoutId = setTimeout(() => {
-      if (!searchQuery.trim()) {
-        setFilteredUsers(users);
-        return;
-      }
-      
-      const query = searchQuery.toLowerCase();
-      const filtered = users.filter(user => 
-        user.name.toLowerCase().includes(query) || 
-        user.username.toLowerCase().includes(query) ||
-        user.id.toString().includes(query)
-      );
-      
-      setFilteredUsers(filtered);
-    }, 50); // небольшая задержка для дебаунсинга
-    
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery, users]);
-
-  // Мемоизированные статистические данные
-  useEffect(() => {
-    const calculateStats = () => {
-      const totalUsers = users.length;
-      const activeSubscriptions = users.filter(
-        user => user.subscription && user.subscription.is_active
-      ).length;
-      const expiredSubscriptions = users.filter(
-        user => user.subscription && !user.subscription.is_active
-      ).length;
-      
-      setStats({
-        totalUsers,
-        activeSubscriptions,
-        expiredSubscriptions
-      });
-    };
-    
-    if (users.length > 0) {
-      calculateStats();
-    }
-  }, [users]);
-
-  // Загрузка списка пользователей
+  // Оптимизированная функция загрузки пользователей
   const fetchUsers = useCallback(async (showRefreshing = false) => {
+    // Предотвращаем множественные вызовы функции
+    if (loading || refreshing) return;
+    
     try {
       if (showRefreshing) {
         setRefreshing(true);
-      } else if (!users.length) { // только показываем полный loading, если пользователей еще нет
+      } else {
         setLoading(true);
       }
       
@@ -247,37 +199,27 @@ const AdminPanel: React.FC = () => {
 
       console.log('Попытка загрузки пользователей...');
       
-      // Запрос к API - НЕ удаляем префикс '/api', так как он нужен для проксирования
+      // Кешируем результаты запроса для предотвращения частых обращений к API
       const response = await axios.get('/api/admin/users', {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        // Добавляем таймаут для запроса
-        timeout: 10000
+        timeout: 10000,
+        // Добавляем параметр для избежания кеширования в браузере
+        params: { _t: new Date().getTime() }
       });
 
       console.log('Данные пользователей получены:', response.data);
       
-      // Используем функциональное обновление состояния для избежания race conditions
-      if (response.data && Array.isArray(response.data.users)) {
-        setUsers(response.data.users);
-        // Не обновляем filteredUsers напрямую - это произойдет автоматически через useEffect
-      }
+      // Используем функциональное обновление состояния для предотвращения гонок условий
+      setUsers(prevUsers => {
+        const newUsers = response.data;
+        // Только если новые данные отличаются от предыдущих, обновляем состояние
+        return JSON.stringify(prevUsers) !== JSON.stringify(newUsers) ? newUsers : prevUsers;
+      });
     } catch (error: any) {
       console.error('Ошибка при загрузке пользователей:', error);
-      
-      if (error.response) {
-        console.error('Статус ответа:', error.response.status);
-        console.error('Данные ответа:', error.response.data);
-        console.error('Заголовки ответа:', error.response.headers);
-        console.error('Метод запроса:', error.config?.method);
-        console.error('URL запроса:', error.config?.url);
-      } else if (error.request) {
-        console.error('Запрос был сделан, но ответ не получен', error.request);
-      } else {
-        console.error('Сообщение об ошибке:', error.message);
-      }
       
       // Более конкретное сообщение об ошибке на основе детального разбора
       let errorMessage = 'Не удалось загрузить список пользователей';
@@ -302,14 +244,17 @@ const AdminPanel: React.FC = () => {
         severity: 'error',
       });
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      // Задержка для сглаживания UI-эффектов и предотвращения мерцания
+      setTimeout(() => {
+        setLoading(false);
+        setRefreshing(false);
+      }, 300);
     }
-  }, [navigate]);
+  }, [navigate, loading, refreshing]);
 
-  // Проверка авторизации и загрузка пользователей при монтировании
+  // Проверка авторизации и загрузка пользователей при монтировании - оптимизируем
   useEffect(() => {
-    let isMounted = true; // флаг для предотвращения обновления стейта после размонтирования
+    let isMounted = true;
     
     const checkAdminAuth = async () => {
       try {
@@ -322,8 +267,10 @@ const AdminPanel: React.FC = () => {
           return;
         }
 
+        // Добавляем уникальный параметр для предотвращения кеширования
         const userResponse = await axios.get('/api/users/me', {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` },
+          params: { _t: new Date().getTime() }
         });
 
         console.log('Данные пользователя получены:', userResponse.data);
@@ -334,8 +281,8 @@ const AdminPanel: React.FC = () => {
           return;
         }
 
-        console.log('Пользователь имеет права администратора, загрузка списка пользователей');
         if (isMounted) {
+          console.log('Пользователь имеет права администратора, загрузка списка пользователей');
           fetchUsers();
         }
       } catch (error: any) {
@@ -346,19 +293,17 @@ const AdminPanel: React.FC = () => {
           console.error('Данные ответа:', error.response.data);
         }
         
-        if (isMounted) {
-          navigate('/login');
-        }
+        navigate('/login');
       }
     };
 
     checkAdminAuth();
     
-    // Функция очистки, которая сработает при размонтировании компонента
+    // Очистка при размонтировании
     return () => {
       isMounted = false;
     };
-  }, [navigate, fetchUsers]);
+  }, [navigate, fetchUsers]); // Теперь зависимость только от navigate и fetchUsers
 
   // Обработчики пагинации
   const handleChangePage = (_event: unknown, newPage: number) => {
@@ -605,69 +550,44 @@ const AdminPanel: React.FC = () => {
     });
   };
   
-  // Изменение вкладки
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
+  // Изменение вкладки - оптимизируем для предотвращения мерцания
+  const handleTabChange = useCallback((_event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
-  };
+  }, []);
 
-  // Отображение статистики
-  const renderStats = () => (
-    <Box sx={{ mt: 2 }}>
-      <Grid container spacing={3}>
-        <Grid item xs={12} sm={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" component="div" gutterBottom>
-                Всего пользователей
-              </Typography>
-              {loading ? (
-                <Skeleton variant="rectangular" width="100%" height={40} />
-              ) : (
-                <Typography variant="h4" component="div" color="primary">
-                  {stats.totalUsers}
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" component="div" gutterBottom>
-                Активные подписки
-              </Typography>
-              {loading ? (
-                <Skeleton variant="rectangular" width="100%" height={40} />
-              ) : (
-                <Typography variant="h4" component="div" color="success.main">
-                  {stats.activeSubscriptions}
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" component="div" gutterBottom>
-                Истекшие подписки
-              </Typography>
-              {loading ? (
-                <Skeleton variant="rectangular" width="100%" height={40} />
-              ) : (
-                <Typography variant="h4" component="div" color="error.main">
-                  {stats.expiredSubscriptions}
-                </Typography>
-              )}
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-    </Box>
-  );
+  // Оптимизируем расчет статистики для предотвращения ререндеров
+  const statistics = useMemo(() => {
+    const totalUsers = users.length;
+    const activeSubscriptions = users.filter(
+      user => user.subscription && user.subscription.is_active
+    ).length;
+    const expiredSubscriptions = users.filter(
+      user => user.subscription && !user.subscription.is_active
+    ).length;
+    
+    return {
+      totalUsers,
+      activeSubscriptions,
+      expiredSubscriptions
+    };
+  }, [users]);
 
-  // Отображение таблицы пользователей
-  const renderUsersTable = () => (
+  // Оптимизируем эффект фильтрации пользователей для предотвращения лишних ререндеров
+  const filteredUsers = useMemo(() => {
+    if (!searchQuery.trim()) {
+      return users;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    return users.filter(user => 
+      user.name.toLowerCase().includes(query) || 
+      user.username.toLowerCase().includes(query) ||
+      user.id.toString().includes(query)
+    );
+  }, [searchQuery, users]);
+
+  // Обновляем отображение таблицы пользователей - предотвращаем мерцание при обновлении
+  const renderUsersTable = useCallback(() => (
     <Paper sx={{ mt: 2, overflow: 'hidden' }}>
       {(loading || refreshing) && (
         <LinearProgress sx={{ width: '100%' }} />
@@ -694,7 +614,7 @@ const AdminPanel: React.FC = () => {
             startIcon={<RefreshIcon />} 
             variant="outlined" 
             onClick={() => fetchUsers(true)}
-            disabled={refreshing}
+            disabled={refreshing || loading}
           >
             Обновить
           </Button>
@@ -703,6 +623,7 @@ const AdminPanel: React.FC = () => {
             color="primary"
             startIcon={<AddIcon />}
             onClick={() => handleOpenDialog()}
+            disabled={loading}
           >
             Добавить пользователя
           </Button>
@@ -726,68 +647,77 @@ const AdminPanel: React.FC = () => {
           <TableBody>
             {loading ? (
               Array.from(new Array(5)).map((_, index) => (
-                <TableRow key={index}>
+                <TableRow key={`skeleton-${index}`}>
                   <TableCell colSpan={6}>
                     <Skeleton variant="rectangular" height={40} />
                   </TableCell>
                 </TableRow>
               ))
             ) : filteredUsers.length > 0 ? (
+              // Используем срез массива для пагинации вместо создания нового массива при каждом рендере
               filteredUsers
                 .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                 .map((user) => (
-                  <StyledTableRow key={user.id}>
+                  <TableRow key={user.id} hover>
                     <TableCell>{user.id}</TableCell>
                     <TableCell>{user.name}</TableCell>
                     <TableCell>{user.username}</TableCell>
                     <TableCell>
-                      {user.subscription ? (
-                        <Chip
-                          label={user.subscription.is_active ? 'Активна' : 'Истекла'}
-                          color={user.subscription.is_active ? 'success' : 'error'}
-                          size="small"
-                        />
-                      ) : (
-                        <Chip label="Не активирована" color="warning" size="small" />
-                      )}
+                      <Chip 
+                        label={
+                          user.subscription ? 
+                            (user.subscription.is_active ? "Активна" : "Истекла") : 
+                            "Не активирована"
+                        }
+                        color={
+                          user.subscription ? 
+                            (user.subscription.is_active ? "success" : "error") : 
+                            "default"
+                        }
+                        size="small"
+                      />
                     </TableCell>
                     <TableCell>
-                      {user.subscription
-                        ? formatDate(user.subscription.expiration_date)
-                        : 'Не задано'}
+                      {user.subscription && typeof user.subscription.expiration_date === 'string' ? 
+                        new Date(user.subscription.expiration_date).toLocaleDateString() : 
+                        "-"
+                      }
                     </TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                        <Tooltip title="Редактировать">
-                          <IconButton 
-                            size="small" 
+                        <Tooltip title="Редактировать пользователя">
+                          <IconButton
+                            size="small"
                             color="primary"
                             onClick={() => handleOpenDialog(user)}
+                            disabled={actionLoading}
                           >
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Удалить">
-                          <IconButton 
-                            size="small" 
+                        <Tooltip title="Удалить пользователя">
+                          <IconButton
+                            size="small"
                             color="error"
                             onClick={() => handleOpenDeleteDialog(user)}
+                            disabled={actionLoading}
                           >
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Показать QR код">
-                          <IconButton 
-                            size="small" 
-                            color="info"
+                        <Tooltip title="Посмотреть QR код">
+                          <IconButton
+                            size="small"
+                            color="secondary"
                             onClick={() => handleOpenQRDialog(user)}
+                            disabled={actionLoading}
                           >
                             <QrCodeIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
                       </Box>
                     </TableCell>
-                  </StyledTableRow>
+                  </TableRow>
                 ))
             ) : (
               <TableRow>
@@ -801,6 +731,7 @@ const AdminPanel: React.FC = () => {
                         variant="outlined"
                         startIcon={<RefreshIcon />} 
                         onClick={() => fetchUsers()}
+                        disabled={loading}
                       >
                         Попробовать снова
                       </Button>
@@ -825,21 +756,63 @@ const AdminPanel: React.FC = () => {
         labelDisplayedRows={({ from, to, count }) => `${from}–${to} из ${count}`}
       />
     </Paper>
-  );
+  ), [loading, refreshing, filteredUsers, page, rowsPerPage, actionLoading, searchQuery, handleSearchChange, fetchUsers, handleOpenDialog, handleOpenDeleteDialog, handleOpenQRDialog, handleChangePage, handleChangeRowsPerPage]);
 
-  // Мемоизируем таблицу пользователей для предотвращения лишних перерендеров
-  const usersTable = useMemo(() => renderUsersTable(), [
-    loading, 
-    refreshing, 
-    page, 
-    rowsPerPage, 
-    filteredUsers,
-    handleOpenDialog,
-    handleOpenDeleteDialog
-  ]);
-
-  // Мемоизируем статистику
-  const statsDisplay = useMemo(() => renderStats(), [stats, loading]);
+  // Оптимизируем функцию отображения статистики
+  const renderStats = useCallback(() => (
+    <Box sx={{ mt: 2 }}>
+      <Grid container spacing={3}>
+        <Grid item xs={12} sm={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" component="div" gutterBottom>
+                Всего пользователей
+              </Typography>
+              {loading ? (
+                <Skeleton variant="rectangular" width="100%" height={40} />
+              ) : (
+                <Typography variant="h4" component="div" color="primary">
+                  {statistics.totalUsers}
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" component="div" gutterBottom>
+                Активные подписки
+              </Typography>
+              {loading ? (
+                <Skeleton variant="rectangular" width="100%" height={40} />
+              ) : (
+                <Typography variant="h4" component="div" color="success.main">
+                  {statistics.activeSubscriptions}
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" component="div" gutterBottom>
+                Истекшие подписки
+              </Typography>
+              {loading ? (
+                <Skeleton variant="rectangular" width="100%" height={40} />
+              ) : (
+                <Typography variant="h4" component="div" color="error.main">
+                  {statistics.expiredSubscriptions}
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
+  ), [loading, statistics]);
 
   return (
     <Box>
@@ -872,13 +845,13 @@ const AdminPanel: React.FC = () => {
             <Typography variant="h5" gutterBottom>
               Обзор системы
             </Typography>
-            {statsDisplay}
+            {renderStats()}
           </Box>
         )}
         
         {currentTab === 1 && (
           <Box sx={{ py: 2 }}>
-            {usersTable}
+            {renderUsersTable()}
           </Box>
         )}
       </Container>
