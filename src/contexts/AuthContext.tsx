@@ -42,14 +42,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Пробуем сначала через прямой URL
       try {
         const response = await axios.get(`${API_BASE_URL}/users/me`, {
-          headers: { Authorization: `Bearer ${token}` }
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
         });
         return response.data;
       } catch (error) {
         console.error('Ошибка при прямом запросе профиля:', error);
         // Если прямой запрос не сработал, пробуем через прокси
-        const response = await axios.get(`${API_BASE_URL}/api/users/me`, {
-          headers: { Authorization: `Bearer ${token}` }
+        const response = await axios.get('/api/users/me', {
+          headers: { 
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          }
         });
         return response.data;
       }
