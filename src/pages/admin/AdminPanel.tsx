@@ -187,7 +187,8 @@ const AdminPanel: React.FC = () => {
 
   // Мемоизированный фильтр пользователей
   useEffect(() => {
-    const filterUsers = () => {
+    // Используем отложенное выполнение, чтобы не блокировать основной поток
+    const timeoutId = setTimeout(() => {
       if (!searchQuery.trim()) {
         setFilteredUsers(users);
         return;
@@ -201,9 +202,9 @@ const AdminPanel: React.FC = () => {
       );
       
       setFilteredUsers(filtered);
-    };
+    }, 50); // небольшая задержка для дебаунсинга
     
-    filterUsers();
+    return () => clearTimeout(timeoutId);
   }, [searchQuery, users]);
 
   // Мемоизированные статистические данные
@@ -234,7 +235,7 @@ const AdminPanel: React.FC = () => {
     try {
       if (showRefreshing) {
         setRefreshing(true);
-      } else {
+      } else if (!users.length) { // только показываем полный loading, если пользователей еще нет
         setLoading(true);
       }
       
@@ -257,8 +258,12 @@ const AdminPanel: React.FC = () => {
       });
 
       console.log('Данные пользователей получены:', response.data);
-      setUsers(response.data);
-      setFilteredUsers(response.data); // Добавляем явное обновление отфильтрованных пользователей
+      
+      // Используем функциональное обновление состояния для избежания race conditions
+      if (response.data && Array.isArray(response.data.users)) {
+        setUsers(response.data.users);
+        // Не обновляем filteredUsers напрямую - это произойдет автоматически через useEffect
+      }
     } catch (error: any) {
       console.error('Ошибка при загрузке пользователей:', error);
       
@@ -304,6 +309,8 @@ const AdminPanel: React.FC = () => {
 
   // Проверка авторизации и загрузка пользователей при монтировании
   useEffect(() => {
+    let isMounted = true; // флаг для предотвращения обновления стейта после размонтирования
+    
     const checkAdminAuth = async () => {
       try {
         console.log('Проверка авторизации администратора...');
@@ -328,7 +335,9 @@ const AdminPanel: React.FC = () => {
         }
 
         console.log('Пользователь имеет права администратора, загрузка списка пользователей');
-        fetchUsers();
+        if (isMounted) {
+          fetchUsers();
+        }
       } catch (error: any) {
         console.error('Ошибка аутентификации:', error);
         
@@ -337,11 +346,18 @@ const AdminPanel: React.FC = () => {
           console.error('Данные ответа:', error.response.data);
         }
         
-        navigate('/login');
+        if (isMounted) {
+          navigate('/login');
+        }
       }
     };
 
     checkAdminAuth();
+    
+    // Функция очистки, которая сработает при размонтировании компонента
+    return () => {
+      isMounted = false;
+    };
   }, [navigate, fetchUsers]);
 
   // Обработчики пагинации
@@ -811,6 +827,20 @@ const AdminPanel: React.FC = () => {
     </Paper>
   );
 
+  // Мемоизируем таблицу пользователей для предотвращения лишних перерендеров
+  const usersTable = useMemo(() => renderUsersTable(), [
+    loading, 
+    refreshing, 
+    page, 
+    rowsPerPage, 
+    filteredUsers,
+    handleOpenDialog,
+    handleOpenDeleteDialog
+  ]);
+
+  // Мемоизируем статистику
+  const statsDisplay = useMemo(() => renderStats(), [stats, loading]);
+
   return (
     <Box>
       <AppBar position="static">
@@ -842,13 +872,13 @@ const AdminPanel: React.FC = () => {
             <Typography variant="h5" gutterBottom>
               Обзор системы
             </Typography>
-            {renderStats()}
+            {statsDisplay}
           </Box>
         )}
         
         {currentTab === 1 && (
           <Box sx={{ py: 2 }}>
-            {renderUsersTable()}
+            {usersTable}
           </Box>
         )}
       </Container>
