@@ -58,12 +58,10 @@ app = FastAPI(title="SocialQR API")
 # Добавляем CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://qrsite-gilt.vercel.app", "http://localhost:3000", "*"],  # Разрешаем запросы с вашего домена и локальной разработки
+    allow_origins=["*"],  # Разрешаем запросы с любого источника для тестирования
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    allow_headers=["Authorization", "Content-Type", "X-CSRF-Token", "X-Requested-With", "Accept", "Accept-Version", "Content-Length", "Content-MD5", "Date", "X-Api-Version"],
-    expose_headers=["Content-Disposition"],
-    max_age=600,
+    allow_methods=["*"],  # Разрешаем все методы
+    allow_headers=["*"],  # Разрешаем все заголовки
 )
 
 # Секретный ключ для JWT

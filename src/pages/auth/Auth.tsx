@@ -108,13 +108,6 @@ const Auth: React.FC = () => {
                   </Alert>
                 )}
 
-                {/* Информация о моковом режиме */}
-                <Alert severity="info" sx={{ mb: 3 }}>
-                  Приложение работает в тестовом режиме. Используйте:
-                  <br />• Логин: <strong>admin</strong>, Пароль: <strong>admin123</strong>
-                  <br />• Логин: <strong>test</strong>, Пароль: <strong>test123</strong>
-                </Alert>
-
                 <Box component="form" onSubmit={handleSubmit}>
                   <TextField
                     fullWidth
