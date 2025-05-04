@@ -69,6 +69,9 @@ const FETCH_THROTTLE = 2000; // мс между запросами к API
 // Кеширование запросов API
 const apiCache = new Map();
 
+// Глобальные данные для сохранения изменений между обновлениями
+let persistentMockData: User[] | null = null;
+
 // Функция debounce для оптимизации поиска
 const debounce = <T extends (...args: any[]) => any>(func: T, wait: number) => {
   let timeout: NodeJS.Timeout | null = null;
@@ -505,23 +508,27 @@ const AdminPanel: React.FC = () => {
       // Эмуляция API запроса
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Создаем моковые данные
-      const mockData: User[] = Array.from({ length: 100 }, (_, i) => ({
-        id: i + 1,
-        username: `user${i + 1}`,
-        name: `Пользователь ${i + 1}`,
-        subscription: {
-          activation_date: i % 3 === 0 ? new Date().toISOString() : null,
-          expiration_date: i % 3 === 0 ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null,
-          is_active: i % 3 === 0
-        }
-      }));
+      // Создаем моковые данные только если они ещё не были созданы
+      if (!persistentMockData) {
+        persistentMockData = Array.from({ length: 100 }, (_, i) => ({
+          id: i + 1,
+          username: `user${i + 1}`,
+          name: `Пользователь ${i + 1}`,
+          subscription: {
+            activation_date: i % 3 === 0 ? new Date().toISOString() : null,
+            expiration_date: i % 3 === 0 ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null,
+            is_active: i % 3 === 0
+          }
+        }));
+      }
+      
+      // Используем сохраненные данные вместо создания новых каждый раз
+      let filteredData = [...persistentMockData];
       
       // Фильтрация по поиску
-      let filteredData = mockData;
       if (state.searchQuery) {
         const query = state.searchQuery.toLowerCase();
-        filteredData = mockData.filter(user => 
+        filteredData = filteredData.filter(user => 
           user.name.toLowerCase().includes(query) || 
           user.username.toLowerCase().includes(query)
         );
@@ -537,11 +544,11 @@ const AdminPanel: React.FC = () => {
       // Кешируем результат
       apiCache.set(cacheKey, filteredData);
       
-      // Обновляем статистику
+      // Обновляем статистику из актуальных данных
       setStats({
-        totalUsers: mockData.length,
-        activeSubscriptions: mockData.filter(user => user.subscription?.is_active).length,
-        expiredSubscriptions: mockData.filter(user => !user.subscription?.is_active).length
+        totalUsers: persistentMockData.length,
+        activeSubscriptions: persistentMockData.filter(user => user.subscription?.is_active).length,
+        expiredSubscriptions: persistentMockData.filter(user => !user.subscription?.is_active).length
       });
       
       dispatch({ type: 'SET_USERS', payload: filteredData });
@@ -568,14 +575,25 @@ const AdminPanel: React.FC = () => {
       
       if (selectedUser) {
         // Обновляем существующего пользователя
+        const updatedUsers = state.users.map(user => 
+          user.id === selectedUser.id 
+            ? { ...user, name: userForm.name, username: userForm.username } 
+            : user
+        );
+        
         dispatch({
           type: 'SET_USERS',
-          payload: state.users.map(user => 
+          payload: updatedUsers
+        });
+        
+        // Также обновляем в глобальных данных
+        if (persistentMockData) {
+          persistentMockData = persistentMockData.map(user => 
             user.id === selectedUser.id 
               ? { ...user, name: userForm.name, username: userForm.username } 
               : user
-          )
-        });
+          );
+        }
         
         setSnackbar({
           open: true,
@@ -595,10 +613,17 @@ const AdminPanel: React.FC = () => {
           }
         };
         
+        const updatedUsers = [...state.users, newUser];
+        
         dispatch({
           type: 'SET_USERS',
-          payload: [...state.users, newUser]
+          payload: updatedUsers
         });
+        
+        // Также добавляем в глобальные данные
+        if (persistentMockData) {
+          persistentMockData = [...persistentMockData, newUser];
+        }
         
         setSnackbar({
           open: true,
@@ -633,10 +658,17 @@ const AdminPanel: React.FC = () => {
       // Симуляция API запроса
       await new Promise(resolve => setTimeout(resolve, 500));
       
+      const filteredUsers = state.users.filter(user => user.id !== selectedUser.id);
+      
       dispatch({
         type: 'SET_USERS',
-        payload: state.users.filter(user => user.id !== selectedUser.id)
+        payload: filteredUsers
       });
+      
+      // Также удаляем из глобальных данных
+      if (persistentMockData) {
+        persistentMockData = persistentMockData.filter(user => user.id !== selectedUser.id);
+      }
       
       // Очищаем кеш
       apiCache.clear();
