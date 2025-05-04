@@ -235,3 +235,28 @@ async def admin_dashboard(current_user: User = Depends(get_current_active_user))
             "total_visits": sum(qr.get("visits", 0) for qr in fake_qr_codes)
         }
     }
+
+# Улучшенный эндпоинт для профиля пользователя
+@app.get("/users/me/profile", response_model=dict)
+async def get_user_profile(current_user: User = Depends(get_current_active_user)):
+    is_admin = current_user.username == "admin"
+    
+    return {
+        "username": current_user.username,
+        "email": current_user.email,
+        "full_name": current_user.full_name,
+        "is_admin": is_admin,
+        "menu_items": [
+            {"title": "Мой профиль", "url": "/profile", "icon": "user"},
+            {"title": "Мои QR-коды", "url": "/my-qrcodes", "icon": "qrcode"}
+        ] + ([{"title": "Админ панель", "url": "/admin", "icon": "shield"}] if is_admin else [])
+    }
+
+# Эндпоинт для проверки прав администратора
+@app.get("/auth/check-admin")
+async def check_admin_rights(current_user: User = Depends(get_current_active_user)):
+    is_admin = current_user.username == "admin"
+    return {
+        "is_admin": is_admin,
+        "message": "У вас есть права администратора" if is_admin else "У вас нет прав администратора"
+    }
