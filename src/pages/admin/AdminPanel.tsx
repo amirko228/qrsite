@@ -344,6 +344,54 @@ const adminPanelReducer = (state: AdminPanelState, action: AdminPanelAction): Ad
   }
 };
 
+// Добавляем компонент StatCard
+const StatCard = memo(({ 
+  title, 
+  value, 
+  icon, 
+  color 
+}: { 
+  title: string; 
+  value: number; 
+  icon: React.ReactNode; 
+  color: string; 
+}) => (
+  <Paper
+    elevation={1}
+    sx={{
+      p: 2,
+      height: '100%',
+      display: 'flex',
+      flexDirection: 'column',
+      borderTop: `4px solid ${color}`,
+      willChange: 'transform',
+      transform: 'translateZ(0)'
+    }}
+  >
+    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+      <Box 
+        sx={{ 
+          mr: 2, 
+          bgcolor: `${color}22`, 
+          p: 1, 
+          borderRadius: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        {React.cloneElement(icon as React.ReactElement, { sx: { color } })}
+      </Box>
+      <Typography variant="h6" color="text.secondary">
+        {title}
+      </Typography>
+    </Box>
+    <Typography variant="h3" sx={{ fontWeight: 'bold', mb: 1 }}>
+      {value}
+    </Typography>
+  </Paper>
+));
+
 // Главный компонент админ-панели
 const AdminPanel: React.FC = () => {
   const navigate = useNavigate();
@@ -672,8 +720,6 @@ const AdminPanel: React.FC = () => {
     return state.users.slice(start, end);
   }, [state.users, state.page, state.rowsPerPage]);
 
-  // ... остальной код компонента
-
   return (
     <Box 
       sx={{ 
@@ -733,7 +779,7 @@ const AdminPanel: React.FC = () => {
             flex: 1, 
             display: 'flex', 
             flexDirection: 'column',
-            overflow: 'hidden',
+            overflow: 'auto',
             // Предотвращаем shift контента при загрузке
             minHeight: 400,
           }}
@@ -743,7 +789,44 @@ const AdminPanel: React.FC = () => {
               <Typography variant="h5" gutterBottom>
                 Обзор системы
               </Typography>
-              {/* ... existing stats component ... */}
+              
+              <Grid container spacing={3} sx={{ mt: 1 }}>
+                <Grid item xs={12} md={4}>
+                  <StatCard 
+                    title="Всего пользователей" 
+                    value={stats.totalUsers} 
+                    icon={<PersonIcon />} 
+                    color={theme.palette.primary.main} 
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <StatCard 
+                    title="Активные подписки" 
+                    value={stats.activeSubscriptions} 
+                    icon={<VisibilityIcon />} 
+                    color={theme.palette.success.main} 
+                  />
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <StatCard 
+                    title="Истекшие подписки" 
+                    value={stats.expiredSubscriptions} 
+                    icon={<VisibilityOffIcon />} 
+                    color={theme.palette.error.main} 
+                  />
+                </Grid>
+              </Grid>
+              
+              <Box sx={{ mt: 4 }}>
+                <Typography variant="h6" gutterBottom>
+                  Статистика использования
+                </Typography>
+                <Paper sx={{ p: 2, mt: 2 }}>
+                  <Typography color="text.secondary" align="center" sx={{ py: 5 }}>
+                    Графики статистики будут доступны в следующем обновлении
+                  </Typography>
+                </Paper>
+              </Box>
             </Box>
           ) : (
             <Box 
@@ -755,7 +838,105 @@ const AdminPanel: React.FC = () => {
                 overflow: 'hidden'
               }}
             >
-              {/* ... existing users table ... */}
+              <Paper sx={{ width: '100%', overflow: 'hidden', position: 'relative' }}>
+                {/* Прогресс-бар загрузки */}
+                <LoadingProgress visible={state.loading || state.refreshing} />
+                
+                {/* Панель инструментов */}
+                <AdminToolbar>
+                  <TextField
+                    placeholder="Поиск пользователей..."
+                    size="small"
+                    value={state.searchInputValue}
+                    onChange={handleSearchChange}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ width: { xs: '100%', sm: 300 } }}
+                  />
+                  
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={state.refreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
+                      onClick={() => fetchUsers(true)}
+                      disabled={state.loading || state.refreshing}
+                    >
+                      Обновить
+                    </Button>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      startIcon={<AddIcon />}
+                      onClick={() => handleOpenEditDialog(null)}
+                      disabled={state.loading || state.refreshing}
+                    >
+                      Добавить
+                    </Button>
+                  </Box>
+                </AdminToolbar>
+                
+                {/* Таблица пользователей */}
+                <StyledTableContainer>
+                  <Table stickyHeader size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell width={60}>ID</TableCell>
+                        <TableCell>Логин</TableCell>
+                        <TableCell>Имя</TableCell>
+                        <TableCell width={120}>Статус</TableCell>
+                        <TableCell width={120}>Активация</TableCell>
+                        <TableCell width={120}>Истечение</TableCell>
+                        <TableCell align="right" width={120}>Действия</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {state.loading && state.users.length === 0 ? (
+                        <TableLoadingSkeleton />
+                      ) : state.users.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
+                            <Typography color="text.secondary">
+                              {state.searchQuery ? 'Пользователи не найдены' : 'Список пользователей пуст'}
+                            </Typography>
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        visibleUsers.map(user => (
+                          <UserTableRow
+                            key={user.id}
+                            user={user}
+                            onEdit={handleOpenEditDialog}
+                            onDelete={handleOpenDeleteDialog}
+                            onQR={handleOpenQRDialog}
+                            actionLoading={state.actionLoading}
+                          />
+                        ))
+                      )}
+                    </TableBody>
+                  </Table>
+                </StyledTableContainer>
+                
+                {/* Пагинация */}
+                {state.users.length > 0 && (
+                  <TablePagination
+                    component="div"
+                    count={state.users.length}
+                    page={state.page}
+                    rowsPerPage={state.rowsPerPage}
+                    onPageChange={handleChangePage}
+                    onRowsPerPageChange={handleChangeRowsPerPage}
+                    rowsPerPageOptions={[5, 10, 25]}
+                    labelRowsPerPage="Строк:"
+                    labelDisplayedRows={({ from, to, count }) => `${from}–${to} из ${count}`}
+                  />
+                )}
+              </Paper>
             </Box>
           )}
         </Box>
@@ -774,7 +955,48 @@ const AdminPanel: React.FC = () => {
           }
         }}
       >
-        {/* ... existing dialog code ... */}
+        <DialogTitle>
+          {selectedUser ? 'Редактировать пользователя' : 'Добавить пользователя'}
+        </DialogTitle>
+        <DialogContent dividers>
+          <Box sx={{ pt: 1 }}>
+            <TextField
+              fullWidth
+              label="Имя"
+              margin="normal"
+              value={userForm.name}
+              onChange={handleUserFormChange('name')}
+            />
+            <TextField
+              fullWidth
+              label="Логин"
+              margin="normal"
+              value={userForm.username}
+              onChange={handleUserFormChange('username')}
+            />
+            {!selectedUser && (
+              <TextField
+                fullWidth
+                label="Пароль"
+                type="password"
+                margin="normal"
+                value={userForm.password}
+                onChange={handleUserFormChange('password')}
+              />
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseEditDialog}>Отмена</Button>
+          <Button 
+            onClick={handleEditUser}
+            variant="contained" 
+            disabled={state.actionLoading}
+            startIcon={state.actionLoading ? <CircularProgress size={16} /> : null}
+          >
+            {selectedUser ? 'Сохранить' : 'Создать'}
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Диалог подтверждения удаления */}
@@ -788,7 +1010,25 @@ const AdminPanel: React.FC = () => {
           }
         }}
       >
-        {/* ... existing dialog code ... */}
+        <DialogTitle>Удаление пользователя</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Вы действительно хотите удалить пользователя "{selectedUser?.name}"?
+            Это действие невозможно отменить.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDeleteDialog}>Отмена</Button>
+          <Button 
+            onClick={handleDeleteUser} 
+            color="error" 
+            variant="contained"
+            disabled={state.actionLoading}
+            startIcon={state.actionLoading ? <CircularProgress size={16} /> : null}
+          >
+            Удалить
+          </Button>
+        </DialogActions>
       </Dialog>
 
       {/* Диалог QR-кода */}
@@ -802,7 +1042,36 @@ const AdminPanel: React.FC = () => {
           }
         }}
       >
-        {/* ... existing dialog code ... */}
+        <DialogTitle>QR-код профиля</DialogTitle>
+        <DialogContent>
+          {selectedUser && (
+            <QRCodeContainer>
+              <Typography variant="subtitle1" gutterBottom>
+                {selectedUser.name}
+              </Typography>
+              <Box sx={{ p: 2, bgcolor: 'white', borderRadius: 1, mb: 2 }}>
+                <QRCode 
+                  value={`${window.location.origin}/social/${selectedUser.username}`}
+                  size={200}
+                />
+              </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ mb: 2 }}>
+                {`${window.location.origin}/social/${selectedUser.username}`}
+              </Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={<ContentCopyIcon />}
+                onClick={copyQRCodeLink}
+              >
+                Копировать ссылку
+              </Button>
+            </QRCodeContainer>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseQRDialog}>Закрыть</Button>
+        </DialogActions>
       </Dialog>
 
       {/* Уведомление */}
