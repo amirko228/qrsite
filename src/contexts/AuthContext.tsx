@@ -2,8 +2,8 @@ import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 
 // Константа для URL API - меняйте этот URL при деплое
-const API_BASE_URL = 'http://localhost:8000';
-// const API_BASE_URL = 'https://socialqr-backend.onrender.com'; // Раскомментируйте для продакшн
+// const API_BASE_URL = 'http://localhost:8000';
+const API_BASE_URL = 'https://socialqr-backend.onrender.com'; // URL для продакшн
 
 interface User {
   id: number;
