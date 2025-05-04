@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { Container, Box, Paper, Typography, TextField, Button, Tabs, Tab, Divider, Alert, Checkbox, FormControlLabel, Grid, Link as MuiLink } from '@mui/material';
-import { Google, Facebook, LinkedIn, Email, Lock, Person, CheckCircle } from '@mui/icons-material';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Container, Box, Paper, Typography, TextField, Button, Alert, Grid, Link as MuiLink } from '@mui/material';
+import { Email, Lock, CheckCircle } from '@mui/icons-material';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import { motion } from 'framer-motion';
+import { useAuth } from '../../contexts/AuthContext';
 
 const AuthWrapper = styled(Box)(({ theme }) => ({
   minHeight: 'calc(100vh - 120px)',
@@ -22,17 +23,6 @@ const AuthCard = styled(Paper)(({ theme }) => ({
   boxShadow: '0 8px 40px rgba(0, 0, 0, 0.12)',
 }));
 
-const SocialButton = styled(Button)(({ theme }) => ({
-  width: '100%',
-  marginBottom: theme.spacing(2),
-  padding: theme.spacing(1.5),
-  borderRadius: 8,
-  justifyContent: 'flex-start',
-  '& .MuiSvgIcon-root': {
-    marginRight: theme.spacing(2),
-  },
-}));
-
 const SuccessBox = styled(Box)(({ theme }) => ({
   textAlign: 'center',
   padding: theme.spacing(4),
@@ -40,76 +30,58 @@ const SuccessBox = styled(Box)(({ theme }) => ({
 
 const Auth: React.FC = () => {
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState(0);
-  const [email, setEmail] = useState('');
+  const location = useLocation();
+  const { login, isLoggedIn, user } = useAuth();
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [name, setName] = useState('');
-  const [agreedToTerms, setAgreedToTerms] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setActiveTab(newValue);
-    setError('');
+  // Перенаправляем на нужную страницу, если уже авторизован
+  useEffect(() => {
+    if (isLoggedIn) {
+      const from = location.state?.from?.pathname || (user?.is_admin ? '/admin' : '/social');
+      setTimeout(() => {
+        navigate(from, { replace: true });
+      }, 0);
+    }
+  }, [isLoggedIn, navigate, user, location]);
+
+  const validateUsername = (username: string) => {
+    return username.trim().length > 0;
   };
 
-  const validateEmail = (email: string) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
 
     // Валидация
-    if (!email || !password) {
+    if (!username || !password) {
       setError('Пожалуйста, заполните все поля');
+      setIsLoading(false);
       return;
     }
 
-    if (!validateEmail(email)) {
-      setError('Пожалуйста, введите корректный email');
+    if (!validateUsername(username)) {
+      setError('Пожалуйста, введите корректный логин');
+      setIsLoading(false);
       return;
     }
 
-    if (activeTab === 1) { // Регистрация
-      if (password !== confirmPassword) {
-        setError('Пароли не совпадают');
-        return;
+    try {
+      const result = await login(username, password);
+      
+      if (result.success) {
+        setSuccess(true);
+        // Перенаправление происходит в useEffect выше
+      } else {
+        setError(result.error || 'Ошибка при входе');
       }
-
-      if (!agreedToTerms) {
-        setError('Необходимо согласиться с условиями использования');
-        return;
-      }
-
-      if (!name) {
-        setError('Пожалуйста, введите ваше имя');
-        return;
-      }
+    } finally {
+      setIsLoading(false);
     }
-
-    // Имитация успешной авторизации/регистрации
-    setSuccess(true);
-    
-    // Перенаправление на страницу профиля через 2 секунды
-    setTimeout(() => {
-      navigate('/social');
-    }, 2000);
-  };
-
-  const handleSocialLogin = (provider: string) => {
-    // Здесь должна быть логика авторизации через соц. сети
-    console.log(`Login with ${provider}`);
-    
-    // Имитация успешной авторизации
-    setSuccess(true);
-    
-    // Перенаправление на страницу профиля через 2 секунды
-    setTimeout(() => {
-      navigate('/social');
-    }, 2000);
   };
 
   return (
@@ -124,23 +96,11 @@ const Auth: React.FC = () => {
             {!success ? (
               <>
                 <Typography variant="h4" align="center" gutterBottom>
-                  {activeTab === 0 ? 'Вход в аккаунт' : 'Создание аккаунта'}
+                  Вход в аккаунт
                 </Typography>
                 <Typography variant="body2" color="textSecondary" align="center" sx={{ mb: 4 }}>
-                  {activeTab === 0 
-                    ? 'Войдите в свой аккаунт для доступа к профилю' 
-                    : 'Зарегистрируйтесь для создания своего профиля'}
+                  Войдите в свой аккаунт для доступа к профилю
                 </Typography>
-
-                <Tabs
-                  value={activeTab}
-                  onChange={handleTabChange}
-                  variant="fullWidth"
-                  sx={{ mb: 4 }}
-                >
-                  <Tab label="Вход" />
-                  <Tab label="Регистрация" />
-                </Tabs>
 
                 {error && (
                   <Alert severity="error" sx={{ mb: 3 }}>
@@ -149,28 +109,13 @@ const Auth: React.FC = () => {
                 )}
 
                 <Box component="form" onSubmit={handleSubmit}>
-                  {activeTab === 1 && (
-                    <TextField
-                      fullWidth
-                      label="Имя"
-                      variant="outlined"
-                      margin="normal"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      InputProps={{
-                        startAdornment: <Person color="action" sx={{ mr: 1 }} />,
-                      }}
-                    />
-                  )}
-
                   <TextField
                     fullWidth
-                    label="Email"
+                    label="Логин"
                     variant="outlined"
                     margin="normal"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
                     InputProps={{
                       startAdornment: <Email color="action" sx={{ mr: 1 }} />,
                     }}
@@ -189,45 +134,11 @@ const Auth: React.FC = () => {
                     }}
                   />
 
-                  {activeTab === 1 && (
-                    <>
-                      <TextField
-                        fullWidth
-                        label="Подтвердите пароль"
-                        variant="outlined"
-                        margin="normal"
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        InputProps={{
-                          startAdornment: <Lock color="action" sx={{ mr: 1 }} />,
-                        }}
-                      />
-
-                      <FormControlLabel
-                        control={
-                          <Checkbox 
-                            checked={agreedToTerms}
-                            onChange={(e) => setAgreedToTerms(e.target.checked)}
-                          />
-                        }
-                        label={
-                          <Box component="span" sx={{ fontSize: '0.875rem', color: 'text.secondary' }}>
-                            Я согласен с <MuiLink component={Link} to="/terms">условиями использования</MuiLink> и <MuiLink component={Link} to="/privacy">политикой конфиденциальности</MuiLink>
-                          </Box>
-                        }
-                        sx={{ mt: 2 }}
-                      />
-                    </>
-                  )}
-
-                  {activeTab === 0 && (
-                    <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1, mb: 3 }}>
-                      <MuiLink component={Link} to="/forgot-password" underline="hover">
-                        Забыли пароль?
-                      </MuiLink>
-                    </Box>
-                  )}
+                  <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1, mb: 3 }}>
+                    <MuiLink component={Link} to="/forgot-password" underline="hover">
+                      Забыли пароль?
+                    </MuiLink>
+                  </Box>
 
                   <Button 
                     type="submit"
@@ -235,38 +146,18 @@ const Auth: React.FC = () => {
                     color="primary"
                     fullWidth
                     size="large"
-                    sx={{ mt: activeTab === 1 ? 3 : 0, mb: 3 }}
+                    disabled={isLoading}
+                    sx={{ mb: 3 }}
                   >
-                    {activeTab === 0 ? 'Войти' : 'Зарегистрироваться'}
+                    {isLoading ? 'Вход...' : 'Войти'}
                   </Button>
                 </Box>
 
-                <Divider sx={{ my: 3 }}>
+                <Box sx={{ textAlign: 'center', mt: 2 }}>
                   <Typography variant="body2" color="textSecondary">
-                    или
+                    Нет аккаунта? Обратитесь к администратору для получения доступа.
                   </Typography>
-                </Divider>
-
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
-                    <SocialButton
-                      variant="outlined"
-                      startIcon={<Google />}
-                      onClick={() => handleSocialLogin('google')}
-                    >
-                      Google
-                    </SocialButton>
-                  </Grid>
-                  <Grid item xs={12} sm={6}>
-                    <SocialButton
-                      variant="outlined"
-                      startIcon={<Facebook />}
-                      onClick={() => handleSocialLogin('facebook')}
-                    >
-                      Facebook
-                    </SocialButton>
-                  </Grid>
-                </Grid>
+                </Box>
               </>
             ) : (
               <SuccessBox>
@@ -278,12 +169,10 @@ const Auth: React.FC = () => {
                   <CheckCircle color="success" sx={{ fontSize: 80 }} />
                 </motion.div>
                 <Typography variant="h5" sx={{ mt: 3 }}>
-                  {activeTab === 0 ? 'Вы успешно вошли!' : 'Регистрация успешна!'}
+                  Вы успешно вошли!
                 </Typography>
                 <Typography variant="body1" sx={{ mt: 1 }}>
-                  {activeTab === 0 
-                    ? 'Перенаправляем вас в ваш профиль...' 
-                    : 'Ваш аккаунт создан. Перенаправляем вас на страницу профиля...'}
+                  Перенаправляем вас в ваш профиль...
                 </Typography>
               </SuccessBox>
             )}

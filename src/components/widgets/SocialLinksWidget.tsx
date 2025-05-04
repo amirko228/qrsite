@@ -16,34 +16,33 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction
+  ListItemSecondaryAction,
+  FormHelperText,
+  SelectChangeEvent
 } from '@mui/material';
 import {
-  Facebook,
-  Instagram,
-  Twitter,
-  LinkedIn,
-  YouTube,
-  CloudCircle,
+  Facebook as FacebookIcon,
+  Instagram as InstagramIcon,
+  Twitter as TwitterIcon,
+  LinkedIn as LinkedInIcon,
+  YouTube as YouTubeIcon,
+  Telegram as TelegramIcon,
+  Add as AddIcon,
   Delete as DeleteIcon,
   Edit as EditIcon,
-  Add as AddIcon
+  MoreVert as MoreVertIcon
 } from '@mui/icons-material';
 import styled from 'styled-components';
 
-interface SocialLink {
-  id: string;
-  type: string;
-  url: string;
-  title: string;
-}
-
 interface SocialLinksWidgetProps {
   content: {
-    links: SocialLink[];
+    networks: Array<{
+      type: string;
+      url: string;
+    }>;
   };
-  onUpdate: (content: { links: SocialLink[] }) => void;
-  isEditing: boolean;
+  onContentChange: (content: any) => void;
+  readOnly?: boolean;
 }
 
 const LinksContainer = styled(Box)`
@@ -66,208 +65,239 @@ const LinkItem = styled(ListItem)`
   }
 `;
 
-const socialTypes = {
-  facebook: {
-    label: 'Facebook',
-    icon: Facebook,
-    color: '#1877F2'
-  },
-  instagram: {
-    label: 'Instagram',
-    icon: Instagram,
-    color: '#E4405F'
-  },
-  twitter: {
-    label: 'Twitter',
-    icon: Twitter,
-    color: '#1DA1F2'
-  },
-  linkedin: {
-    label: 'LinkedIn',
-    icon: LinkedIn,
-    color: '#0A66C2'
-  },
-  youtube: {
-    label: 'YouTube',
-    icon: YouTube,
-    color: '#FF0000'
-  },
-  cloud: {
-    label: 'Облако',
-    icon: CloudCircle,
-    color: '#607D8B'
-  }
-};
+// Конфигурация доступных социальных сетей
+const socialNetworks = [
+  { id: 'facebook', name: 'Facebook', icon: <FacebookIcon />, urlPrefix: 'https://facebook.com/' },
+  { id: 'instagram', name: 'Instagram', icon: <InstagramIcon />, urlPrefix: 'https://instagram.com/' },
+  { id: 'twitter', name: 'Twitter', icon: <TwitterIcon />, urlPrefix: 'https://twitter.com/' },
+  { id: 'linkedin', name: 'LinkedIn', icon: <LinkedInIcon />, urlPrefix: 'https://linkedin.com/in/' },
+  { id: 'youtube', name: 'YouTube', icon: <YouTubeIcon />, urlPrefix: 'https://youtube.com/' },
+  { id: 'telegram', name: 'Telegram', icon: <TelegramIcon />, urlPrefix: 'https://t.me/' },
+];
 
-const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = ({
-  content,
-  onUpdate,
-  isEditing
-}) => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingLink, setEditingLink] = useState<SocialLink | null>(null);
-  const [type, setType] = useState('');
-  const [url, setUrl] = useState('');
-  const [title, setTitle] = useState('');
+const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = ({ content, onContentChange, readOnly = false }) => {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [selectedNetwork, setSelectedNetwork] = useState('');
+  const [networkUrl, setNetworkUrl] = useState('');
+  const [errors, setErrors] = useState({ network: false, url: false });
 
-  const handleAddLink = () => {
-    setEditingLink(null);
-    setType('');
-    setUrl('');
-    setTitle('');
-    setIsDialogOpen(true);
-  };
-
-  const handleEditLink = (link: SocialLink) => {
-    setEditingLink(link);
-    setType(link.type);
-    setUrl(link.url);
-    setTitle(link.title);
-    setIsDialogOpen(true);
-  };
-
-  const handleDeleteLink = (id: string) => {
-    onUpdate({
-      links: content.links.filter(link => link.id !== id)
-    });
-  };
-
-  const handleSave = () => {
-    if (!type || !url || !title) return;
-
-    if (editingLink) {
-      onUpdate({
-        links: content.links.map(link =>
-          link.id === editingLink.id
-            ? { ...link, type, url, title }
-            : link
-        )
-      });
+  // Обработчик открытия диалога
+  const handleOpenDialog = (index?: number) => {
+    setErrors({ network: false, url: false });
+    
+    if (index !== undefined) {
+      // Редактирование существующей социальной сети
+      const social = content.networks[index];
+      setEditingIndex(index);
+      setSelectedNetwork(social.type);
+      setNetworkUrl(social.url);
     } else {
-      onUpdate({
-        links: [
-          ...content.links,
-          {
-            id: Date.now().toString(),
-            type,
-            url,
-            title
-          }
-        ]
+      // Новая социальная сеть
+      setEditingIndex(null);
+      setSelectedNetwork('');
+      setNetworkUrl('');
+    }
+    
+    setDialogOpen(true);
+  };
+
+  // Обработчик закрытия диалога
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+  };
+
+  // Обработчик выбора социальной сети
+  const handleNetworkChange = (event: SelectChangeEvent<string>) => {
+    setSelectedNetwork(event.target.value);
+    setErrors({ ...errors, network: false });
+  };
+
+  // Обработчик изменения URL
+  const handleUrlChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setNetworkUrl(event.target.value);
+    setErrors({ ...errors, url: false });
+  };
+
+  // Получение URL префикса для выбранной сети
+  const getUrlPrefix = () => {
+    const network = socialNetworks.find(n => n.id === selectedNetwork);
+    return network ? network.urlPrefix : '';
+  };
+
+  // Сохранение социальной сети
+  const handleSave = () => {
+    // Валидация
+    const hasNetworkError = !selectedNetwork;
+    const hasUrlError = !networkUrl.trim();
+    
+    if (hasNetworkError || hasUrlError) {
+      setErrors({
+        network: hasNetworkError,
+        url: hasUrlError
       });
+      return;
     }
 
-    setIsDialogOpen(false);
+    // Создаем новый массив социальных сетей
+    let updatedNetworks;
+    
+    if (editingIndex !== null) {
+      // Обновление существующей
+      updatedNetworks = [...content.networks];
+      updatedNetworks[editingIndex] = { type: selectedNetwork, url: networkUrl };
+    } else {
+      // Добавление новой
+      updatedNetworks = [...content.networks, { type: selectedNetwork, url: networkUrl }];
+    }
+
+    // Обновление компонента
+    onContentChange({ ...content, networks: updatedNetworks });
+    handleCloseDialog();
   };
 
-  const renderIcon = (type: string) => {
-    const IconComponent = socialTypes[type as keyof typeof socialTypes]?.icon;
-    return IconComponent ? <IconComponent sx={{ color: socialTypes[type as keyof typeof socialTypes].color }} /> : null;
+  // Удаление социальной сети
+  const handleDelete = (index: number) => {
+    const updatedNetworks = content.networks.filter((_, i) => i !== index);
+    onContentChange({ ...content, networks: updatedNetworks });
+  };
+
+  // Получение иконки по типу социальной сети
+  const getSocialIcon = (type: string) => {
+    const network = socialNetworks.find(n => n.id === type);
+    return network ? network.icon : null;
+  };
+
+  // Получение имени социальной сети
+  const getSocialName = (type: string) => {
+    const network = socialNetworks.find(n => n.id === type);
+    return network ? network.name : type;
   };
 
   return (
-    <LinksContainer>
+    <Box sx={{ width: '100%', height: '100%' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h6">
-          Социальные сети и облака
-        </Typography>
-        {isEditing && (
-          <Button
-            startIcon={<AddIcon />}
-            onClick={handleAddLink}
-            variant="contained"
-            size="small"
-          >
-            Добавить
-          </Button>
-        )}
+        <Typography variant="subtitle1">Социальные сети</Typography>
+        <IconButton 
+          color="primary" 
+          size="small" 
+          onClick={() => handleOpenDialog()}
+        >
+          <AddIcon />
+        </IconButton>
       </Box>
 
-      <List>
-        {content.links.map(link => (
-          <LinkItem key={link.id}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              {renderIcon(link.type)}
-              <ListItemText
-                primary={link.title}
-                secondary={
-                  <a 
-                    href={link.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
-                    style={{ color: 'inherit', textDecoration: 'none' }}
-                  >
-                    {link.url}
-                  </a>
-                }
-              />
-            </Box>
-            {isEditing && (
-              <ListItemSecondaryAction>
-                <IconButton 
-                  edge="end" 
-                  onClick={() => handleEditLink(link)}
-                  sx={{ mr: 1 }}
-                >
-                  <EditIcon />
+      {content.networks.length > 0 ? (
+        <List disablePadding>
+          {content.networks.map((social, index) => (
+            <ListItem
+              key={index}
+              sx={{ 
+                p: 1, 
+                mb: 1, 
+                bgcolor: 'background.paper', 
+                borderRadius: 1,
+                display: 'flex',
+                justifyContent: 'space-between'
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                {getSocialIcon(social.type)}
+                <Typography variant="body2" sx={{ ml: 1 }}>
+                  {getSocialName(social.type)}
+                </Typography>
+              </Box>
+              <Box>
+                <IconButton size="small" onClick={() => handleOpenDialog(index)}>
+                  <EditIcon fontSize="small" />
                 </IconButton>
-                <IconButton 
-                  edge="end" 
-                  onClick={() => handleDeleteLink(link.id)}
-                >
-                  <DeleteIcon />
+                <IconButton size="small" onClick={() => handleDelete(index)}>
+                  <DeleteIcon fontSize="small" />
                 </IconButton>
-              </ListItemSecondaryAction>
-            )}
-          </LinkItem>
-        ))}
-      </List>
+              </Box>
+            </ListItem>
+          ))}
+        </List>
+      ) : (
+        <Box 
+          sx={{ 
+            display: 'flex', 
+            flexDirection: 'column', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            height: 'calc(100% - 40px)',
+            color: 'text.secondary'
+          }}
+        >
+          <Typography variant="body2" sx={{ mb: 1 }}>
+            Добавьте свои социальные сети
+          </Typography>
+          <Button 
+            variant="outlined" 
+            startIcon={<AddIcon />} 
+            size="small"
+            onClick={() => handleOpenDialog()}
+          >
+            Добавить соцсеть
+          </Button>
+        </Box>
+      )}
 
-      <Dialog open={isDialogOpen} onClose={() => setIsDialogOpen(false)}>
+      {/* Диалог для добавления/редактирования социальной сети */}
+      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
-          {editingLink ? 'Редактировать ссылку' : 'Добавить ссылку'}
+          {editingIndex !== null ? 'Редактировать социальную сеть' : 'Добавить социальную сеть'}
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <FormControl fullWidth>
-              <InputLabel>Тип</InputLabel>
-              <Select
-                value={type}
-                label="Тип"
-                onChange={(e) => setType(e.target.value)}
-              >
-                {Object.entries(socialTypes).map(([key, value]) => (
-                  <MenuItem key={key} value={key}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {React.createElement(value.icon, { sx: { color: value.color } })}
-                      {value.label}
-                    </Box>
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            <TextField
-              label="Название"
-              fullWidth
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
-            <TextField
-              label="URL"
-              fullWidth
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-            />
-          </Box>
+          <FormControl 
+            fullWidth 
+            margin="normal" 
+            error={errors.network}
+          >
+            <InputLabel id="social-network-label">Социальная сеть</InputLabel>
+            <Select
+              labelId="social-network-label"
+              value={selectedNetwork}
+              onChange={handleNetworkChange}
+              label="Социальная сеть"
+            >
+              {socialNetworks.map(network => (
+                <MenuItem key={network.id} value={network.id}>
+                  <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                    {React.cloneElement(network.icon as React.ReactElement, { style: { marginRight: 8 } })}
+                    {network.name}
+                  </Box>
+                </MenuItem>
+              ))}
+            </Select>
+            {errors.network && (
+              <FormHelperText>Выберите социальную сеть</FormHelperText>
+            )}
+          </FormControl>
+
+          <TextField
+            fullWidth
+            margin="normal"
+            label="URL или имя пользователя"
+            value={networkUrl}
+            onChange={handleUrlChange}
+            error={errors.url}
+            helperText={errors.url ? 'Введите ссылку или имя пользователя' : `Пример: ${getUrlPrefix()}username`}
+            InputProps={{
+              startAdornment: selectedNetwork ? (
+                <Box component="span" sx={{ color: 'text.secondary', mr: 1 }}>
+                  {getUrlPrefix()}
+                </Box>
+              ) : null,
+            }}
+          />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setIsDialogOpen(false)}>Отмена</Button>
-          <Button onClick={handleSave} variant="contained">
-            Сохранить
-          </Button>
+          <Button onClick={handleCloseDialog}>Отмена</Button>
+          <Button onClick={handleSave} variant="contained">Сохранить</Button>
         </DialogActions>
       </Dialog>
-    </LinksContainer>
+    </Box>
   );
 };
 

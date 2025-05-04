@@ -1,97 +1,123 @@
 import React, { useState } from 'react';
-import { Box, IconButton, TextField, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
-import { Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
-import styled from 'styled-components';
+import { Box, Typography, Button, TextField, IconButton } from '@mui/material';
+import { Upload as UploadIcon } from '@mui/icons-material';
 
-const ImageContainer = styled(Box)`
-  position: relative;
-  width: 100%;
-  height: 300px;
-  overflow: hidden;
-  border-radius: 8px;
-`;
-
-const StyledImage = styled.img`
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-`;
-
-interface PhotoWidgetProps {
+export interface PhotoWidgetProps {
   content: {
     url: string;
     caption: string;
   };
-  onUpdate: (content: { url: string; caption: string }) => void;
-  isEditing: boolean;
+  onContentChange: (content: any) => void;
+  readOnly?: boolean;
 }
 
-const PhotoWidget: React.FC<PhotoWidgetProps> = ({
-  content,
-  onUpdate,
-  isEditing
-}) => {
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [editUrl, setEditUrl] = useState(content.url || 'https://via.placeholder.com/400x300');
-  const [editCaption, setEditCaption] = useState(content.caption || '');
-
-  const handleSave = () => {
-    onUpdate({
-      url: editUrl,
-      caption: editCaption
-    });
-    setIsEditDialogOpen(false);
+const PhotoWidget: React.FC<PhotoWidgetProps> = ({ content, onContentChange, readOnly = false }) => {
+  const [caption, setCaption] = useState(content.caption || '');
+  const [isEditingCaption, setIsEditingCaption] = useState(false);
+  
+  const handleCaptionChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setCaption(e.target.value);
   };
-
+  
+  const handleSaveCaption = () => {
+    onContentChange({
+      ...content,
+      caption
+    });
+    setIsEditingCaption(false);
+  };
+  
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        onContentChange({
+          ...content,
+          url: reader.result as string
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+  
   return (
-    <Box sx={{ position: 'relative' }}>
-      <ImageContainer>
-        <StyledImage 
-          src={content.url || 'https://via.placeholder.com/400x300'} 
-          alt={content.caption || 'Фотография'} 
-        />
-      </ImageContainer>
-      {isEditing && (
-        <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 1 }}>
-          <IconButton 
-            onClick={() => setIsEditDialogOpen(true)} 
-            size="small"
-            sx={{ 
-              bgcolor: 'primary.main',
-              color: 'white',
-              '&:hover': {
-                bgcolor: 'primary.dark'
-              }
-            }}
+    <Box sx={{ height: '100%', width: '100%', display: 'flex', flexDirection: 'column' }}>
+      <Box 
+        sx={{ 
+          flex: 1, 
+          display: 'flex', 
+          justifyContent: 'center', 
+          alignItems: 'center', 
+          position: 'relative',
+          overflow: 'hidden',
+          backgroundColor: 'rgba(0,0,0,0.03)',
+          backgroundImage: content.url ? `url(${content.url})` : 'none',
+          backgroundSize: 'contain',
+          backgroundPosition: 'center',
+          backgroundRepeat: 'no-repeat',
+        }}
+      >
+        {!content.url && (
+          <Button
+            component="label"
+            variant="outlined"
+            startIcon={<UploadIcon />}
           >
-            <EditIcon />
+            Загрузить изображение
+            <input 
+              type="file" 
+              hidden 
+              accept="image/*" 
+              onChange={handleImageChange}
+            />
+          </Button>
+        )}
+        
+        {content.url && (
+          <IconButton 
+            sx={{ position: 'absolute', bottom: 8, right: 8 }}
+            component="label"
+          >
+            <UploadIcon />
+            <input 
+              type="file" 
+              hidden 
+              accept="image/*" 
+              onChange={handleImageChange}
+            />
           </IconButton>
+        )}
+      </Box>
+      
+      {!isEditingCaption ? (
+        <Typography 
+          variant="caption" 
+          component="div" 
+          align="center" 
+          sx={{ 
+            mt: 1, 
+            cursor: 'pointer', 
+            '&:hover': { textDecoration: 'underline' } 
+          }}
+          onClick={() => setIsEditingCaption(true)}
+        >
+          {content.caption || 'Добавить подпись (нажмите)'}
+        </Typography>
+      ) : (
+        <Box sx={{ mt: 1, display: 'flex' }}>
+          <TextField
+            fullWidth
+            size="small"
+            value={caption}
+            onChange={handleCaptionChange}
+            onBlur={handleSaveCaption}
+            onKeyDown={(e) => e.key === 'Enter' && handleSaveCaption()}
+            autoFocus
+            placeholder="Введите подпись"
+          />
         </Box>
       )}
-
-      <Dialog open={isEditDialogOpen} onClose={() => setIsEditDialogOpen(false)}>
-        <DialogTitle>Редактировать фотографию</DialogTitle>
-        <DialogContent>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 2 }}>
-            <TextField
-              label="URL изображения"
-              fullWidth
-              value={editUrl}
-              onChange={(e) => setEditUrl(e.target.value)}
-            />
-            <TextField
-              label="Подпись"
-              fullWidth
-              value={editCaption}
-              onChange={(e) => setEditCaption(e.target.value)}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setIsEditDialogOpen(false)}>Отмена</Button>
-          <Button onClick={handleSave} variant="contained">Сохранить</Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

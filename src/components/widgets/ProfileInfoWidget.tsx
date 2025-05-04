@@ -1,318 +1,152 @@
 import React, { useState } from 'react';
-import { Box, Typography, IconButton, TextField, Grid, useTheme } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
-import SaveIcon from '@mui/icons-material/Save';
-import styled, { keyframes } from 'styled-components';
-import { motion, AnimatePresence } from 'framer-motion';
-
-const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
-`;
-
-const InfoContainer = styled(Box)`
-  padding: 24px;
-  background: white;
-  border-radius: 16px;
-  min-height: 100px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-  animation: ${fadeIn} 0.6s ease-out;
-`;
-
-const StyledTextField = styled(TextField)`
-  & .MuiOutlinedInput-root {
-    border-radius: 12px;
-    transition: all 0.3s ease;
-    
-    &:hover {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    }
-    
-    &.Mui-focused {
-      box-shadow: 0 4px 12px rgba(33, 150, 243, 0.15);
-    }
-  }
-`;
-
-const InfoLabel = styled(Typography)`
-  color: ${props => props.theme.palette.primary.main};
-  font-weight: 500;
-  margin-bottom: 4px;
-`;
-
-const InfoValue = styled(Typography)`
-  color: ${props => props.theme.palette.text.primary};
-  margin-bottom: 16px;
-`;
-
-const ActionButton = styled(IconButton)`
-  background: white;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
-  }
-`;
-
-interface ProfileInfo {
-  fullName: string;
-  birthDate: string;
-  deathDate?: string;
-  gender: string;
-  family: string;
-  hobbies: string;
-  work: string;
-}
+import { Box, Avatar, Typography, TextField, Button, IconButton, Paper, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Edit as EditIcon, Save as SaveIcon, PhotoCamera as PhotoCameraIcon } from '@mui/icons-material';
 
 interface ProfileInfoWidgetProps {
-  onDelete: () => void;
-  onEdit: () => void;
-  isEditing: boolean;
-  initialInfo?: ProfileInfo;
+  content: {
+    name: string;
+    bio: string;
+    avatar: string;
+  };
+  onContentChange: (content: any) => void;
+  readOnly?: boolean;
 }
 
-const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = ({
-  onDelete,
-  onEdit,
-  isEditing,
-  initialInfo = {
-    fullName: '',
-    birthDate: '',
-    deathDate: '',
-    gender: '',
-    family: '',
-    hobbies: '',
-    work: ''
-  }
-}) => {
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [info, setInfo] = useState<ProfileInfo>(initialInfo);
-  const theme = useTheme();
+const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = ({ content, onContentChange, readOnly = false }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [name, setName] = useState(content.name || 'Имя Фамилия');
+  const [bio, setBio] = useState(content.bio || 'Краткая информация о себе');
+  const [avatar, setAvatar] = useState(content.avatar || '');
 
   const handleSave = () => {
-    setIsEditMode(false);
+    onContentChange({
+      name,
+      bio,
+      avatar
+    });
+    setIsEditing(false);
   };
 
-  const handleChange = (field: keyof ProfileInfo) => (
-    event: React.ChangeEvent<HTMLInputElement>
-  ) => {
-    setInfo({
-      ...info,
-      [field]: event.target.value
-    });
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatar(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   return (
-    <Box sx={{ position: 'relative' }}>
-      <InfoContainer>
-        <Typography 
-          variant="h6" 
-          gutterBottom
-          sx={{ 
-            fontWeight: 600,
-            color: theme.palette.primary.main,
-            mb: 3
-          }}
-        >
-          Информация
-        </Typography>
-        <AnimatePresence mode="wait">
-          {isEditMode ? (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
-                  <StyledTextField
-                    fullWidth
-                    label="ФИО"
-                    value={info.fullName}
-                    onChange={handleChange('fullName')}
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <StyledTextField
-                    fullWidth
-                    label="Дата рождения"
-                    type="date"
-                    value={info.birthDate}
-                    onChange={handleChange('birthDate')}
-                    size="small"
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <StyledTextField
-                    fullWidth
-                    label="Дата смерти"
-                    type="date"
-                    value={info.deathDate}
-                    onChange={handleChange('deathDate')}
-                    size="small"
-                    InputLabelProps={{ shrink: true }}
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <StyledTextField
-                    fullWidth
-                    label="Пол"
-                    value={info.gender}
-                    onChange={handleChange('gender')}
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <StyledTextField
-                    fullWidth
-                    label="Семья"
-                    value={info.family}
-                    onChange={handleChange('family')}
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <StyledTextField
-                    fullWidth
-                    label="Увлечения"
-                    value={info.hobbies}
-                    onChange={handleChange('hobbies')}
-                    size="small"
-                  />
-                </Grid>
-                <Grid item xs={12}>
-                  <StyledTextField
-                    fullWidth
-                    label="Работа"
-                    value={info.work}
-                    onChange={handleChange('work')}
-                    size="small"
-                  />
-                </Grid>
-              </Grid>
-            </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.3 }}
-            >
-              <Grid container spacing={3}>
-                <Grid item xs={12}>
-                  <InfoLabel variant="subtitle1">ФИО</InfoLabel>
-                  <InfoValue variant="body1">{info.fullName}</InfoValue>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <InfoLabel variant="subtitle1">Дата рождения</InfoLabel>
-                  <InfoValue variant="body1">{info.birthDate}</InfoValue>
-                </Grid>
-                {info.deathDate && (
-                  <Grid item xs={12} sm={6}>
-                    <InfoLabel variant="subtitle1">Дата смерти</InfoLabel>
-                    <InfoValue variant="body1">{info.deathDate}</InfoValue>
-                  </Grid>
-                )}
-                <Grid item xs={12} sm={6}>
-                  <InfoLabel variant="subtitle1">Пол</InfoLabel>
-                  <InfoValue variant="body1">{info.gender}</InfoValue>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <InfoLabel variant="subtitle1">Семья</InfoLabel>
-                  <InfoValue variant="body1">{info.family}</InfoValue>
-                </Grid>
-                <Grid item xs={12}>
-                  <InfoLabel variant="subtitle1">Увлечения</InfoLabel>
-                  <InfoValue variant="body1">{info.hobbies}</InfoValue>
-                </Grid>
-                <Grid item xs={12}>
-                  <InfoLabel variant="subtitle1">Работа</InfoLabel>
-                  <InfoValue variant="body1">{info.work}</InfoValue>
-                </Grid>
-              </Grid>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </InfoContainer>
-      {isEditing && (
-        <Box 
-          sx={{ 
-            position: 'absolute', 
-            top: 16, 
-            right: 16, 
-            display: 'flex', 
-            gap: 1,
-            zIndex: 1
-          }}
-        >
-          <AnimatePresence mode="wait">
-            {isEditMode ? (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.2 }}
-              >
-                <ActionButton 
-                  onClick={handleSave} 
-                  size="small"
-                  sx={{ 
-                    color: theme.palette.primary.main,
-                    '&:hover': {
-                      backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                    }
-                  }}
-                >
-                  <SaveIcon />
-                </ActionButton>
-              </motion.div>
-            ) : (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.8 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.8 }}
-                transition={{ duration: 0.2 }}
-              >
-                <ActionButton 
-                  onClick={() => setIsEditMode(true)} 
-                  size="small"
-                  sx={{ 
-                    color: theme.palette.primary.main,
-                    '&:hover': {
-                      backgroundColor: 'rgba(33, 150, 243, 0.1)',
-                    }
-                  }}
-                >
-                  <EditIcon />
-                </ActionButton>
-              </motion.div>
-            )}
-          </AnimatePresence>
-          <motion.div
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.2, delay: 0.1 }}
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        p: 2,
+        height: '100%',
+        position: 'relative'
+      }}
+    >
+      {!isEditing ? (
+        <>
+          <IconButton
+            sx={{ position: 'absolute', top: 0, right: 0 }}
+            onClick={() => setIsEditing(true)}
           >
-            <ActionButton 
-              onClick={onDelete} 
-              size="small"
-              sx={{ 
-                color: theme.palette.error.main,
-                '&:hover': {
-                  backgroundColor: 'rgba(244, 67, 54, 0.1)',
-                }
+            <EditIcon fontSize="small" />
+          </IconButton>
+
+          <Avatar
+            src={avatar}
+            sx={{
+              width: 100,
+              height: 100,
+              mb: 2,
+              bgcolor: 'primary.main',
+              fontSize: '2rem'
+            }}
+          >
+            {!avatar && name.substring(0, 1).toUpperCase()}
+          </Avatar>
+
+          <Typography variant="h6" align="center" gutterBottom>
+            {name}
+          </Typography>
+
+          <Typography
+            variant="body2"
+            align="center"
+            color="text.secondary"
+            sx={{ mt: 1, whiteSpace: 'pre-wrap' }}
+          >
+            {bio}
+          </Typography>
+        </>
+      ) : (
+        <Paper elevation={2} sx={{ p: 2, width: '100%' }}>
+          <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+            <Avatar
+              src={avatar}
+              sx={{
+                width: 100,
+                height: 100,
+                mb: 1,
+                bgcolor: 'primary.main',
+                fontSize: '2rem'
               }}
             >
-              <DeleteIcon />
-            </ActionButton>
-          </motion.div>
-        </Box>
+              {!avatar && name.substring(0, 1).toUpperCase()}
+            </Avatar>
+
+            <IconButton
+              color="primary"
+              component="label"
+              sx={{ mt: 1 }}
+            >
+              <input
+                hidden
+                accept="image/*"
+                type="file"
+                onChange={handleAvatarChange}
+              />
+              <PhotoCameraIcon />
+            </IconButton>
+          </Box>
+
+          <TextField
+            fullWidth
+            label="Имя"
+            variant="outlined"
+            size="small"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+
+          <TextField
+            fullWidth
+            label="О себе"
+            variant="outlined"
+            size="small"
+            multiline
+            rows={3}
+            value={bio}
+            onChange={(e) => setBio(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon />}
+              onClick={handleSave}
+            >
+              Сохранить
+            </Button>
+          </Box>
+        </Paper>
       )}
     </Box>
   );

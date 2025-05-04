@@ -1,146 +1,184 @@
 import React, { useState } from 'react';
-import { Box, Typography, IconButton, Button, TextField } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
-import EditIcon from '@mui/icons-material/Edit';
-import AddIcon from '@mui/icons-material/Add';
-import LinkIcon from '@mui/icons-material/Link';
-import styled from 'styled-components';
-
-const LinksContainer = styled(Box)`
-  padding: 16px;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  min-height: 100px;
-`;
-
-interface Link {
-  id: string;
-  title: string;
-  url: string;
-}
+import { Box, List, ListItem, ListItemButton, ListItemIcon, ListItemText, IconButton, TextField, Button, Divider, Typography, Dialog, DialogTitle, DialogContent, DialogActions } from '@mui/material';
+import { Link as LinkIcon, Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon } from '@mui/icons-material';
 
 interface LinksWidgetProps {
-  onDelete: () => void;
-  onEdit: () => void;
-  isEditing: boolean;
-  initialLinks?: Link[];
+  content: {
+    links: Array<{
+      title: string;
+      url: string;
+    }>;
+  };
+  onContentChange: (content: any) => void;
+  readOnly?: boolean;
 }
 
-const LinksWidget: React.FC<LinksWidgetProps> = ({
-  onDelete,
-  onEdit,
-  isEditing,
-  initialLinks = []
-}) => {
-  const [links, setLinks] = useState<Link[]>(initialLinks);
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [newLinkTitle, setNewLinkTitle] = useState('');
-  const [newLinkUrl, setNewLinkUrl] = useState('');
+const LinksWidget: React.FC<LinksWidgetProps> = ({ content, onContentChange, readOnly = false }) => {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [newLink, setNewLink] = useState({ title: '', url: '' });
+  const [error, setError] = useState({ title: false, url: false });
 
-  const handleAddLink = () => {
-    if (newLinkTitle && newLinkUrl) {
-      const newLink: Link = {
-        id: Date.now().toString(),
-        title: newLinkTitle,
-        url: newLinkUrl
-      };
-      setLinks([...links, newLink]);
-      setNewLinkTitle('');
-      setNewLinkUrl('');
+  const handleOpenDialog = (index?: number) => {
+    if (index !== undefined) {
+      // Editing existing link
+      setEditingIndex(index);
+      setNewLink({ ...content.links[index] });
+    } else {
+      // Adding new link
+      setEditingIndex(null);
+      setNewLink({ title: '', url: '' });
     }
+    setDialogOpen(true);
+    setError({ title: false, url: false });
   };
 
-  const handleDeleteLink = (id: string) => {
-    setLinks(links.filter(link => link.id !== id));
+  const handleCloseDialog = () => {
+    setDialogOpen(false);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setNewLink(prev => ({ ...prev, [name]: value }));
+    setError(prev => ({ ...prev, [name]: !value }));
+  };
+
+  const handleSaveLink = () => {
+    // Validate inputs
+    const titleError = !newLink.title.trim();
+    const urlError = !newLink.url.trim();
+    
+    if (titleError || urlError) {
+      setError({ title: titleError, url: urlError });
+      return;
+    }
+
+    // Ensure URL has protocol
+    let formattedUrl = newLink.url;
+    if (!/^https?:\/\//i.test(formattedUrl)) {
+      formattedUrl = 'https://' + formattedUrl;
+    }
+
+    const updatedLink = { ...newLink, url: formattedUrl };
+    
+    let updatedLinks;
+    if (editingIndex !== null) {
+      // Update existing link
+      updatedLinks = [...content.links];
+      updatedLinks[editingIndex] = updatedLink;
+    } else {
+      // Add new link
+      updatedLinks = [...content.links, updatedLink];
+    }
+
+    onContentChange({ ...content, links: updatedLinks });
+    handleCloseDialog();
+  };
+
+  const handleDeleteLink = (index: number) => {
+    const updatedLinks = content.links.filter((_, i) => i !== index);
+    onContentChange({ ...content, links: updatedLinks });
   };
 
   return (
-    <Box sx={{ position: 'relative' }}>
-      <LinksContainer>
-        <Typography variant="h6" gutterBottom>
-          Ссылки
-        </Typography>
-        {links.length === 0 ? (
-          <Typography color="text.secondary">
-            Добавьте ссылки
-          </Typography>
-        ) : (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            {links.map((link) => (
-              <Box
-                key={link.id}
-                sx={{
-                  p: 2,
-                  bgcolor: 'white',
-                  borderRadius: 1,
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center'
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <LinkIcon />
-                  <Box>
-                    <Typography variant="subtitle1">{link.title}</Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {link.url}
-                    </Typography>
-                  </Box>
-                </Box>
-                {isEditMode && (
-                  <IconButton
-                    size="small"
-                    onClick={() => handleDeleteLink(link.id)}
-                  >
-                    <DeleteIcon />
+    <Box sx={{ height: '100%', width: '100%' }}>
+      {content.links.length > 0 ? (
+        <List sx={{ p: 0 }}>
+          {content.links.map((link, index) => (
+            <ListItem
+              key={index}
+              secondaryAction={
+                <Box>
+                  <IconButton edge="end" onClick={() => handleOpenDialog(index)}>
+                    <EditIcon fontSize="small" />
                   </IconButton>
-                )}
-              </Box>
-            ))}
-          </Box>
-        )}
-        {isEditMode && (
-          <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              label="Название"
-              value={newLinkTitle}
-              onChange={(e) => setNewLinkTitle(e.target.value)}
-              size="small"
-            />
-            <TextField
-              label="URL"
-              value={newLinkUrl}
-              onChange={(e) => setNewLinkUrl(e.target.value)}
-              size="small"
-            />
-            <Button
-              startIcon={<AddIcon />}
-              onClick={handleAddLink}
-              variant="outlined"
+                  <IconButton edge="end" onClick={() => handleDeleteLink(index)}>
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </Box>
+              }
+              disablePadding
+              sx={{ mb: 1 }}
             >
-              Добавить ссылку
-            </Button>
-          </Box>
-        )}
-      </LinksContainer>
-      {isEditing && (
-        <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 1 }}>
-          <IconButton
-            onClick={() => setIsEditMode(!isEditMode)}
-            size="small"
-            sx={{ bgcolor: 'rgba(255,255,255,0.8)' }}
-          >
-            <EditIcon />
-          </IconButton>
-          <IconButton
-            onClick={onDelete}
-            size="small"
-            sx={{ bgcolor: 'rgba(255,255,255,0.8)' }}
-          >
-            <DeleteIcon />
-          </IconButton>
+              <ListItemButton
+                component="a"
+                href={link.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{ borderRadius: 1 }}
+              >
+                <ListItemIcon>
+                  <LinkIcon />
+                </ListItemIcon>
+                <ListItemText 
+                  primary={link.title}
+                  secondary={link.url}
+                  primaryTypographyProps={{ 
+                    noWrap: true,
+                    style: { fontWeight: 500 } 
+                  }}
+                  secondaryTypographyProps={{ 
+                    noWrap: true,
+                    style: { fontSize: '0.75rem' } 
+                  }}
+                />
+              </ListItemButton>
+            </ListItem>
+          ))}
+        </List>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'text.secondary' }}>
+          <LinkIcon sx={{ fontSize: 40, mb: 1, opacity: 0.7 }} />
+          <Typography variant="body2" sx={{ mb: 2 }}>Нет ссылок</Typography>
         </Box>
       )}
+
+      <Divider sx={{ my: 1 }} />
+      
+      <Button
+        fullWidth
+        variant="outlined"
+        startIcon={<AddIcon />}
+        onClick={() => handleOpenDialog()}
+        sx={{ mt: 1 }}
+      >
+        Добавить ссылку
+      </Button>
+
+      {/* Dialog for adding/editing links */}
+      <Dialog open={dialogOpen} onClose={handleCloseDialog}>
+        <DialogTitle>{editingIndex !== null ? 'Редактировать ссылку' : 'Добавить ссылку'}</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Название"
+            name="title"
+            fullWidth
+            variant="outlined"
+            value={newLink.title}
+            onChange={handleInputChange}
+            error={error.title}
+            helperText={error.title ? 'Название обязательно' : ''}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            label="URL"
+            name="url"
+            fullWidth
+            variant="outlined"
+            value={newLink.url}
+            onChange={handleInputChange}
+            error={error.url}
+            helperText={error.url ? 'URL обязателен' : 'Например: https://example.com'}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseDialog}>Отмена</Button>
+          <Button onClick={handleSaveLink} variant="contained">Сохранить</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

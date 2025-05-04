@@ -1,101 +1,92 @@
-import React, { useState, useEffect } from 'react';
-import { Box, Typography, IconButton, TextField } from '@mui/material';
-import { Delete as DeleteIcon, Edit as EditIcon, Save as SaveIcon } from '@mui/icons-material';
-import styled from 'styled-components';
-
-const TextContainer = styled(Box)`
-  padding: 16px;
-  background-color: #f5f5f5;
-  border-radius: 8px;
-  min-height: 100px;
-`;
+import React, { useState } from 'react';
+import { Box, Typography, TextField } from '@mui/material';
 
 interface TextWidgetProps {
   content: {
     text: string;
+    align: 'left' | 'center' | 'right';
   };
-  onUpdate: (content: { text: string }) => void;
-  isEditing: boolean;
+  onContentChange: (content: any) => void;
+  readOnly?: boolean;
 }
 
-const TextWidget: React.FC<TextWidgetProps> = ({
-  content,
-  onUpdate,
-  isEditing
-}) => {
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [text, setText] = useState(content.text || 'Введите текст...');
+const TextWidget: React.FC<TextWidgetProps> = ({ content, onContentChange, readOnly = false }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [text, setText] = useState(content.text);
 
-  useEffect(() => {
-    setText(content.text || 'Введите текст...');
-  }, [content.text]);
+  const handleDoubleClick = () => {
+    if (!readOnly) {
+      setIsEditing(true);
+    }
+  };
 
-  const handleSave = () => {
-    onUpdate({ text });
-    setIsEditMode(false);
+  const handleBlur = () => {
+    setIsEditing(false);
+    if (text !== content.text) {
+      onContentChange({ ...content, text });
+    }
+  };
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setText(e.target.value);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleBlur();
+    }
+  };
+
+  const getTextAlign = () => {
+    return content.align || 'left';
   };
 
   return (
-    <Box sx={{ position: 'relative' }}>
-      <TextContainer>
-        {isEditMode ? (
-          <TextField
-            fullWidth
-            multiline
-            rows={4}
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            variant="outlined"
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: 'white'
-              }
-            }}
-          />
-        ) : (
-          <Typography 
-            variant="body1"
-            sx={{
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-word'
-            }}
-          >
-            {text}
-          </Typography>
-        )}
-      </TextContainer>
-      {isEditing && (
-        <Box sx={{ position: 'absolute', top: 8, right: 8, display: 'flex', gap: 1 }}>
-          {isEditMode ? (
-            <IconButton 
-              onClick={handleSave} 
-              size="small" 
-              sx={{ 
-                bgcolor: 'primary.main',
-                color: 'white',
-                '&:hover': {
-                  bgcolor: 'primary.dark'
-                }
-              }}
-            >
-              <SaveIcon />
-            </IconButton>
-          ) : (
-            <IconButton 
-              onClick={() => setIsEditMode(true)} 
-              size="small"
-              sx={{ 
-                bgcolor: 'primary.main',
-                color: 'white',
-                '&:hover': {
-                  bgcolor: 'primary.dark'
-                }
-              }}
-            >
-              <EditIcon />
-            </IconButton>
-          )}
-        </Box>
+    <Box 
+      sx={{ 
+        height: '100%', 
+        width: '100%', 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: getTextAlign() === 'center' ? 'center' : 'flex-start',
+        textAlign: getTextAlign()
+      }}
+      onDoubleClick={handleDoubleClick}
+    >
+      {isEditing ? (
+        <TextField
+          autoFocus
+          multiline
+          fullWidth
+          variant="outlined"
+          value={text}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          sx={{ 
+            '& .MuiOutlinedInput-root': {
+              '& fieldset': {
+                borderColor: 'primary.main',
+              },
+            },
+            '& textarea': {
+              textAlign: getTextAlign(),
+            }
+          }}
+        />
+      ) : (
+        <Typography 
+          variant="body1" 
+          component="div"
+          sx={{ 
+            width: '100%',
+            wordBreak: 'break-word',
+            whiteSpace: 'pre-wrap'
+          }}
+        >
+          {content.text || 'Двойной клик для редактирования'}
+        </Typography>
       )}
     </Box>
   );

@@ -1,6 +1,6 @@
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ThemeProvider, createTheme } from '@mui/material';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { ThemeProvider, createTheme, CircularProgress, Box } from '@mui/material';
 import Landing from './pages/landing/Landing';
 import SocialPage from './pages/social/SocialPage';
 import About from './pages/about/About';
@@ -11,6 +11,53 @@ import TermsPage from './pages/legal/TermsPage';
 import PrivacyPage from './pages/legal/PrivacyPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 import Footer from './components/common/Footer';
+import Editor from './pages/editor/Editor';
+import AdminPanel from './pages/admin/AdminPanel';
+import { AuthProvider, useAuth } from './contexts/AuthContext';
+
+// Компонент для проверки авторизации
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { isLoggedIn, isLoading } = useAuth();
+  const location = useLocation();
+  
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
+  if (!isLoggedIn) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  
+  return <>{children}</>;
+};
+
+// Компонент для проверки прав администратора
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isLoggedIn, isLoading } = useAuth();
+  const location = useLocation();
+  
+  if (isLoading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+  
+  if (!isLoggedIn) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  
+  if (!user?.is_admin) {
+    return <Navigate to="/social" replace />;
+  }
+  
+  return <>{children}</>;
+};
 
 const theme = createTheme({
   palette: {
@@ -60,25 +107,56 @@ const theme = createTheme({
   },
 });
 
+const AppRoutes = () => {
+  return (
+    <>
+      <Navigation />
+      <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/about" element={<About />} />
+        <Route 
+          path="/social" 
+          element={
+            <ProtectedRoute>
+              <SocialPage />
+            </ProtectedRoute>
+          } 
+        />
+        <Route path="/social/:id" element={<SocialPage />} />
+        <Route path="/login" element={<Auth />} />
+        <Route 
+          path="/editor" 
+          element={
+            <ProtectedRoute>
+              <Editor />
+            </ProtectedRoute>
+          } 
+        />
+        <Route 
+          path="/admin" 
+          element={
+            <AdminRoute>
+              <AdminPanel />
+            </AdminRoute>
+          } 
+        />
+        <Route path="/subscription" element={<Subscription />} />
+        <Route path="/terms" element={<TermsPage />} />
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      </Routes>
+      <Footer />
+    </>
+  );
+};
+
 const App: React.FC = () => {
   return (
     <ThemeProvider theme={theme}>
       <Router>
-        <Navigation />
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/about" element={<About />} />
-          <Route path="/social" element={<SocialPage />} />
-          <Route path="/social/:id" element={<SocialPage />} />
-          <Route path="/login" element={<Auth />} />
-          <Route path="/signup" element={<Auth />} />
-          <Route path="/subscription" element={<Subscription />} />
-          <Route path="/terms" element={<TermsPage />} />
-          <Route path="/privacy" element={<PrivacyPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/pricing" element={<Subscription />} />
-        </Routes>
-        <Footer />
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
       </Router>
     </ThemeProvider>
   );
