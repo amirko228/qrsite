@@ -120,16 +120,30 @@ def get_admin_user(current_user: models.User = Depends(get_current_user)):
 # Аутентификация и получение токена
 @app.post("/token")
 def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    print(f"Запрос на авторизацию от пользователя: {form_data.username}")
+    
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
-    if not user or not user.verify_password(form_data.password):
+    if not user:
+        print(f"Пользователь {form_data.username} не найден в базе данных")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    if not user.verify_password(form_data.password):
+        print(f"Неверный пароль для пользователя {form_data.username}")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Incorrect username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    print(f"Пользователь {form_data.username} успешно авторизован")
+    
     # Проверка активации подписки
     if not user.subscription or not user.subscription.is_active:
+        print(f"Активация подписки для пользователя {form_data.username}")
         # Если подписка не активирована, активируем её на 1 год
         if not user.subscription:
             new_subscription = models.Subscription(
@@ -149,6 +163,7 @@ def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db:
     access_token = create_access_token(
         data={"sub": user.username}
     )
+    print(f"Токен для пользователя {form_data.username} успешно создан")
     return {"access_token": access_token, "token_type": "bearer"}
 
 # Эндпоинты для пользователей

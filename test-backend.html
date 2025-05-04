@@ -20,12 +20,57 @@
                     document.getElementById('result').innerText = 'Error: ' + error.message;
                 });
         }
+        
+        function testLogin() {
+            const backendUrl = document.getElementById('backendUrl').value + '/token';
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            
+            const formData = new FormData();
+            formData.append('username', username);
+            formData.append('password', password);
+            
+            fetch(backendUrl, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.json();
+                }
+                throw new Error(`Status: ${response.status}, ${response.statusText}`);
+            })
+            .then(data => {
+                document.getElementById('loginResult').innerText = 'Success: ' + JSON.stringify(data);
+            })
+            .catch(error => {
+                document.getElementById('loginResult').innerText = 'Error: ' + error.message;
+            });
+        }
     </script>
 </head>
 <body>
     <h1>Test Backend API</h1>
-    <input type="text" id="backendUrl" value="https://socialqr-backend.onrender.com" style="width: 300px;" />
-    <button onclick="testBackend()">Test Connection</button>
-    <div id="result" style="margin-top: 20px; padding: 10px; background-color: #f0f0f0;"></div>
+    <div>
+        <input type="text" id="backendUrl" value="http://localhost:8000" style="width: 300px;" />
+        <button onclick="testBackend()">Test Connection</button>
+        <div id="result" style="margin-top: 10px; padding: 10px; background-color: #f0f0f0;"></div>
+    </div>
+    
+    <h2>Test Login</h2>
+    <div>
+        <div>
+            <label for="username">Username:</label>
+            <input type="text" id="username" value="admin" />
+        </div>
+        <div style="margin-top: 10px;">
+            <label for="password">Password:</label>
+            <input type="password" id="password" value="admin123" />
+        </div>
+        <div style="margin-top: 10px;">
+            <button onclick="testLogin()">Test Login</button>
+        </div>
+        <div id="loginResult" style="margin-top: 10px; padding: 10px; background-color: #f0f0f0;"></div>
+    </div>
 </body>
 </html> 

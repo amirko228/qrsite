@@ -1,6 +1,10 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 
+// Константа для URL API - меняйте этот URL при деплое
+const API_BASE_URL = 'http://localhost:8000';
+// const API_BASE_URL = 'https://socialqr-backend.onrender.com'; // Раскомментируйте для продакшн
+
 interface User {
   id: number;
   username: string;
@@ -37,14 +41,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       // Пробуем сначала через прямой URL
       try {
-        const response = await axios.get('https://socialqr-backend.onrender.com/users/me', {
+        const response = await axios.get(`${API_BASE_URL}/users/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         return response.data;
       } catch (error) {
         console.error('Ошибка при прямом запросе профиля:', error);
         // Если прямой запрос не сработал, пробуем через прокси
-        const response = await axios.get('/api/users/me', {
+        const response = await axios.get(`${API_BASE_URL}/api/users/me`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         return response.data;
@@ -92,8 +96,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let error;
       
       // Добавляем прямой URL к бэкенду для тестирования
-      const apiUrl = '/api/token'; 
-      const directBackendUrl = 'https://socialqr-backend.onrender.com/token';
+      const apiUrl = `${API_BASE_URL}/api/token`; 
+      // Используем локальный URL для тестирования
+      const directBackendUrl = `${API_BASE_URL}/token`;
       
       // Пробуем несколько форматов запросов, чтобы найти подходящий
       try {
