@@ -57,12 +57,20 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 
+// Константы для производительности
+const THROTTLE_DELAY = 300; // мс для дебаунса поиска
+const TRANSITION_DELAY = 50; // мс для анимаций
+const TABLE_SKELETON_COUNT = 3; // число скелетов загрузки
+
 // Функция debounce для оптимизации поиска
 const debounce = <T extends (...args: any[]) => any>(func: T, wait: number) => {
-  let timeout: NodeJS.Timeout;
+  let timeout: NodeJS.Timeout | null = null;
   return function(this: any, ...args: Parameters<T>) {
-    clearTimeout(timeout);
-    timeout = setTimeout(() => func.apply(this, args), wait);
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => {
+      timeout = null;
+      func.apply(this, args);
+    }, wait);
   };
 };
 
@@ -182,11 +190,11 @@ const LoadingProgress = memo(({ visible }: { visible: boolean }) => (
 
 // Оптимизированный компонент для строк таблицы
 const MemoizedTableRow = memo(({ user, onEdit, onDelete, onQR, actionLoading }: {
-  user: User,
-  onEdit: (user: User) => void,
-  onDelete: (user: User) => void,
-  onQR: (user: User) => void,
-  actionLoading: boolean
+  user: User;
+  onEdit: (user: User) => void;
+  onDelete: (user: User) => void;
+  onQR: (user: User) => void;
+  actionLoading: boolean;
 }) => (
   <StyledTableRow key={user.id}>
     <TableCell>{user.id}</TableCell>
@@ -215,7 +223,7 @@ const MemoizedTableRow = memo(({ user, onEdit, onDelete, onQR, actionLoading }: 
     </TableCell>
     <TableCell align="right">
       <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-        <Tooltip title="Редактировать пользователя">
+        <Tooltip title="Редактировать пользователя" enterDelay={800}>
           <IconButton
             size="small"
             color="primary"
@@ -225,7 +233,7 @@ const MemoizedTableRow = memo(({ user, onEdit, onDelete, onQR, actionLoading }: 
             <EditIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Удалить пользователя">
+        <Tooltip title="Удалить пользователя" enterDelay={800}>
           <IconButton
             size="small"
             color="error"
@@ -235,7 +243,7 @@ const MemoizedTableRow = memo(({ user, onEdit, onDelete, onQR, actionLoading }: 
             <DeleteIcon fontSize="small" />
           </IconButton>
         </Tooltip>
-        <Tooltip title="Посмотреть QR код">
+        <Tooltip title="Посмотреть QR код" enterDelay={800}>
           <IconButton
             size="small"
             color="secondary"
@@ -248,16 +256,46 @@ const MemoizedTableRow = memo(({ user, onEdit, onDelete, onQR, actionLoading }: 
       </Box>
     </TableCell>
   </StyledTableRow>
-), (prevProps, nextProps) => {
-  // Оптимизация: предотвращаем ненужные ререндеры
+}));
+
+// Правильная функция сравнения компонента для оптимизации перерисовок
+const areTableRowsEqual = (
+  prevProps: { 
+    user: User; 
+    onEdit: (user: User) => void; 
+    onDelete: (user: User) => void; 
+    onQR: (user: User) => void; 
+    actionLoading: boolean;
+  },
+  nextProps: {
+    user: User; 
+    onEdit: (user: User) => void; 
+    onDelete: (user: User) => void; 
+    onQR: (user: User) => void; 
+    actionLoading: boolean;
+  }
+): boolean => {
+  // Оптимизированное сравнение для предотвращения перерисовок
+  const prevSub = prevProps.user.subscription;
+  const nextSub = nextProps.user.subscription;
+  
+  const subscriptionEqual = 
+    (!prevSub && !nextSub) || 
+    (prevSub && nextSub && 
+     prevSub.is_active === nextSub.is_active && 
+     prevSub.expiration_date === nextSub.expiration_date);
+  
   return (
     prevProps.user.id === nextProps.user.id &&
     prevProps.user.name === nextProps.user.name &&
     prevProps.user.username === nextProps.user.username &&
     prevProps.actionLoading === nextProps.actionLoading &&
-    JSON.stringify(prevProps.user.subscription) === JSON.stringify(nextProps.user.subscription)
+    subscriptionEqual
   );
-});
+};
+
+// Применяем оптимизированное сравнение к компоненту
+const OptimizedTableRow = memo(MemoizedTableRow, areTableRowsEqual);
 
 // Мемоизированный компонент для статистики
 const StatCard = memo(({ title, value, color, loading }: {
@@ -388,7 +426,6 @@ const AdminPanel: React.FC = () => {
     // Защита от слишком частых вызовов
     const now = Date.now();
     if (now - apiCallsRef.current.lastFetchTime < FETCH_THROTTLE && !showRefreshing) {
-      console.log('Throttled API call');
       return;
     }
     
@@ -404,23 +441,12 @@ const AdminPanel: React.FC = () => {
       }
       
       apiCallsRef.current.lastFetchTime = now;
-      apiCallsRef.current.fetchCounter++;
       
       const token = localStorage.getItem('accessToken');
       if (!token) {
         navigate('/login');
         return;
       }
-      
-      // Добавляем задержку отображения состояния загрузки для предотвращения частых миганий
-      const showLoadingTimeout = setTimeout(() => {
-        if (apiCallsRef.current.isMounted) {
-          // Показываем loading только если запрос занимает больше 150ms
-          if (!showRefreshing) {
-            dispatch({ type: 'SET_LOADING', payload: true });
-          }
-        }
-      }, 150);
       
       const response = await axios.get('/api/admin/users', {
         headers: { 
@@ -432,40 +458,44 @@ const AdminPanel: React.FC = () => {
         params: { _t: now }
       });
       
-      // Отменяем таймаут, если запрос завершился быстро
-      clearTimeout(showLoadingTimeout);
-      
       if (!apiCallsRef.current.isMounted) return;
       
-      // Используем requestAnimationFrame для обработки данных вне основного потока рендеринга
-      window.requestAnimationFrame(() => {
+      // Используем Promise.resolve() для обработки в микрозадаче 
+      Promise.resolve().then(() => {
         if (!apiCallsRef.current.isMounted) return;
         
-        const sortedUsers = [...response.data].sort((a, b) => a.id - b.id);
-        
-        // Проверяем, действительно ли данные изменились, чтобы избежать ненужных обновлений
-        if (JSON.stringify(sortedUsers) !== JSON.stringify(users)) {
-          dispatch({ type: 'SET_USERS', payload: sortedUsers });
-        }
-        
-        // Плавное скрытие индикаторов загрузки
-        setTimeout(() => {
+        try {
+          const sortedUsers = [...response.data].sort((a, b) => a.id - b.id);
+          
+          // Более эффективное сравнение без stringify всего массива
+          const usersChanged = users.length !== sortedUsers.length || 
+            sortedUsers.some((user, index) => !users[index] || users[index].id !== user.id);
+          
+          if (usersChanged) {
+            dispatch({ type: 'SET_USERS', payload: sortedUsers });
+          }
+          
+          // Задержка для плавного скрытия индикаторов загрузки
+          setTimeout(() => {
+            if (apiCallsRef.current.isMounted) {
+              dispatch({ type: 'SET_LOADING', payload: false });
+              dispatch({ type: 'SET_REFRESHING', payload: false });
+            }
+          }, 100); 
+        } catch (err) {
+          console.error('Ошибка при обработке данных:', err);
           if (apiCallsRef.current.isMounted) {
             dispatch({ type: 'SET_LOADING', payload: false });
             dispatch({ type: 'SET_REFRESHING', payload: false });
           }
-        }, 150); 
+        }
       });
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        console.log('Запрос был отменен');
         return;
       }
       
       console.error('Ошибка при загрузке пользователей:', error);
-      
-      // Упрощенная обработка ошибок для снижения нагрузки
-      let errorMessage = 'Не удалось загрузить список пользователей';
       
       if (error.response?.status === 401) {
         localStorage.removeItem('accessToken');
@@ -474,7 +504,7 @@ const AdminPanel: React.FC = () => {
       
       setSnackbar({
         open: true,
-        message: errorMessage,
+        message: 'Не удалось загрузить список пользователей',
         severity: 'error',
       });
       
@@ -483,9 +513,9 @@ const AdminPanel: React.FC = () => {
           dispatch({ type: 'SET_LOADING', payload: false });
           dispatch({ type: 'SET_REFRESHING', payload: false });
         }
-      }, 300);
+      }, 100);
     }
-  }, [navigate, users]); // Минимизируем зависимости, но добавляем users для оптимизации обновлений
+  }, [navigate, users, loading, refreshing]);
 
   // Проверка авторизации и загрузка пользователей при монтировании
   useEffect(() => {
@@ -841,7 +871,7 @@ const AdminPanel: React.FC = () => {
     return filteredUsers
       .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
       .map((user) => (
-        <MemoizedTableRow 
+        <OptimizedTableRow 
           key={user.id} 
           user={user} 
           onEdit={handleEditUser}
@@ -866,16 +896,8 @@ const AdminPanel: React.FC = () => {
 
   // Мемоизированная таблица пользователей
   const UsersTable = useMemo(() => {
-    // Вычисляем только видимые строки для текущей страницы
-    const visibleUsers = searchQuery.trim() 
-      ? users.filter(user => 
-          user.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-          user.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
-          user.id.toString().includes(searchQuery)
-        )
-      : users;
-    
-    const paginatedUsers = visibleUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+    // ИСПРАВЛЕНИЕ: используем filteredUsers вместо повторной фильтрации
+    const paginatedUsers = filteredUsers.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
     
     return (
       <Paper 
@@ -887,20 +909,22 @@ const AdminPanel: React.FC = () => {
           position: 'relative',
           willChange: 'transform',
           transform: 'translateZ(0)',
-          isolation: 'isolate', // Предотвращает проблемы с z-index
+          isolation: 'isolate'
         }} 
         elevation={2}
       >
-        <Box sx={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
-          {(loading || refreshing) && (
-            <LinearProgress 
-              sx={{ 
-                height: '3px',
-                transition: 'opacity 0.3s ease',
-              }} 
-            />
-          )}
-        </Box>
+        {(loading || refreshing) && (
+          <LinearProgress 
+            sx={{ 
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              zIndex: 10,
+              height: '3px',
+            }} 
+          />
+        )}
         
         <AdminToolbar>
           <TextField
@@ -925,7 +949,6 @@ const AdminPanel: React.FC = () => {
               variant="outlined" 
               onClick={() => fetchUsers(true)}
               disabled={refreshing || loading}
-              sx={{ transition: 'all 0.2s ease-in-out' }}
             >
               Обновить
             </Button>
@@ -935,9 +958,8 @@ const AdminPanel: React.FC = () => {
               startIcon={<AddIcon />}
               onClick={() => handleOpenDialog()}
               disabled={loading || refreshing}
-              sx={{ transition: 'all 0.2s ease-in-out' }}
             >
-              Добавить пользователя
+              Добавить
             </Button>
           </Box>
         </AdminToolbar>
@@ -948,26 +970,27 @@ const AdminPanel: React.FC = () => {
           sx={{
             height: 'calc(100vh - 300px)',
             maxHeight: 500,
-            position: 'relative',
-            opacity: loading ? 0.7 : 1,
-            transition: 'opacity 0.2s ease-in-out',
+            opacity: loading ? 0.7 : 1
           }}
         >
-          <Table stickyHeader size="small" sx={{ tableLayout: 'fixed' }}>
+          <Table 
+            stickyHeader 
+            size="small" 
+            sx={{ tableLayout: 'fixed', width: '100%' }}
+          >
             <TableHead>
               <TableRow>
-                <TableCell width="10%">ID</TableCell>
+                <TableCell width={80}>ID</TableCell>
                 <TableCell width="25%">Имя</TableCell>
                 <TableCell width="25%">Логин</TableCell>
-                <TableCell width="15%">Статус подписки</TableCell>
-                <TableCell width="15%">Дата окончания</TableCell>
-                <TableCell width="10%" align="right">Действия</TableCell>
+                <TableCell width="15%">Статус</TableCell>
+                <TableCell width="15%">Окончание</TableCell>
+                <TableCell width={120} align="right">Действия</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading && paginatedUsers.length === 0 ? (
-                // Отображаем скелетоны только когда данных еще нет
-                Array.from(new Array(5)).map((_, index) => (
+                Array.from(new Array(3)).map((_, index) => (
                   <TableRow key={`skeleton-${index}`}>
                     <TableCell colSpan={6}>
                       <Skeleton variant="rectangular" height={40} animation="wave" />
@@ -1011,21 +1034,20 @@ const AdminPanel: React.FC = () => {
           </Table>
         </StyledTableContainer>
         
-        {visibleUsers.length > 0 && (
+        {filteredUsers.length > 0 && (
           <TablePagination
             rowsPerPageOptions={[5, 10, 25]}
             component="div"
-            count={visibleUsers.length}
+            count={filteredUsers.length} 
             rowsPerPage={rowsPerPage}
             page={page}
             onPageChange={handleChangePage}
             onRowsPerPageChange={handleChangeRowsPerPage}
-            labelRowsPerPage="Строк на странице:"
+            labelRowsPerPage="Строк:"
             labelDisplayedRows={({ from, to, count }) => `${from}–${to} из ${count}`}
             sx={{
               borderTop: '1px solid',
-              borderColor: 'divider',
-              bgcolor: 'background.paper'
+              borderColor: 'divider'
             }}
           />
         )}
@@ -1035,11 +1057,10 @@ const AdminPanel: React.FC = () => {
     loading, 
     refreshing, 
     searchInputValue,
-    searchQuery,
     handleSearchChange, 
     fetchUsers, 
     handleOpenDialog, 
-    users, 
+    filteredUsers, // Используем существующий filteredUsers
     rowsPerPage, 
     page, 
     handleChangePage, 
@@ -1047,7 +1068,8 @@ const AdminPanel: React.FC = () => {
     handleEditUser,
     handleDeleteUserClick,
     handleShowQR,
-    actionLoading
+    actionLoading,
+    searchQuery // Нужен для условного отображения сообщения
   ]);
 
   // Мемоизированная статистика
@@ -1086,11 +1108,24 @@ const AdminPanel: React.FC = () => {
   useEffect(() => {
     apiCallsRef.current.isMounted = true;
     
+    // Важно: предварительно загружаем таблицу только один раз при монтировании
+    const timer = setTimeout(() => {
+      if (apiCallsRef.current.isMounted) {
+        fetchUsers();
+      }
+    }, 50);
+    
     return () => {
       apiCallsRef.current.isMounted = false;
       apiCallsRef.current.abortController.abort();
+      clearTimeout(timer);
+      // Очищаем все возможные таймеры при размонтировании
+      const highestId = window.setTimeout(() => {}, 0);
+      for (let i = highestId; i >= 0; i--) {
+        window.clearTimeout(i);
+      }
     };
-  }, []);
+  }, [fetchUsers]);
 
   // Обновленная структура отрисовки с оптимизациями
   return (
