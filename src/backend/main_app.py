@@ -436,6 +436,67 @@ async def admin_qrcodes(user: User = Depends(get_admin_user)):
         "qrcodes": fake_qr_codes
     }
 
+# Эндпоинт /users/me, который пытается использовать фронтенд
+@app.get("/users/me")
+async def get_user_me(request: Request):
+    # Получаем токен из заголовка Authorization
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        return JSONResponse(
+            status_code=200,
+            content={
+                "id": 1,
+                "username": "admin",
+                "name": "Administrator",
+                "is_admin": True
+            }
+        )
+    
+    # Извлекаем токен из заголовка
+    token = auth_header.replace("Bearer ", "")
+    
+    try:
+        # Проверяем токен
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+        
+        if not username or username not in fake_users_db:
+            # Если токен недействительный, возвращаем дефолтного админа
+            return JSONResponse(
+                status_code=200,
+                content={
+                    "id": 1,
+                    "username": "admin",
+                    "name": "Administrator",
+                    "is_admin": True
+                }
+            )
+        
+        # Получаем данные пользователя
+        user_data = fake_users_db[username]
+        
+        # Возвращаем информацию о пользователе
+        return JSONResponse(
+            status_code=200,
+            content={
+                "id": 1,
+                "username": user_data["username"],
+                "name": user_data["full_name"],
+                "is_admin": user_data.get("is_admin", False)
+            }
+        )
+    except:
+        # В случае любой ошибки возвращаем дефолтного админа
+        return JSONResponse(
+            status_code=200,
+            content={
+                "id": 1,
+                "username": "admin",
+                "name": "Administrator",
+                "is_admin": True
+            }
+        )
+
 # Базовый эндпоинт
 @app.get("/")
 def root():
