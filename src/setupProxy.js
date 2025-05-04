@@ -1,6 +1,9 @@
 const { createProxyMiddleware } = require('http-proxy-middleware');
 
 module.exports = function(app) {
+  // Мок-сервер для локальной разработки
+  // В продакшн-среде этот прокси не будет использоваться,
+  // так как мы применяем мок-функции напрямую в коде
   app.use(
     '/api',
     createProxyMiddleware({

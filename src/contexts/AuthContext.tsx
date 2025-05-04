@@ -1,14 +1,27 @@
 import React, { createContext, useState, useEffect, useContext, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 
-// Константа для URL API - меняйте этот URL при деплое
-const API_BASE_URL = 'http://localhost:8000';
-// const API_BASE_URL = 'https://socialqr-backend.onrender.com'; // URL для продакшн
+// Определяем, находимся ли мы в production среде (netlify и другие хостинги)
+const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+
+// Используем соответствующий API URL в зависимости от среды
+// В продакшн используем мок-режим (MOCK_API = true) или реальный API-сервер
+const MOCK_API = isProduction; // Включаем мок-режим для продакшн
+const API_BASE_URL = isProduction 
+  ? 'https://socialqr-backend.onrender.com' // URL для продакшн (замените на ваш реальный API URL)
+  : 'http://localhost:8000'; // URL для разработки
 
 // Константы для оптимизации
 const TOKEN_KEY = 'accessToken';
 const AUTH_TIMEOUT = 30000; // 30 секунд для запросов аутентификации
 const CACHE_EXPIRY = 60 * 1000; // 1 минута кеширования данных пользователя
+
+// Мок-данные для аутентификации в продакшн
+const MOCK_USERS = [
+  { id: 1, username: 'admin', password: 'admin', name: 'Администратор', is_admin: true },
+  { id: 2, username: 'user', password: 'user', name: 'Пользователь', is_admin: false },
+  // Можно добавить больше пользователей если нужно
+];
 
 interface User {
   id: number;
@@ -43,6 +56,67 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const lastAuthCheckRef = useRef<number>(0);
   const authCheckPromiseRef = useRef<Promise<boolean> | null>(null);
 
+  // Мок-функция имитирующая запрос аутентификации
+  const mockLogin = async (username: string, password: string): Promise<{
+    success: boolean;
+    token?: string;
+    user?: User;
+    error?: string;
+  }> => {
+    // Имитируем задержку сети
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    const user = MOCK_USERS.find(u => u.username === username && u.password === password);
+    
+    if (user) {
+      // Генерируем фейковый токен
+      const token = `mock-token-${user.id}-${Date.now()}`;
+      return {
+        success: true,
+        token,
+        user: { id: user.id, username: user.username, name: user.name, is_admin: user.is_admin }
+      };
+    }
+    
+    return {
+      success: false,
+      error: 'Неверный логин или пароль'
+    };
+  };
+  
+  // Мок-функция для получения данных пользователя по токену
+  const mockGetUser = async (token: string): Promise<{
+    success: boolean;
+    user?: User;
+    error?: string;
+  }> => {
+    // Имитируем задержку сети
+    await new Promise(resolve => setTimeout(resolve, 200));
+    
+    if (!token || !token.startsWith('mock-token-')) {
+      return {
+        success: false,
+        error: 'Недействительный токен'
+      };
+    }
+    
+    // Извлекаем ID пользователя из токена
+    const userId = parseInt(token.split('-')[2]);
+    const user = MOCK_USERS.find(u => u.id === userId);
+    
+    if (user) {
+      return {
+        success: true,
+        user: { id: user.id, username: user.username, name: user.name, is_admin: user.is_admin }
+      };
+    }
+    
+    return {
+      success: false,
+      error: 'Пользователь не найден'
+    };
+  };
+
   // Оптимизированная проверка аутентификации с кешированием и предотвращением гонок
   const checkAuth = useCallback(async (): Promise<boolean> => {
     const now = Date.now();
@@ -67,16 +141,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Создаем новый промис для проверки аутентификации
     const authPromise = new Promise<boolean>(async (resolve) => {
       try {
-        // Получаем данные пользователя с токеном
-        const userData = await axios.get(`${API_BASE_URL}/users/me`, {
-          headers: { 'Authorization': `Bearer ${token}` },
-          timeout: AUTH_TIMEOUT
-        });
-        
-        setUser(userData.data);
-        setIsLoggedIn(true);
-        setIsLoading(false);
-        resolve(true);
+        if (MOCK_API) {
+          // Используем мок-функцию в продакшн
+          const result = await mockGetUser(token);
+          if (result.success && result.user) {
+            setUser(result.user);
+            setIsLoggedIn(true);
+            setIsLoading(false);
+            resolve(true);
+          } else {
+            localStorage.removeItem(TOKEN_KEY);
+            setUser(null);
+            setIsLoggedIn(false);
+            setIsLoading(false);
+            resolve(false);
+          }
+        } else {
+          // Получаем данные пользователя с токеном
+          const userData = await axios.get(`${API_BASE_URL}/users/me`, {
+            headers: { 'Authorization': `Bearer ${token}` },
+            timeout: AUTH_TIMEOUT
+          });
+          
+          setUser(userData.data);
+          setIsLoggedIn(true);
+          setIsLoading(false);
+          resolve(true);
+        }
       } catch (error) {
         console.error('Authentication check failed:', error);
         localStorage.removeItem(TOKEN_KEY);
@@ -95,38 +186,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Авторизация пользователя с оптимизацией
   const login = useCallback(async (username: string, password: string): Promise<{ success: boolean; error?: string }> => {
     try {
-      // Создаем данные формы
-      const formData = new URLSearchParams();
-      formData.append('username', username);
-      formData.append('password', password);
-      
-      // Отправляем запрос с таймаутом
-      const response = await axios.post(`${API_BASE_URL}/token`, formData, {
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded'
-        },
-        timeout: AUTH_TIMEOUT
-      });
+      if (MOCK_API) {
+        // Используем мок-аутентификацию в продакшн
+        const result = await mockLogin(username, password);
+        
+        if (result.success && result.token && result.user) {
+          localStorage.setItem(TOKEN_KEY, result.token);
+          setUser(result.user);
+          setIsLoggedIn(true);
+          lastAuthCheckRef.current = Date.now();
+          return { success: true };
+        } else {
+          return { success: false, error: result.error || 'Ошибка при входе' };
+        }
+      } else {
+        // Создаем данные формы для реального API
+        const formData = new URLSearchParams();
+        formData.append('username', username);
+        formData.append('password', password);
+        
+        // Отправляем запрос с таймаутом
+        const response = await axios.post(`${API_BASE_URL}/token`, formData, {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded'
+          },
+          timeout: AUTH_TIMEOUT
+        });
 
-      // Сохраняем токен в localStorage
-      const token = response.data.access_token;
-      localStorage.setItem(TOKEN_KEY, token);
-      
-      // Получаем данные пользователя
-      const userData = await axios.get(`${API_BASE_URL}/users/me`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        timeout: AUTH_TIMEOUT
-      });
-      
-      setUser(userData.data);
-      setIsLoggedIn(true);
-      
-      // Сбрасываем кэш проверки аутентификации
-      lastAuthCheckRef.current = Date.now();
-      
-      return { success: true };
+        // Сохраняем токен в localStorage
+        const token = response.data.access_token;
+        localStorage.setItem(TOKEN_KEY, token);
+        
+        // Получаем данные пользователя
+        const userData = await axios.get(`${API_BASE_URL}/users/me`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          timeout: AUTH_TIMEOUT
+        });
+        
+        setUser(userData.data);
+        setIsLoggedIn(true);
+        
+        // Сбрасываем кэш проверки аутентификации
+        lastAuthCheckRef.current = Date.now();
+        
+        return { success: true };
+      }
     } catch (error: any) {
       let errorMessage = 'Ошибка при входе';
       
@@ -143,7 +249,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           errorMessage = `Ошибка сервера: ${error.response.status}`;
         }
       } else if (error.request) {
-        errorMessage = 'Нет ответа от сервера. Убедитесь, что сервер запущен по адресу ' + API_BASE_URL;
+        errorMessage = 'Нет ответа от сервера. Проверьте соединение с интернетом.';
       } else {
         errorMessage = `Ошибка: ${error.message}`;
       }
@@ -166,38 +272,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Первоначальная проверка аутентификации
     checkAuth();
     
-    // Настраиваем глобальный перехватчик для всех запросов axios
-    const requestInterceptor = axios.interceptors.request.use(
-      (config) => {
-        const token = localStorage.getItem(TOKEN_KEY);
-        if (token && config.headers) {
-          config.headers['Authorization'] = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
-
-    // Настраиваем глобальный перехватчик для ответов с оптимизацией обработки 401
-    const responseInterceptor = axios.interceptors.response.use(
-      (response) => response,
-      async (error) => {
-        // Проверяем только на 401 статус один раз
-        if (error.response && error.response.status === 401) {
-          // Выходим только если до этого пользователь был авторизован
-          if (isLoggedIn) {
-            logout();
+    // Настраиваем глобальный перехватчик для всех запросов axios только если не используем моки
+    if (!MOCK_API) {
+      // Настраиваем глобальный перехватчик для всех запросов axios
+      const requestInterceptor = axios.interceptors.request.use(
+        (config) => {
+          const token = localStorage.getItem(TOKEN_KEY);
+          if (token && config.headers) {
+            config.headers['Authorization'] = `Bearer ${token}`;
           }
-        }
-        return Promise.reject(error);
-      }
-    );
+          return config;
+        },
+        (error) => Promise.reject(error)
+      );
 
-    // Очищаем перехватчики при размонтировании
-    return () => {
-      axios.interceptors.request.eject(requestInterceptor);
-      axios.interceptors.response.eject(responseInterceptor);
-    };
+      // Настраиваем глобальный перехватчик для ответов с оптимизацией обработки 401
+      const responseInterceptor = axios.interceptors.response.use(
+        (response) => response,
+        async (error) => {
+          // Проверяем только на 401 статус один раз
+          if (error.response && error.response.status === 401) {
+            // Выходим только если до этого пользователь был авторизован
+            if (isLoggedIn) {
+              logout();
+            }
+          }
+          return Promise.reject(error);
+        }
+      );
+
+      // Очищаем перехватчики при размонтировании
+      return () => {
+        axios.interceptors.request.eject(requestInterceptor);
+        axios.interceptors.response.eject(responseInterceptor);
+      };
+    }
   }, [checkAuth, isLoggedIn, logout]);
 
   // Мемоизируем контекст для предотвращения ненужных рендеров

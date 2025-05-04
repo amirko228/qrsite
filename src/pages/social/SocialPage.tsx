@@ -498,9 +498,9 @@ const WidgetContent: React.FC<{
               boxShadow: { xs: '0 2px 6px rgba(0, 0, 0, 0.06)', sm: '0 4px 10px rgba(0, 0, 0, 0.08)' },
               mb: { xs: 0.5, sm: 1 }
             }}>
-            <img 
-              src={widget.content.url} 
-              alt={widget.content.caption || 'Изображение'} 
+              <img 
+                src={widget.content.url} 
+                alt={widget.content.caption || 'Изображение'} 
                 style={{ 
                   width: '100%', 
                   height: 'auto', 
@@ -1494,6 +1494,11 @@ const FloatingActionButton = styled(Fab)`
   display: none !important; // Полностью скрываем кнопку для всех устройств
 `;
 
+// В верхней части файла, где импорты
+// Добавим определение production-режима
+const isProduction = window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+const MOCK_API = isProduction; // Всегда используем мок-данные в продакшн
+
 // Главный компонент страницы
 const SocialPage: React.FC = () => {
   const { id } = useParams<{ id?: string }>();
@@ -1621,12 +1626,26 @@ const SocialPage: React.FC = () => {
           return;
         }
         
-        let widgetsData;
+        let widgetsData = null;
         
-        if (isOwner) {
-          // В реальном приложении здесь будет загрузка с сервера
-          // Для демо используем данные демо-профиля или пустой массив, если нет в localStorage
-          if (widgets.length === 0) {
+        // Всегда используем данные из localStorage или демо-данные в продакшн
+        if (isOwner || MOCK_API) {
+          // Проверяем, сохранены ли виджеты в localStorage
+          const savedWidgets = localStorage.getItem(`widgets_${profile.id}`);
+          const savedProfile = localStorage.getItem(`profile_${profile.id}`);
+          
+          if (savedWidgets) {
+            widgetsData = JSON.parse(savedWidgets);
+          }
+          
+          if (savedProfile) {
+            const parsedProfile = JSON.parse(savedProfile);
+            setProfile(parsedProfile);
+            setIsPublic(parsedProfile.isPublic !== false); // по умолчанию публичный
+          }
+          
+          // Если нет сохраненных виджетов, используем демо-данные
+          if (!widgetsData || widgetsData.length === 0) {
             widgetsData = getDemoWidgets(
               viewingId, 
               profile.name, 
@@ -1637,20 +1656,29 @@ const SocialPage: React.FC = () => {
         } else if (viewingId) {
           // Если просматриваем чужой профиль
           try {
-            // В реальном приложении здесь будет API-запрос
-            // const response = await axios.get(`/user/${viewingId}/widgets`);
-            // widgetsData = response.data.widgets;
-            // setProfile(response.data.user);
+            // Проверяем, сохранены ли виджеты в localStorage
+            const savedWidgets = localStorage.getItem(`widgets_${viewingId}`);
+            const savedProfile = localStorage.getItem(`profile_${viewingId}`);
             
-            // Для демо используем демо-данные
-            const demoWidgetsData = getDemoWidgets(
-              viewingId, 
-              demoProfiles[viewingId]?.name || 'Пользователь', 
-              demoProfiles[viewingId]?.bio || ''
-            );
-            widgetsData = demoWidgetsData;
-            if (demoProfiles[viewingId]) {
+            if (savedWidgets) {
+              widgetsData = JSON.parse(savedWidgets);
+            }
+            
+            if (savedProfile) {
+              setProfile(JSON.parse(savedProfile));
+            } else if (demoProfiles[viewingId]) {
+              // Используем демо-профиль если нет сохраненного
               setProfile(demoProfiles[viewingId]);
+            }
+            
+            // Если нет сохраненных виджетов, используем демо-данные
+            if (!widgetsData || widgetsData.length === 0) {
+              // Для демо используем демо-данные
+              widgetsData = getDemoWidgets(
+                viewingId, 
+                demoProfiles[viewingId]?.name || 'Пользователь', 
+                demoProfiles[viewingId]?.bio || ''
+              );
             }
           } catch (err) {
             console.error('Failed to fetch profile:', err);
@@ -1827,55 +1855,38 @@ const SocialPage: React.FC = () => {
   const handleSaveProfile = useCallback(async () => {
     try {
       setIsSaving(true);
-      setSaveSuccess(null);
-      setSaveError(null);
       
-      // Сохраняем настройку публичности в объекте профиля
-      const profileWithPublic = {
+      // Обновляем состояние профиля
+      const updatedProfile = {
         ...profile,
-        isPublic: isPublic
+        isPublic
       };
       
-      // Собираем данные профиля для сохранения
-      const profileData = {
-        profile: profileWithPublic,
-        widgets: widgets
-      };
+      // Сохраняем в localStorage для демо/мок режима
+      localStorage.setItem(`profile_${profile.id}`, JSON.stringify(updatedProfile));
       
-      // Имитация задержки сервера (в реальном приложении будет реальный запрос)
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      if (!MOCK_API && !isProduction) {
+        // В реальном приложении здесь будет запрос к API
+        // const response = await axios.post('/api/profile/save', profileData);
+      }
       
-      // В реальном приложении здесь будет запрос к API
-      // const response = await axios.post('/api/profile/save', profileData);
+      // Сохраняем виджеты
+      localStorage.setItem(`widgets_${profile.id}`, JSON.stringify(widgets));
       
-      // Сохраняем данные в localStorage с ключом, привязанным к пользователю
-      localStorage.setItem(PROFILE_STORAGE_KEY, JSON.stringify(profileWithPublic));
-      localStorage.setItem(WIDGETS_STORAGE_KEY, JSON.stringify(widgets));
-      
-      console.log('Профиль сохранен:', profileData);
-      
-      // Устанавливаем время последнего сохранения
-      const now = new Date();
-      setLastSaved(now);
-      localStorage.setItem(LAST_SAVED_KEY, now.toISOString());
-      
-      // Показываем уведомление об успехе
-      setSaveSuccess(true);
+      setLastSaved(new Date());
+      setIsSaving(false);
       setShowSaveNotification(true);
       
-      // Скрываем уведомление через 3 секунды
+      // Скрываем сообщение через 3 секунды
       setTimeout(() => {
         setShowSaveNotification(false);
       }, 3000);
     } catch (error) {
-      console.error('Ошибка при сохранении профиля:', error);
-      setSaveError('Произошла ошибка при сохранении профиля. Пожалуйста, попробуйте снова.');
-      setSaveSuccess(false);
-      setShowSaveNotification(true);
-    } finally {
+      console.error('Error saving profile:', error);
+      setSaveError('Не удалось сохранить профиль');
       setIsSaving(false);
     }
-  }, [profile, widgets, isPublic, PROFILE_STORAGE_KEY, WIDGETS_STORAGE_KEY, LAST_SAVED_KEY]);
+  }, [profile, isPublic, widgets]);
 
   // Форматирование времени последнего сохранения
   const formatLastSaved = () => {
