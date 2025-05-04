@@ -3,7 +3,31 @@ import axios from 'axios';
 
 // Константа для URL API - меняйте этот URL при деплое
 // const API_BASE_URL = 'http://localhost:8000';
-const API_BASE_URL = 'https://socialqr-backend.onrender.com'; // URL для продакшн
+// const API_BASE_URL = 'https://socialqr-backend.onrender.com'; // URL для продакшн
+
+// Временное решение - фиктивный URL, который не будет использоваться в режиме моковых данных
+const API_BASE_URL = 'https://mock-api';
+
+// Используем режим моковых данных, пока бэкенд не будет настроен
+const USE_MOCK_MODE = true;
+
+// Моковые данные пользователей для тестирования
+const MOCK_USERS = {
+  'admin': {
+    id: 1,
+    username: 'admin',
+    name: 'Администратор',
+    is_admin: true,
+    password: 'admin123'
+  },
+  'test': {
+    id: 2,
+    username: 'test',
+    name: 'Тестовый пользователь',
+    is_admin: false,
+    password: 'test123'
+  }
+};
 
 interface User {
   id: number;
@@ -39,7 +63,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Функция для получения данных пользователя
   const getUserProfile = async (token: string) => {
     try {
-      // Пробуем сначала через прямой URL
+      // Если включен моковый режим, извлекаем данные из токена
+      if (USE_MOCK_MODE) {
+        // Извлекаем имя пользователя из токена
+        const tokenParts = token.split('_');
+        if (tokenParts.length >= 3 && tokenParts[0] === 'mock') {
+          const username = tokenParts[2];
+          const mockUser = MOCK_USERS[username as keyof typeof MOCK_USERS];
+          
+          if (mockUser) {
+            return {
+              id: mockUser.id,
+              username: mockUser.username,
+              name: mockUser.name,
+              is_admin: mockUser.is_admin
+            };
+          }
+        }
+        
+        throw new Error('Недействительный токен в моковом режиме');
+      }
+      
+      // Код для реального API - пробуем сначала через прямой URL
       try {
         const response = await axios.get(`${API_BASE_URL}/users/me`, {
           headers: { 
@@ -80,6 +125,41 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
+      // Если включен моковый режим, извлекаем имя пользователя из токена
+      if (USE_MOCK_MODE) {
+        console.log('Проверка авторизации в моковом режиме');
+        
+        // Извлекаем имя пользователя из токена
+        const tokenParts = token.split('_');
+        if (tokenParts.length >= 3 && tokenParts[0] === 'mock') {
+          const username = tokenParts[2];
+          const mockUser = MOCK_USERS[username as keyof typeof MOCK_USERS];
+          
+          if (mockUser) {
+            // Устанавливаем данные пользователя
+            const userData: User = {
+              id: mockUser.id,
+              username: mockUser.username,
+              name: mockUser.name,
+              is_admin: mockUser.is_admin
+            };
+            
+            setUser(userData);
+            setIsLoggedIn(true);
+            setIsLoading(false);
+            return true;
+          }
+        }
+        
+        // Если не удалось извлечь данные пользователя из токена, очищаем
+        localStorage.removeItem('accessToken');
+        setUser(null);
+        setIsLoggedIn(false);
+        setIsLoading(false);
+        return false;
+      }
+      
+      // Код для реального API
       const userData = await getUserProfile(token);
       setUser(userData);
       setIsLoggedIn(true);
@@ -100,6 +180,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       console.log('Попытка входа с логином:', username);
       
+      // Если включен моковый режим, используем локальные данные
+      if (USE_MOCK_MODE) {
+        console.log('Используется моковый режим');
+        
+        // Проверяем наличие пользователя и пароль
+        const mockUser = MOCK_USERS[username as keyof typeof MOCK_USERS];
+        
+        if (!mockUser) {
+          console.log('Пользователь не найден в моковых данных');
+          return { success: false, error: 'Неверный логин или пароль' };
+        }
+        
+        if (mockUser.password !== password) {
+          console.log('Неверный пароль в моковом режиме');
+          return { success: false, error: 'Неверный логин или пароль' };
+        }
+        
+        console.log('Успешный вход в мок-режиме:', mockUser);
+        
+        // Создаем фиктивный токен
+        const mockToken = `mock_token_${Date.now()}_${username}`;
+        localStorage.setItem('accessToken', mockToken);
+        
+        // Устанавливаем данные пользователя
+        const userData: User = {
+          id: mockUser.id,
+          username: mockUser.username,
+          name: mockUser.name,
+          is_admin: mockUser.is_admin
+        };
+        
+        setUser(userData);
+        setIsLoggedIn(true);
+        
+        return { success: true };
+      }
+      
+      // Ниже идет код для реального API, который будет использоваться, когда бэкенд заработает
       let response;
       let error;
       
