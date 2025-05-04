@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Backend</title>
+    <script>
+        function testBackend() {
+            const backendUrl = document.getElementById('backendUrl').value;
+            
+            fetch(backendUrl)
+                .then(response => {
+                    if (response.ok) {
+                        return response.json();
+                    }
+                    throw new Error(`Status: ${response.status}, ${response.statusText}`);
+                })
+                .then(data => {
+                    document.getElementById('result').innerText = 'Success: ' + JSON.stringify(data);
+                })
+                .catch(error => {
+                    document.getElementById('result').innerText = 'Error: ' + error.message;
+                });
+        }
+    </script>
+</head>
+<body>
+    <h1>Test Backend API</h1>
+    <input type="text" id="backendUrl" value="https://socialqr-backend.onrender.com" style="width: 300px;" />
+    <button onclick="testBackend()">Test Connection</button>
+    <div id="result" style="margin-top: 20px; padding: 10px; background-color: #f0f0f0;"></div>
+</body>
+</html> 

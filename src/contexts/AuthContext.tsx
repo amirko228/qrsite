@@ -35,10 +35,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Функция для получения данных пользователя
   const getUserProfile = async (token: string) => {
     try {
-      const response = await axios.get('/api/users/me', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      return response.data;
+      // Пробуем сначала через прямой URL
+      try {
+        const response = await axios.get('https://socialqr-backend.onrender.com/users/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+      } catch (error) {
+        console.error('Ошибка при прямом запросе профиля:', error);
+        // Если прямой запрос не сработал, пробуем через прокси
+        const response = await axios.get('/api/users/me', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        return response.data;
+      }
     } catch (error) {
       console.error('Error fetching user profile:', error);
       throw error;
@@ -81,57 +91,79 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       let response;
       let error;
       
+      // Добавляем прямой URL к бэкенду для тестирования
+      const apiUrl = '/api/token'; 
+      const directBackendUrl = 'https://socialqr-backend.onrender.com/token';
+      
       // Пробуем несколько форматов запросов, чтобы найти подходящий
       try {
-        // Метод 1: FormData
-        console.log("Пробуем метод FormData");
+        // Метод 1: FormData с прямым URL
+        console.log("Пробуем метод FormData с прямым URL к бэкенду");
         const formData = new FormData();
         formData.append('username', username);
         formData.append('password', password);
         
-        response = await axios.post('/api/token', formData, {
+        response = await axios.post(directBackendUrl, formData, {
           headers: {
             'Content-Type': 'multipart/form-data'
           }
         });
       } catch (err: any) {
-        console.log("Метод FormData не сработал:", err.response?.status);
+        console.log("Метод FormData с прямым URL не сработал:", err.response?.status);
         error = err;
         
         try {
-          // Метод 2: URLSearchParams (стандарт OAuth2)
-          console.log("Пробуем метод URLSearchParams");
-          response = await axios.post('/api/token', 
-            new URLSearchParams({
-              'username': username,
-              'password': password,
-              'grant_type': 'password'
-            }),
-            {
-              headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-              }
+          // Метод 2: FormData через прокси
+          console.log("Пробуем метод FormData через прокси");
+          const formData = new FormData();
+          formData.append('username', username);
+          formData.append('password', password);
+          
+          response = await axios.post(apiUrl, formData, {
+            headers: {
+              'Content-Type': 'multipart/form-data'
             }
-          );
+          });
         } catch (err2: any) {
-          console.log("Метод URLSearchParams не сработал:", err2.response?.status);
+          console.log("Метод FormData через прокси не сработал:", err2.response?.status);
+          error = err2;
           
           try {
-            // Метод 3: JSON body
-            console.log("Пробуем метод JSON");
-            response = await axios.post('/api/token', {
-              username,
-              password
-            }, {
-              headers: {
-                'Content-Type': 'application/json'
+            // Метод 3: URLSearchParams с прямым URL
+            console.log("Пробуем метод URLSearchParams с прямым URL");
+            response = await axios.post(directBackendUrl, 
+              new URLSearchParams({
+                'username': username,
+                'password': password,
+                'grant_type': 'password'
+              }),
+              {
+                headers: {
+                  'Content-Type': 'application/x-www-form-urlencoded'
+                }
               }
-            });
+            );
           } catch (err3: any) {
-            console.log("Метод JSON не сработал:", err3.response?.status);
-            
-            // Если все методы не сработали, используем последнюю ошибку
+            console.log("Метод URLSearchParams с прямым URL не сработал:", err3.response?.status);
             error = err3;
+            
+            try {
+              // Метод 4: JSON с прямым URL
+              console.log("Пробуем метод JSON с прямым URL");
+              response = await axios.post(directBackendUrl, {
+                username,
+                password
+              }, {
+                headers: {
+                  'Content-Type': 'application/json'
+                }
+              });
+            } catch (err4: any) {
+              console.log("Метод JSON с прямым URL не сработал:", err4.response?.status);
+              error = err4;
+              
+              // Если все методы не сработали, используем последнюю ошибку
+            }
           }
         }
       }
@@ -147,7 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const token = response.data.access_token;
       localStorage.setItem('accessToken', token);
       
-      // Получаем данные пользователя
+      // Получаем данные пользователя - также используем прямой URL
       const userData = await getUserProfile(token);
       setUser(userData);
       setIsLoggedIn(true);

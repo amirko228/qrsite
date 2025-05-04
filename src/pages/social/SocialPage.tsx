@@ -1904,7 +1904,7 @@ const SocialPage: React.FC = () => {
         handleSaveProfile();
       }, 30000); // Автосохранение через 30 секунд после последнего изменения
     }
-    
+      
     return () => {
       if (saveTimer) clearTimeout(saveTimer);
     };
