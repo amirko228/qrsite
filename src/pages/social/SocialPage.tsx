@@ -149,51 +149,44 @@ const widgetContainerVariants = {
   }
 };
 
-// Обновление WidgetElement для лучшей визуальной обратной связи при перетаскивании
+// Стиль для виджета
 const WidgetElement = styled(motion.div)<{
-  $backgroundColor?: string;
-  $textColor?: string;
-  $isSelected?: boolean;
+  $backgroundColor: string;
+  $textColor: string;
+  $isSelected: boolean;
   $isDragging?: boolean;
 }>`
-  position: relative;
-  background-color: ${props => props.$backgroundColor || 'white'};
-  color: ${props => props.$textColor || 'inherit'};
-  padding: clamp(12px, 3vw, 20px);
-  border-radius: clamp(10px, 1.5vw, 16px);
-  box-shadow: ${props => props.$isDragging 
-    ? '0 10px 25px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.12)' 
-    : props.$isSelected 
-      ? '0 4px 12px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.08)' 
-      : '0 2px 8px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03)'};
-  cursor: pointer;
+  border-radius: 8px;
+  background-color: ${props => props.$backgroundColor};
+  color: ${props => props.$textColor};
+  padding: 20px;
+  box-shadow: ${props => {
+    if (props.$isDragging) return '0 8px 16px rgba(0, 0, 0, 0.15)';
+    if (props.$isSelected) return '0 0 0 2px #2196f3, 0 4px 12px rgba(0, 0, 0, 0.1)';
+    return '0 2px 8px rgba(0, 0, 0, 0.08)';
+  }};
   overflow: hidden;
+  position: relative;
   width: 100%;
-  transition: box-shadow 0.2s ease, transform 0.15s ease;
-  -webkit-tap-highlight-color: transparent;
-  transform: ${props => props.$isDragging ? 'scale(1.03)' : 'scale(1)'};
-  touch-action: ${props => props.$isDragging ? 'none' : 'auto'};
-  
-  ${props => props.$isSelected && `
-    outline: 2px solid #1976d2;
-  `}
+  min-height: 80px;
+  transition: all 0.2s ease;
+  cursor: move;
+  transform: ${props => props.$isDragging ? 'scale(1.02)' : 'none'};
+  z-index: ${props => props.$isDragging ? 10 : 1};
+  border: 1px solid rgba(0, 0, 0, 0.05);
   
   &:hover {
-    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08), 0 3px 6px rgba(0, 0, 0, 0.05);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+    transform: ${props => props.$isDragging ? 'scale(1.02)' : 'translateY(-2px)'};
   }
   
-  ${props => props.$isDragging && `
-    z-index: 1100;
-  `}
+  &:hover .widget-controls {
+    opacity: 1;
+  }
   
   @media (max-width: 768px) {
-    padding: 14px;
-    border-radius: 10px;
-  }
-  
-  @media (max-width: 480px) {
-    padding: 12px;
-    border-radius: 8px;
+    padding: 16px;
+    border-radius: 6px;
   }
 `;
 
@@ -222,17 +215,17 @@ const DragHandle = styled(motion.div)`
   left: 50%;
   transform: translateX(-50%);
   top: 6px;
-  width: clamp(60px, 30%, 100px);
-  height: 8px;
-  border-radius: 4px;
-  background-color: rgba(0, 0, 0, 0.15);
+  width: clamp(60px, 10%, 80px);
+  height: 6px;
+  border-radius: 3px;
+  background-color: rgba(0, 0, 0, 0.1);
   cursor: grab;
   opacity: 0;
   transition: all 0.2s ease;
 
   &:hover {
-    background-color: rgba(33, 150, 243, 0.5);
-    height: 10px;
+    background-color: rgba(33, 150, 243, 0.3);
+    height: 8px;
   }
 
   ${WidgetElement}:hover & {
@@ -241,27 +234,23 @@ const DragHandle = styled(motion.div)`
 
   &:active {
     cursor: grabbing;
-    background-color: rgba(33, 150, 243, 0.7);
-    height: 10px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+    background-color: rgba(33, 150, 243, 0.6);
+    height: 8px;
   }
   
   @media (max-width: 768px) {
-    width: 80px;
-    height: 8px;
-    opacity: 1;
-    top: 4px;
+    width: 60px;
+    height: 5px;
   }
   
   @media (max-width: 480px) {
-    width: 60px;
-    opacity: 1;
-    height: 8px;
-    top: 3px;
+    width: 50px;
+    opacity: 0.5;
+    top: 4px;
   }
   
   @media (hover: none) {
-    opacity: 1;
+    opacity: 0.5;
     width: 60px;
   }
 `;
@@ -269,11 +258,11 @@ const DragHandle = styled(motion.div)`
 // Визуальный индикатор места перетаскивания
 const DropZone = styled(motion.div)<{ $isActive?: boolean }>`
   width: 100%;
-  height: 20px;
-  background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.3)' : 'transparent'};
-  border-radius: 10px;
-  margin: 10px 0;
-  transition: all 0.15s ease;
+  height: 18px;
+  background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.2)' : 'transparent'};
+  border-radius: 9px;
+  margin: 8px 0;
+  transition: all 0.2s ease;
   position: relative;
   
   &::before {
@@ -283,38 +272,38 @@ const DropZone = styled(motion.div)<{ $isActive?: boolean }>`
     top: 50%;
     transform: translateY(-50%);
     width: 100%;
-    height: 3px;
-    background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.8)' : 'transparent'};
+    height: 2px;
+    background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.7)' : 'transparent'};
     opacity: ${props => props.$isActive ? 1 : 0};
-    transition: all 0.15s ease;
+    transition: all 0.2s ease;
   }
   
   &:hover {
-    background-color: rgba(33, 150, 243, 0.2);
-    height: 28px;
+    background-color: rgba(33, 150, 243, 0.15);
+    height: 24px;
     
     &::before {
       opacity: 1;
-      background-color: rgba(33, 150, 243, 0.7);
-      height: 4px;
+      background-color: rgba(33, 150, 243, 0.6);
+      height: 3px;
     }
   }
   
   @media (max-width: 768px) {
-    height: 18px;
-    margin: 6px 0;
+    height: 15px;
+    margin: 5px 0;
     
     &:hover {
-      height: 22px;
+      height: 18px;
     }
   }
   
   @media (max-width: 480px) {
-    height: 16px;
-    margin: 5px 0;
+    height: 12px;
+    margin: 4px 0;
     
     &:hover {
-      height: 20px;
+      height: 15px;
     }
   }
 `;
@@ -694,64 +683,10 @@ const WidgetContent: React.FC<{
         onDragStart={() => setIsDragging(true)}
         onDrag={(e, info) => {
           setPosY(info.offset.y);
-          
-          // Добавляем хаптическую обратную связь для мобильных устройств
-          if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate && info.delta.y !== 0) {
-            // Вибрация только при существенном перемещении
-            if (Math.abs(info.delta.y) > 5) {
-              try {
-                window.navigator.vibrate(5);
-              } catch (e) {
-                // Игнорируем ошибки вибрации
-                console.log('Vibration not supported');
-              }
-            }
-          }
-          
-          // Визуальная подсветка ближайшей зоны сброса при перетаскивании
-          if (onPositionChange) {
-            const draggedElement = e.target as HTMLElement;
-            const draggedRect = draggedElement.getBoundingClientRect();
-            const draggedCenter = draggedRect.top + draggedRect.height / 2;
-            
-            // Найдем все зоны перетаскивания
-            const dropzones = document.querySelectorAll('[id^="dropzone-"]');
-            
-            // Сначала сбросим активность для всех зон
-            dropzones.forEach(zone => {
-              (zone as HTMLElement).style.backgroundColor = 'transparent';
-            });
-            
-            // Найдем ближайшую зону и подсветим её
-            let closestZone = null;
-            let minDistance = Infinity;
-            
-            dropzones.forEach(zone => {
-              const zoneRect = zone.getBoundingClientRect();
-              const zoneCenter = zoneRect.top + zoneRect.height / 2;
-              const distance = Math.abs(draggedCenter - zoneCenter);
-              
-              if (distance < minDistance) {
-                minDistance = distance;
-                closestZone = zone;
-              }
-            });
-            
-            // Подсветим ближайшую зону
-            if (closestZone && minDistance < 50) {
-              (closestZone as HTMLElement).style.backgroundColor = 'rgba(33, 150, 243, 0.3)';
-            }
-          }
         }}
         onDragEnd={(e, info) => {
           setPosY(0);
           setIsDragging(false);
-          
-          // Сбрасываем подсветку для всех зон
-          const dropzones = document.querySelectorAll('[id^="dropzone-"]');
-          dropzones.forEach(zone => {
-            (zone as HTMLElement).style.backgroundColor = 'transparent';
-          });
           
           // Находим ближайшую зону и перемещаем виджет туда
           if (onPositionChange) {
@@ -760,6 +695,7 @@ const WidgetContent: React.FC<{
             const draggedCenter = draggedRect.top + draggedRect.height / 2;
             
             // Найдем все зоны перетаскивания
+            const dropzones = document.querySelectorAll('[id^="dropzone-"]');
             let closestZone = null;
             let minDistance = Infinity;
             let targetIndex = index;
@@ -776,19 +712,7 @@ const WidgetContent: React.FC<{
               }
             });
             
-            // Применяем перемещение только если расстояние достаточно мало и индекс изменился
-            if (closestZone && targetIndex !== index && minDistance < 80) {
-              // Добавляем вибрацию для мобильных устройств при успешном перемещении
-              if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
-                try {
-                  window.navigator.vibrate([15, 50, 15]);
-                } catch (e) {
-                  // Игнорируем ошибки вибрации
-                  console.log('Vibration not supported');
-                }
-              }
-              
-              // Применяем изменение позиции
+            if (closestZone && targetIndex !== index) {
               onPositionChange(widget.id, targetIndex);
             }
           }
