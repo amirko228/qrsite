@@ -21,7 +21,8 @@ import {
   Alert,
   AlertTitle,
   LinearProgress,
-  Fab
+  Fab,
+  useMediaQuery
 } from '@mui/material';
 import { 
   Add, 
@@ -2071,42 +2072,67 @@ const SocialPage: React.FC = () => {
             <ProfileContainer>
               <Box sx={{ 
                 display: 'flex', 
-              justifyContent: 'space-between', 
+                justifyContent: 'space-between', 
                 alignItems: 'center', 
-              mb: 4
-            }}>
-                <Typography variant="h4">
+                mb: 4,
+                flexDirection: { xs: 'column', sm: 'row' },
+                gap: { xs: 2, sm: 0 }
+              }}>
+                <Typography variant="h4" sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}>
                     Мой профиль
-                  </Typography>
+                </Typography>
                 
-                <Box sx={{ display: 'flex', gap: 2 }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  gap: { xs: 1, sm: 2 },
+                  flexWrap: { xs: 'wrap', sm: 'nowrap' },
+                  justifyContent: { xs: 'center', sm: 'flex-end' },
+                  width: { xs: '100%', sm: 'auto' }
+                }}>
                   <Button
                     variant="contained"
-                            color="primary"
+                    color="primary"
                     onClick={toggleSidebar}
                     startIcon={<Add />}
+                    size="medium"
+                    sx={{ 
+                      fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                      flex: { xs: '1 1 auto', sm: '0 0 auto' },
+                      maxWidth: { xs: '100%', sm: 'none' }
+                    }}
                   >
                     Добавить блок
                   </Button>
                   
                   {isOwner && (
-                      <Button
+                    <Button
                       variant="contained"
                       color="success"
-                        onClick={handleSaveProfile}
-                        startIcon={isSaving ? <CircularProgress size={16} /> : <Save />}
-                        disabled={isSaving}
-                      sx={{ ml: 1 }}
+                      onClick={handleSaveProfile}
+                      startIcon={isSaving ? <CircularProgress size={16} /> : <Save />}
+                      disabled={isSaving}
+                      size="medium"
+                      sx={{ 
+                        fontSize: { xs: '0.8rem', sm: '0.875rem' },
+                        flex: { xs: '1 1 auto', sm: '0 0 auto' },
+                        maxWidth: { xs: '100%', sm: 'none' }
+                      }}
                     >
                       {isSaving ? 'Сохранение...' : 'Сохранить профиль'}
-                      </Button>
+                    </Button>
                   )}
                   
-                  <IconButton onClick={handleOpenQRCodeDialog}>
-                        <QrCode />
-                      </IconButton>
-                    </Box>
-                  </Box>
+                  <IconButton 
+                    onClick={handleOpenQRCodeDialog}
+                    sx={{ 
+                      width: { xs: '40px', sm: '48px' },
+                      height: { xs: '40px', sm: '48px' }
+                    }}
+                  >
+                    <QrCode sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }} />
+                  </IconButton>
+                </Box>
+              </Box>
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                     {widgets.map((widget, index) => (
