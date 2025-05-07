@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
-import { Box, Container, Typography, Button, Grid, useTheme, useMediaQuery, Paper, Tooltip, InputAdornment, TextField, CircularProgress, Divider, Card, CardContent, CardMedia, Avatar } from '@mui/material';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { Box, Container, Typography, Button, Grid, useTheme, useMediaQuery, Paper, Tooltip, InputAdornment, TextField, CircularProgress, Divider, Card, CardContent, CardMedia, Avatar, IconButton } from '@mui/material';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import styled, { keyframes, ThemeProvider, createGlobalStyle } from 'styled-components';
@@ -7,7 +7,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import { motion } from 'framer-motion';
 import { useInView } from 'react-intersection-observer';
-import { Search, Add, MyLocation, QrCode, Info, Lightbulb, HelpOutline, GavelOutlined, RemoveRedEye, CheckCircle, AccessTime, Security } from '@mui/icons-material';
+import { Search, Add, MyLocation, QrCode, Info, Lightbulb, HelpOutline, GavelOutlined, RemoveRedEye, CheckCircle, AccessTime, Security, KeyboardArrowLeft, KeyboardArrowRight } from '@mui/icons-material';
 import L from 'leaflet';
 
 // Fix marker icon issue in Leaflet
@@ -665,6 +665,7 @@ const TitleWrapper = styled(Box)`
   }
 `;
 
+// Обновляем стиль карты и делаем более адаптивной
 const MapSection = styled(Box)`
   position: relative;
   height: 600px;
@@ -683,6 +684,26 @@ const MapSection = styled(Box)`
   @media (max-width: 480px) {
     height: 400px;
     border-radius: 12px;
+  }
+`;
+
+// Обновляем стиль кнопки управления панелью поиска
+const SearchPanelToggle = styled(motion.div)`
+  position: absolute;
+  z-index: 1001;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.3s ease;
+  
+  button {
+    border-radius: 20px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    background-color: white;
+    color: #0A3D67;
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.9);
+    }
   }
 `;
 
@@ -722,6 +743,7 @@ const Landing: React.FC = () => {
   const [isLocationLoading, setIsLocationLoading] = useState(false);
   const [filteredMarkers, setFilteredMarkers] = useState(demoMarkers);
   const [totalUsers, setTotalUsers] = useState(1248); // Пример счетчика пользователей
+  const [isSearchPanelOpen, setIsSearchPanelOpen] = useState(true);
 
   const { ref: heroRef, inView: heroInView } = useInView({ threshold: 0.1, triggerOnce: true });
   const { ref: mapRef, inView: mapInView } = useInView({ threshold: 0.1, triggerOnce: true });
@@ -776,6 +798,11 @@ const Landing: React.FC = () => {
   const handleNavigateToProfile = (profileUrl: string) => {
     navigate(profileUrl);
   };
+
+  // Добавляем функцию для переключения видимости панели поиска
+  const toggleSearchPanel = useCallback(() => {
+    setIsSearchPanelOpen(prev => !prev);
+  }, []);
 
   return (
     <PageContainer>
@@ -1054,55 +1081,141 @@ const Landing: React.FC = () => {
                 </Typography>
               </UserCounter>
               
-              <MapControls>
-                <TextField
-                  fullWidth
-                  placeholder="Поиск по имени или месту..."
-                  size="small"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <Search />
-                      </InputAdornment>
-                    ),
+              {/* Кнопка управления панелью поиска, видима только когда панель скрыта */}
+              {!isSearchPanelOpen && (
+                <SearchPanelToggle 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                  style={{
+                    top: '20px',
+                    left: '20px',
                   }}
-                  sx={{ mb: 2 }}
-                />
-                
-                {isLocationLoading ? (
-                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
-                    <CircularProgress size={24} />
-                  </Box>
-                ) : (
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button 
-                      variant="outlined" 
-                      size="small"
-                      startIcon={<Search />}
-                      fullWidth
-                    >
-                      Рядом со мной
-                    </Button>
-                  </Box>
-                )}
-                
-                {filteredMarkers.length > 0 && (
-                  <Box sx={{ mt: 2, maxHeight: 200, overflowY: 'auto' }}>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
-                      Результаты ({filteredMarkers.length})
+                >
+                  <Button
+                    variant="contained"
+                    size="small"
+                    startIcon={<Search />}
+                    onClick={toggleSearchPanel}
+                  >
+                    Поиск
+                  </Button>
+                </SearchPanelToggle>
+              )}
+              
+              {/* Обновленная панель поиска с анимацией */}
+              <motion.div
+                initial={{ x: isSearchPanelOpen ? 0 : -320 }}
+                animate={{ 
+                  x: isSearchPanelOpen ? 0 : -320,
+                  opacity: isSearchPanelOpen ? 1 : 0
+                }}
+                transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                style={{
+                  position: 'absolute',
+                  top: '20px',
+                  left: '20px',
+                  zIndex: 1000,
+                  width: isMobile ? 'calc(100% - 40px)' : '300px',
+                  display: 'flex',
+                  pointerEvents: isSearchPanelOpen ? 'auto' : 'none'
+                }}
+              >
+                <Paper
+                  sx={{
+                    p: { xs: 1.5, sm: 2 },
+                    borderRadius: { xs: '10px', sm: '12px' },
+                    boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+                    width: '100%',
+                    position: 'relative'
+                  }}
+                >
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+                      Поиск на карте
                     </Typography>
-                    {filteredMarkers.map(marker => (
-                      <UserListItem 
-                        key={marker.id}
-                        user={marker}
-                        onClick={() => handleNavigateToProfile(marker.profileUrl)}
-                      />
-                    ))}
+                    <IconButton 
+                      size="small" 
+                      onClick={toggleSearchPanel}
+                      sx={{ 
+                        fontSize: '0.8rem',
+                        bgcolor: 'rgba(0,0,0,0.05)',
+                        '&:hover': { bgcolor: 'rgba(0,0,0,0.1)' }
+                      }}
+                    >
+                      <motion.div
+                        initial={{ rotate: 0 }}
+                        animate={{ rotate: 180 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {isSearchPanelOpen ? <KeyboardArrowLeft /> : <KeyboardArrowRight />}
+                      </motion.div>
+                    </IconButton>
                   </Box>
-                )}
-              </MapControls>
+                  
+                  <TextField
+                    fullWidth
+                    placeholder="Поиск по имени или месту..."
+                    size="small"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search fontSize="small" />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{ mb: 1.5 }}
+                  />
+                  
+                  {isLocationLoading ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : (
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button 
+                        variant="outlined" 
+                        size="small"
+                        startIcon={<Search />}
+                        fullWidth
+                      >
+                        Рядом со мной
+                      </Button>
+                    </Box>
+                  )}
+                  
+                  {filteredMarkers.length > 0 && (
+                    <Box sx={{ 
+                      mt: 1.5, 
+                      maxHeight: isMobile ? 150 : 200, 
+                      overflowY: 'auto',
+                      '&::-webkit-scrollbar': {
+                        width: '4px',
+                      },
+                      '&::-webkit-scrollbar-track': {
+                        background: 'rgba(0,0,0,0.05)',
+                      },
+                      '&::-webkit-scrollbar-thumb': {
+                        background: 'rgba(0,0,0,0.2)',
+                        borderRadius: '4px',
+                      },
+                    }}>
+                      <Typography variant="subtitle2" sx={{ mb: 1, fontSize: '0.75rem' }}>
+                        Результаты ({filteredMarkers.length})
+                      </Typography>
+                      {filteredMarkers.map(marker => (
+                        <UserListItem 
+                          key={marker.id}
+                          user={marker}
+                          onClick={() => handleNavigateToProfile(marker.profileUrl)}
+                        />
+                      ))}
+                    </Box>
+                  )}
+                </Paper>
+              </motion.div>
               
               <MapContainer 
                 center={[55.7558, 37.6173]} 

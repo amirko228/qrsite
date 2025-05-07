@@ -195,7 +195,7 @@ const WidgetElement = styled(motion.div)<{
   }
 `;
 
-// Улучшим ручку перетаскивания для лучшей визуальной обратной связи
+// Улучшаем стили для процесса перетаскивания виджетов
 const DragHandle = styled(motion.div)`
   position: absolute;
   left: 50%;
@@ -209,6 +209,7 @@ const DragHandle = styled(motion.div)`
   opacity: 0.7;
   transition: all 0.2s ease;
   z-index: 10;
+  -webkit-tap-highlight-color: transparent; /* Убираем подсветку при тапе на мобильных */
 
   &:hover {
     background-color: rgba(33, 150, 243, 0.5);
@@ -436,7 +437,18 @@ const WidgetContent: React.FC<{
   const [isDragging, setIsDragging] = useState(false);
   const constraints = useRef<HTMLDivElement>(null);
   const [posY, setPosY] = useState(0);
+  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
+  const [dropzones, setDropzones] = useState<Element[]>([]);
+  const [dragDirection, setDragDirection] = useState<'up' | 'down' | null>(null);
   
+  // Кешируем зоны перетаскивания при первом перетаскивании
+  useEffect(() => {
+    if (isDragging && dropzones.length === 0) {
+      const zones = Array.from(document.querySelectorAll('[id^="dropzone-"]'));
+      setDropzones(zones);
+    }
+  }, [isDragging, dropzones.length]);
+
   // Функция для рендера контента виджета в зависимости от его типа
   const renderWidgetContent = () => {
     switch (widget.type) {
@@ -638,6 +650,30 @@ const WidgetContent: React.FC<{
     }
   };
 
+  // Обрабатываем взаимодействие со всеми зонами перетаскивания
+  const findClosestDropzone = useCallback((draggedCenter: number) => {
+    if (!dropzones.length) return { zone: null, index: -1 };
+    
+    let closestZone: Element | null = null;
+    let minDistance = Infinity;
+    let targetIndex = index;
+    
+    dropzones.forEach(zone => {
+      const zoneRect = zone.getBoundingClientRect();
+      const zoneCenter = zoneRect.top + zoneRect.height / 2;
+      const distance = Math.abs(draggedCenter - zoneCenter);
+      
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestZone = zone;
+        const dataIndex = zone.getAttribute('data-index');
+        targetIndex = dataIndex ? parseInt(dataIndex, 10) : index;
+      }
+    });
+    
+    return { zone: closestZone, index: targetIndex };
+  }, [dropzones, index]);
+
   return (
     <WidgetContainer 
       ref={constraints}
@@ -666,15 +702,15 @@ const WidgetContent: React.FC<{
         />
       }
       
-    <WidgetElement
-      $backgroundColor={widget.backgroundColor}
-      $textColor={widget.textColor}
-      $isSelected={isSelected}
+      <WidgetElement
+        $backgroundColor={widget.backgroundColor}
+        $textColor={widget.textColor}
+        $isSelected={isSelected}
         $isDragging={isDragging}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect();
+        }}
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ 
           opacity: 1, 
@@ -688,18 +724,21 @@ const WidgetContent: React.FC<{
         exit={{ opacity: 0, scale: 0.96 }}
         transition={{ 
           duration: 0.2,
-          y: { type: "spring", stiffness: 300, damping: 25 }
+          y: { type: "spring", stiffness: 350, damping: 25 }
         }}
         drag="y"
+        dragDirectionLock  // Блокируем движение только по оси Y
         dragConstraints={constraints}
         dragElastic={0.1} // Увеличиваем эластичность для лучшего ощущения
         dragTransition={{ 
-          bounceStiffness: 300, 
-          bounceDamping: 20 
+          bounceStiffness: 350, 
+          bounceDamping: 25,
+          power: 0.2
         }} // Улучшение физики перетаскивания
         dragMomentum={false}
-        onDragStart={() => {
+        onDragStart={(e, info) => {
           setIsDragging(true);
+          setDragStartPos({ x: info.point.x, y: info.point.y });
           // Добавляем тактильную обратную связь для устройств, поддерживающих вибрацию
           if (window.navigator && window.navigator.vibrate) {
             window.navigator.vibrate(50);
@@ -707,6 +746,36 @@ const WidgetContent: React.FC<{
         }}
         onDrag={(e, info) => {
           setPosY(info.offset.y);
+          
+          // Определяем направление перетаскивания
+          const newDirection = info.delta.y > 0 ? 'down' : 'up';
+          if (newDirection !== dragDirection) {
+            setDragDirection(newDirection);
+          }
+          
+          // Находим ближайшую зону для визуального выделения
+          if (dropzones.length > 0) {
+            const draggedElement = e.currentTarget as HTMLElement;
+            const draggedRect = draggedElement.getBoundingClientRect();
+            const draggedCenter = draggedRect.top + draggedRect.height / 2;
+            
+            const { zone } = findClosestDropzone(draggedCenter);
+            
+            // Сбрасываем все зоны
+            dropzones.forEach(z => {
+              // Проверяем, что зона действительно является HTMLElement
+              if (z instanceof HTMLElement) {
+                z.style.backgroundColor = 'transparent';
+                z.style.height = '20px';
+              }
+            });
+            
+            // Выделяем текущую зону
+            if (zone instanceof HTMLElement) {
+              zone.style.backgroundColor = 'rgba(33, 150, 243, 0.25)';
+              zone.style.height = '26px';
+            }
+          }
         }}
         onDragEnd={(e, info) => {
           setPosY(0);
@@ -717,31 +786,24 @@ const WidgetContent: React.FC<{
             window.navigator.vibrate(25);
           }
           
+          // Сбрасываем все выделенные зоны
+          dropzones.forEach(z => {
+            // Проверяем, что зона действительно является HTMLElement
+            if (z instanceof HTMLElement) {
+              z.style.backgroundColor = 'transparent';
+              z.style.height = '20px';
+            }
+          });
+          
           // Находим ближайшую зону и перемещаем виджет туда
           if (onPositionChange) {
             const draggedElement = e.target as HTMLElement;
             const draggedRect = draggedElement.getBoundingClientRect();
             const draggedCenter = draggedRect.top + draggedRect.height / 2;
             
-            // Найдем все зоны перетаскивания
-            const dropzones = document.querySelectorAll('[id^="dropzone-"]');
-            let closestZone = null;
-            let minDistance = Infinity;
-            let targetIndex = index;
+            const { index: targetIndex } = findClosestDropzone(draggedCenter);
             
-            dropzones.forEach(zone => {
-              const zoneRect = zone.getBoundingClientRect();
-              const zoneCenter = zoneRect.top + zoneRect.height / 2;
-              const distance = Math.abs(draggedCenter - zoneCenter);
-              
-              if (distance < minDistance) {
-                minDistance = distance;
-                closestZone = zone;
-                targetIndex = parseInt(zone.getAttribute('data-index') || `${index}`, 10);
-              }
-            });
-            
-            if (closestZone && targetIndex !== index) {
+            if (targetIndex !== -1 && targetIndex !== index) {
               onPositionChange(widget.id, targetIndex);
             }
           }
@@ -751,7 +813,7 @@ const WidgetContent: React.FC<{
           whileHover={{ scale: 1.1 }}
           whileTap={{ scale: 0.95 }}
         />
-      <WidgetControls className="widget-controls">
+        <WidgetControls className="widget-controls">
           <IconButton 
             size="small" 
             onClick={(e) => { e.stopPropagation(); onEdit(); }}
@@ -764,8 +826,8 @@ const WidgetContent: React.FC<{
               }
             }}
           >
-          <Edit fontSize="small" />
-        </IconButton>
+            <Edit fontSize="small" />
+          </IconButton>
           <IconButton 
             size="small" 
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
@@ -778,12 +840,12 @@ const WidgetContent: React.FC<{
               }
             }}
           >
-          <Delete fontSize="small" />
-        </IconButton>
-      </WidgetControls>
-      
-      {renderWidgetContent()}
-    </WidgetElement>
+            <Delete fontSize="small" />
+          </IconButton>
+        </WidgetControls>
+        
+        {renderWidgetContent()}
+      </WidgetElement>
       
       <DropZone 
         layout
@@ -1736,11 +1798,39 @@ const SocialPage: React.FC = () => {
     setWidgets(prev => {
       const updatedWidgets = [...prev];
       const currentIndex = updatedWidgets.findIndex(w => w.id === widgetId);
+      
+      if (currentIndex === -1) return prev;
+      
+      // Оптимизированное перемещение элемента массива
       const [movedWidget] = updatedWidgets.splice(currentIndex, 1);
-      updatedWidgets.splice(targetIndex, 0, movedWidget);
+      
+      // Вставляем виджет в новую позицию с анимацией
+      updatedWidgets.splice(targetIndex, 0, {
+        ...movedWidget,
+        // Добавляем временную метку для анимации
+        id: `${movedWidget.id}_${Date.now()}`
+      });
+      
+      // После анимации восстанавливаем исходный ID
+      setTimeout(() => {
+        setWidgets(current => 
+          current.map(w => 
+            w.id === `${movedWidget.id}_${Date.now()}` 
+              ? { ...w, id: movedWidget.id } 
+              : w
+          )
+        );
+      }, 300);
+      
       return updatedWidgets;
     });
-  }, []);
+    
+    // Используем вибрацию для обратной связи
+    if (window.navigator && window.navigator.vibrate) {
+      window.navigator.vibrate([30, 50, 30]);
+    }
+    
+  }, [widgets.length]);
 
   const handleAddWidgetClose = useCallback(() => {
     setAnchorEl(null);
