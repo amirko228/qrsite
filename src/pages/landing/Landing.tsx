@@ -45,10 +45,7 @@ const fadeIn = keyframes`
 
 // Стилизованный заголовок с градиентом
 const GradientTitle = styled(Typography)`
-  background: linear-gradient(135deg, ${customColors.secondary} 0%, ${customColors.primary} 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
+  color: ${customColors.white};
   display: inline-block;
   position: relative;
   font-family: Garamond, serif;
@@ -73,11 +70,22 @@ const TitleWrapper = styled(Box)`
     left: -30px;
     right: -30px;
     bottom: -10px;
-    background: linear-gradient(135deg, ${customColors.secondary}60 0%, ${customColors.primary}40 100%);
+    background: linear-gradient(135deg, ${customColors.white} 0%, ${customColors.secondary}60 100%);
     border-radius: 50% 20% 30% 10%;
     transform: rotate(-2deg);
     z-index: -1;
-    opacity: 0.9;
+  }
+  
+  &::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 80px;
+    height: 80px;
+    background: ${customColors.secondary};
+    border-radius: 0 0 0 100%;
+    z-index: -1;
   }
 `;
 
@@ -374,18 +382,33 @@ const InfoBlock = styled(motion.div)<{ blockType?: number }>`
   }
 `;
 
+// Контейнер для QR-кода с центрированием
 const QRCodeContainer = styled(Box)`
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 40px 0;
-`;
-
-const AnimatedQRCode = styled(motion.div)`
-  padding: 20px;
   background: white;
   border-radius: 16px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  padding: 24px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  max-width: 320px;
+  margin: 0 auto;
+`;
+
+// Анимированный блок для QR-кода
+const AnimatedQRCode = styled(motion.div)`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  
+  /* Центрирование QR-кода */
+  & > svg {
+    margin: 0 auto;
+    display: block;
+  }
 `;
 
 const FloatingButton = styled(Button)`
@@ -506,30 +529,52 @@ const LocateMe = ({ onLocate }: { onLocate: (lat: number, lng: number) => void }
   );
 };
 
-// Добавляем центрирование для типографии по умолчанию с шрифтом Alegreya
-const CenteredTypography = styled(Typography).attrs({
-  align: 'center'
-})`
+// Типографика с фиксированными параметрами для предотвращения "скачущих" символов
+const CenteredTypography = styled(Typography)`
   text-align: center;
-  font-family: Alegreya, sans-serif;
+  font-size: ${props => props.variant === 'h5' ? '1.25rem' : '1rem'};
+  font-family: 'Alegreya, sans-serif';
+  line-height: 1.5;
+  letter-spacing: 0.015em;
+  margin: 0 auto;
+  max-width: 800px;
+  
+  /* Предотвращаем скачки текста при рендеринге */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  height: auto;
+  min-height: ${props => props.variant === 'h5' ? '2.5rem' : '1.5rem'};
 `;
 
-// Заголовок с шрифтом Garamond
-const HeadingTypography = styled(Typography).attrs({
-  align: 'center'
-})`
+// Заголовки с фиксированными параметрами
+const HeadingTypography = styled(Typography)`
   text-align: center;
-  font-family: Garamond, serif;
-  font-weight: 600;
+  font-family: 'Garamond, serif';
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0.01em;
+  
+  /* Предотвращаем скачки текста при рендеринге */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 `;
 
-// Модифицируем InfoBlockTitle для выравнивания по центру
+// Информационный блок с заголовком
 const InfoBlockTitle = styled(Typography)`
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+  gap: 8px;
   margin-bottom: 16px;
+  font-family: 'Garamond, serif';
+  font-weight: 600;
+  font-size: 1.25rem;
+  
+  /* Предотвращаем скачки текста при рендеринге */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 `;
 
 const StepNumber = styled.div`
@@ -1078,7 +1123,7 @@ const Landing: React.FC = () => {
               
               <MapContainer 
                 center={[55.7558, 37.6173]} 
-                zoom={4} 
+                zoom={9} 
                 style={{ height: '100%', width: '100%' }} 
                 zoomControl={false}
               >
