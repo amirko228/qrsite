@@ -478,40 +478,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Оптимизированный выход пользователя
   const logout = useCallback(() => {
-    // Запоминаем имя пользователя, чтобы знать, что был выход
-    const currentUserId = localStorage.getItem('current_user_id');
-    
     // Сохраняем данные пользователей для админ-панели
     const adminPanelData = localStorage.getItem(USERS_STORAGE_KEY);
     
-    console.log('Выход пользователя:', currentUserId);
+    console.log('Выход пользователя: полная очистка localStorage');
     
-    // РАДИКАЛЬНОЕ РЕШЕНИЕ: Полностью очищаем localStorage
-    if (currentUserId) {
-      console.log('Очистка данных пользователя при выходе');
-      
-      // Удаляем все ключи, связанные с текущим пользователем
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (
-            key === 'current_user_id' || 
-            key === TOKEN_KEY || 
-            key === 'current_user_name' || 
-            key === 'current_user_is_admin' || 
-            key.startsWith(currentUserId + '__') || 
-            key.includes('__' + currentUserId + '__')
-          )) {
-          console.log('Удаляем:', key);
-          localStorage.removeItem(key);
-          // После удаления элемента, индексы смещаются
-          i--;
-        }
-      }
-      
-      // Восстанавливаем только данные для админ-панели
-      if (adminPanelData) {
-        localStorage.setItem(USERS_STORAGE_KEY, adminPanelData);
-      }
+    // ПОЛНАЯ очистка localStorage
+    localStorage.clear();
+    
+    // Восстанавливаем только данные для админ-панели
+    if (adminPanelData) {
+      localStorage.setItem(USERS_STORAGE_KEY, adminPanelData);
     }
     
     // Очищаем состояние React
