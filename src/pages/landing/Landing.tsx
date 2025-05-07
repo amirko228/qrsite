@@ -52,6 +52,7 @@ const GradientTitle = styled(Typography)`
   font-weight: 700;
   font-size: 3.5rem;
   z-index: 2;
+  padding: 0 10px;
   
   @media (max-width: 600px) {
     font-size: 2.5rem;
@@ -63,18 +64,28 @@ const TitleWrapper = styled(Box)`
   position: relative;
   display: inline-block;
   margin-bottom: 10px;
-  padding: 8px 24px;
-  border-radius: 12px;
-  background: linear-gradient(135deg, ${customColors.secondary} 0%, ${customColors.primary} 100%);
+  border-radius: 20px;
+  overflow: hidden;
+  
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, #47A3FF 0%, #0A3D67 100%);
+    z-index: 1;
+  }
   
   &::after {
     content: '';
     position: absolute;
     top: 0;
     right: 0;
-    width: 60px;
-    height: 60px;
-    background: ${customColors.secondary};
+    width: 80px;
+    height: 80px;
+    background: rgba(114, 195, 255, 0.6);
     border-radius: 0 0 0 100%;
     z-index: 1;
   }
