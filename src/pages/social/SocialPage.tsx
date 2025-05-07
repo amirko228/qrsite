@@ -175,7 +175,7 @@ const WidgetElement = styled(motion.div)<{
   touch-action: ${props => props.$isDragging ? 'none' : 'auto'};
   
   ${props => props.$isSelected && `
-    outline: 2px solid ${theme.palette.primary.main};
+    outline: 2px solid #1976d2;
   `}
   
   &:hover {
@@ -696,10 +696,15 @@ const WidgetContent: React.FC<{
           setPosY(info.offset.y);
           
           // Добавляем хаптическую обратную связь для мобильных устройств
-          if (window.navigator.vibrate && info.delta.y !== 0) {
+          if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate && info.delta.y !== 0) {
             // Вибрация только при существенном перемещении
             if (Math.abs(info.delta.y) > 5) {
-              window.navigator.vibrate(5);
+              try {
+                window.navigator.vibrate(5);
+              } catch (e) {
+                // Игнорируем ошибки вибрации
+                console.log('Vibration not supported');
+              }
             }
           }
           
@@ -774,8 +779,13 @@ const WidgetContent: React.FC<{
             // Применяем перемещение только если расстояние достаточно мало и индекс изменился
             if (closestZone && targetIndex !== index && minDistance < 80) {
               // Добавляем вибрацию для мобильных устройств при успешном перемещении
-              if (window.navigator.vibrate) {
-                window.navigator.vibrate([15, 50, 15]);
+              if (typeof window !== 'undefined' && window.navigator && window.navigator.vibrate) {
+                try {
+                  window.navigator.vibrate([15, 50, 15]);
+                } catch (e) {
+                  // Игнорируем ошибки вибрации
+                  console.log('Vibration not supported');
+                }
               }
               
               // Применяем изменение позиции
