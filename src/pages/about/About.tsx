@@ -26,7 +26,7 @@ const PageContainer = styled(Box)`
 // Базовая секция с закругленными углами
 const BaseSection = styled(Box)`
   background: ${customColors.white};
-  border-radius: 20px;
+  border-radius: 16px;
   overflow: hidden;
   padding: 40px;
   margin-bottom: 30px;
@@ -35,104 +35,47 @@ const BaseSection = styled(Box)`
   
   @media (max-width: 600px) {
     padding: 30px 20px;
-    border-radius: 15px;
+    border-radius: 16px;
   }
 `;
 
-// Заголовок страницы
+// Заголовок страницы - убираем полукруг
 const HeaderSection = styled(BaseSection)`
   padding: 60px 40px;
   background: linear-gradient(135deg, ${customColors.white} 0%, ${customColors.secondary}15 100%);
-  border-radius: 30px 30px 20px 20px;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0; 
-    width: 150px;
-    height: 150px;
-    background: ${customColors.secondary}20;
-    border-radius: 0 0 0 100%;
-    z-index: 0;
-  }
+  border-radius: 16px;
   
   @media (max-width: 600px) {
     padding: 40px 20px;
   }
 `;
 
-// Секция миссии
+// Секция миссии - убираем неравномерное скругление
 const MissionSection = styled(BaseSection)`
   background: linear-gradient(135deg, ${customColors.white} 0%, ${customColors.secondary}10 100%);
-  border-radius: 20px 50px 20px 20px;
+  border-radius: 16px;
 `;
 
-// Секция команды
+// Секция команды - убираем неравномерное скругление
 const TeamSection = styled(BaseSection)`
   background: ${customColors.white};
-  border-radius: 20px 20px 50px 20px;
+  border-radius: 16px;
 `;
 
-// Секция ценностей
+// Секция ценностей - убираем неравномерное скругление
 const ValuesSection = styled(BaseSection)`
   background: linear-gradient(135deg, ${customColors.secondary}10 0%, ${customColors.white} 100%);
-  border-radius: 20px 20px 20px 50px;
+  border-radius: 16px;
 `;
 
-// Карточка для команды с геометрическими формами
+// Карточка для команды - убираем геометрические формы
 const TeamMemberCard = styled(motion(Card))<{ index: number }>`
   height: 100%;
   transition: transform 0.3s ease;
   cursor: pointer;
-  border-radius: ${props => {
-    switch(props.index % 3) {
-      case 0: return '30px 15px 15px 15px'; // Скругление вверху слева
-      case 1: return '15px 30px 15px 15px'; // Скругление вверху справа
-      case 2: return '15px 15px 15px 30px'; // Скругление внизу слева
-      default: return '15px';
-    }
-  }};
+  border-radius: 16px;
   position: relative;
   overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    z-index: 0;
-    
-    ${props => {
-      switch(props.index % 3) {
-        case 0: return `
-          bottom: 0;
-          right: 0;
-          width: 90px;
-          height: 90px;
-          background: ${customColors.secondary}15;
-          border-radius: 0 0 0 100%;
-        `;
-        case 1: return `
-          top: 0;
-          right: 0;
-          width: 80px;
-          height: 80px;
-          background: ${customColors.secondary}20;
-          border-radius: 0 0 0 100%;
-        `;
-        case 2: return `
-          top: 0;
-          left: 0;
-          width: 100px;
-          height: 100px;
-          background: ${customColors.secondary}15;
-          border-radius: 0 0 100% 0;
-        `;
-        default: return `
-          display: none;
-        `;
-      }
-    }}
-  }
 
   &:hover {
     transform: translateY(-10px);
@@ -140,59 +83,14 @@ const TeamMemberCard = styled(motion(Card))<{ index: number }>`
   }
 `;
 
-// Блок для элементов списка
+// Блок для элементов списка - убираем геометрические формы
 const ValueBlock = styled(Box)<{index: number}>`
   padding: 20px;
   margin-bottom: 15px;
-  border-radius: ${props => {
-    switch(props.index % 3) {
-      case 0: return '20px 20px 50px 20px'; // Скругление внизу справа
-      case 1: return '20px 50px 20px 20px'; // Скругление вверху справа
-      case 2: return '50px 20px 20px 20px'; // Скругление вверху слева
-      default: return '20px';
-    }
-  }};
+  border-radius: 16px;
   background: rgba(255, 255, 255, 0.8);
   position: relative;
   overflow: hidden;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    z-index: 0;
-    
-    ${props => {
-      switch(props.index % 3) {
-        case 0: return `
-          bottom: 0;
-          right: 0;
-          width: 70px;
-          height: 70px;
-          background: ${customColors.secondary}10;
-          border-radius: 70% 0 0 0;
-        `;
-        case 1: return `
-          top: 0;
-          right: 0;
-          width: 60px;
-          height: 60px;
-          background: ${customColors.secondary}15;
-          border-radius: 0 0 0 100%;
-        `;
-        case 2: return `
-          top: 0;
-          left: 0;
-          width: 80px;
-          height: 80px;
-          background: ${customColors.secondary}10;
-          border-radius: 0 0 100% 0;
-        `;
-        default: return `
-          display: none;
-        `;
-      }
-    }}
-  }
 `;
 
 const About: React.FC = () => {

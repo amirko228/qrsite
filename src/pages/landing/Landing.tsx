@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from 'react';
 import { Box, Container, Typography, Button, Grid, useTheme, useMediaQuery, Paper, Tooltip, InputAdornment, TextField, CircularProgress, Divider, Card, CardContent, CardMedia, Avatar } from '@mui/material';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
-import styled, { keyframes, ThemeProvider } from 'styled-components';
+import styled, { keyframes, ThemeProvider, createGlobalStyle } from 'styled-components';
 import { Link, useNavigate } from 'react-router-dom';
 import QRCode from 'react-qr-code';
 import { motion } from 'framer-motion';
@@ -13,6 +13,45 @@ import L from 'leaflet';
 // Fix marker icon issue in Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
+
+// Импортируем шрифты через файл стилей
+const GlobalStyle = createGlobalStyle`
+  @font-face {
+    font-family: 'Vetrino';
+    src: url('/fonts/Vetrino.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+  
+  @font-face {
+    font-family: 'Tilda Sans';
+    src: url('/fonts/TildaSans.woff2') format('woff2');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  /* Глобальные стили для улучшения адаптивности */
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Vetrino', sans-serif;
+  }
+
+  p, span, div, button, a {
+    font-family: 'Tilda Sans', sans-serif;
+  }
+`;
 
 // Определим основные цвета согласно ТЗ
 const customColors = {
@@ -43,253 +82,177 @@ const fadeIn = keyframes`
   }
 `;
 
-// Стилизованный заголовок с градиентом
-const GradientTitle = styled(Typography)`
-  color: white;
-  display: inline-block;
-  position: relative;
-  font-family: Garamond, serif;
-  font-weight: 700;
-  font-size: 3.5rem;
-  z-index: 2;
-  padding: 0 10px;
-  
-  @media (max-width: 600px) {
-    font-size: 2.5rem;
-  }
-`;
-
-// Фигура-подложка для заголовка
-const TitleWrapper = styled(Box)`
-  position: relative;
-  display: inline-block;
-  margin-bottom: 10px;
-  border-radius: 20px;
-  overflow: hidden;
-  
-  &:before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: linear-gradient(90deg, #47A3FF 0%, #0A3D67 100%);
-    z-index: 1;
-  }
-  
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 80px;
-    height: 80px;
-    background: rgba(114, 195, 255, 0.6);
-    border-radius: 0 0 0 100%;
-    z-index: 1;
-  }
-`;
-
-// Основной контейнер для всех секций
-const PageContainer = styled(Box)`
-  background-color: ${customColors.gray};
-  padding: 40px 20px;
-  min-height: 100vh;
-  width: 100%;
-  
-  @media (max-width: 600px) {
-    padding: 20px 10px;
-  }
-`;
-
-// Базовая секция с закругленными углами
+// Градиентный фон для всех секций, без полукругов
 const BaseSection = styled(Box)`
   background: ${customColors.white};
-  border-radius: 20px;
+  border-radius: 16px;
   overflow: hidden;
-  padding: 40px;
-  margin-bottom: 30px;
+  padding: 32px;
+  margin-bottom: 24px;
   box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
   position: relative;
   
-  @media (max-width: 600px) {
-    padding: 30px 20px;
-    border-radius: 15px;
+  @media (max-width: 768px) {
+    padding: 24px 20px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 20px 16px;
+    border-radius: 12px;
   }
 `;
 
-// Hero секция
+// Единый стиль секций, с градиентом на всю площадь
 const HeroSection = styled(BaseSection)`
-  padding: 60px 40px;
+  padding: 48px 32px;
   background: linear-gradient(135deg, ${customColors.white} 0%, ${customColors.secondary}15 100%);
   
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0; 
-    width: 150px;
-    height: 150px;
-    background: ${customColors.secondary}20;
-    border-radius: 0 0 0 100%;
-    z-index: 0;
+  @media (max-width: 768px) {
+    padding: 36px 24px;
   }
   
-  @media (max-width: 600px) {
-    padding: 40px 20px;
+  @media (max-width: 480px) {
+    padding: 24px 16px;
   }
 `;
 
-// Секция "Что это такое"
+// Секция "Что это такое" - с градиентом на всю площадь
 const AboutSection = styled(BaseSection)`
   background: ${customColors.white};
-  border-radius: 20px 20px 50px 20px;
+  border-radius: 16px;
 `;
 
-// Секция "Зачем это нужно"
+// Секция "Зачем это нужно" - с градиентом на всю площадь
 const WhySection = styled(BaseSection)`
   background: linear-gradient(135deg, ${customColors.white} 0%, ${customColors.secondary}10 100%);
-  border-radius: 20px 50px 20px 20px;
 `;
 
-// Секция карты
-const MapCardSection = styled(BaseSection)`
-  background: ${customColors.white};
-  border-radius: 30px;
-  padding-bottom: 20px;
-  
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 40px;
-    background: ${customColors.secondary}15;
-    border-radius: 0 0 30px 30px;
-    z-index: 0;
-  }
-`;
-
-// Секция "Как это работает"
-const HowSection = styled(BaseSection)`
-  background: ${customColors.white};
-  border-radius: 50px 20px 20px 20px;
-`;
-
-// Секция примера
-const ExampleSection = styled(BaseSection)`
-  background: linear-gradient(135deg, ${customColors.secondary}10 0%, ${customColors.white} 100%);
-  border-radius: 20px 20px 20px 50px;
-`;
-
-// Секция условий
-const TermsSection = styled(BaseSection)`
-  background: ${customColors.white};
-  border-radius: 20px;
-`;
-
-// Секция нижнего QR-кода
-const BottomQrSection = styled(BaseSection)`
-  background: linear-gradient(0deg, ${customColors.secondary}15 0%, ${customColors.white} 100%);
-  border-radius: 40px 40px 20px 20px;
-  text-align: center;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 20px;
-    background: ${customColors.secondary}25;
-    border-radius: 40px 40px 0 0;
-    z-index: 0;
-  }
-`;
-
-// Карточка шага с уникальной фигурой для каждого элемента
+// Карточка шага - улучшенный стиль и адаптив
 const StepCard = styled(motion.div)<{ stepNumber?: number }>`
   padding: 24px;
   background: white;
-  border-radius: ${(props) => {
-    switch(props.stepNumber) {
-      case 1: return '30px 15px 15px 15px'; // Скругление вверху слева
-      case 2: return '15px 30px 15px 15px'; // Скругление вверху справа
-      case 3: return '15px 15px 15px 30px'; // Скругление внизу слева
-      case 4: return '15px 15px 30px 15px'; // Скругление внизу справа
-      default: return '16px';
-    }
-  }};
+  border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   margin-bottom: 16px;
   display: flex;
   align-items: flex-start;
   gap: 16px;
   position: relative;
-  overflow: hidden;
-  z-index: 1;
   
-  &:before {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    z-index: 0;
-    
-    ${(props) => {
-      switch(props.stepNumber) {
-        case 1: return `
-          width: 120px;
-          height: 120px;
-          background-color: rgba(62, 154, 255, 0.05);
-          border-radius: 70% 30% 30% 70% / 60% 40% 60% 40%;
-        `;
-        case 2: return `
-          width: 140px;
-          height: 140px;
-          background-color: rgba(10, 61, 103, 0.05);
-          border-radius: 30% 70% 70% 30% / 40% 60% 40% 60%;
-        `;
-        case 3: return `
-          width: 130px;
-          height: 130px;
-          background-color: rgba(62, 154, 255, 0.08);
-          border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-        `;
-        default: return `
-          width: 150px;
-          height: 150px;
-          background-color: rgba(10, 61, 103, 0.08);
-          border-radius: 40% 60% 70% 30% / 40% 70% 30% 60%;
-        `;
-      }
-    }}
+  @media (max-width: 768px) {
+    padding: 20px 16px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 16px 12px;
+    gap: 12px;
   }
 `;
 
-const MapSection = styled(Box)`
-  height: 600px;
+// Улучшаем внешний вид кругов для мобильных устройств 
+// Унифицированные размеры круглых элементов
+const CircleStep = styled(Box)<{ active?: boolean }>`
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: ${props => props.active ? customColors.secondary : customColors.primary};
+  color: ${customColors.white};
+  font-family: 'Vetrino', sans-serif;
+  font-weight: bold;
+  font-size: 18px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  flex-shrink: 0;
+  
+  @media (max-width: 768px) {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+  
+  @media (max-width: 480px) {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+  }
+`;
+
+// Заголовок с градиентным фоном - исправленный адаптив
+const GradientTitle = styled(Typography)`
+  color: white;
+  font-family: 'Vetrino', sans-serif;
+  font-weight: 700;
   position: relative;
-  margin: 40px 0;
+  z-index: 2;
+  width: 100%;
+  text-align: center;
+  font-size: 3.5rem;
+  padding: 12px 30px;
+  
+  @media (max-width: 768px) {
+    font-size: 2.5rem;
+    padding: 10px 20px;
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 2rem;
+    padding: 8px 16px;
+  }
+`;
+
+// Основной контейнер для всех секций - улучшенный адаптив
+const PageContainer = styled(Box)`
+  background-color: ${customColors.gray};
+  padding: 40px 20px;
+  min-height: 100vh;
+  width: 100%;
+  overflow-x: hidden;
+  
+  @media (max-width: 768px) {
+    padding: 30px 15px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 20px 10px;
+  }
+`;
+
+// Секция карты - удаляем полукруг
+const MapCardSection = styled(BaseSection)`
+  background: ${customColors.white};
   border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  padding-bottom: 20px;
 `;
 
-const UserCounter = styled(motion.div)`
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: white;
-  padding: 15px 25px;
-  border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-  z-index: 1000;
+// Секция "Как это работает" - равномерное скругление
+const HowSection = styled(BaseSection)`
+  background: ${customColors.white};
+  border-radius: 16px;
 `;
 
-// InfoBlock с центрированным содержимым и разными фигурами
+// Секция примера - равномерное скругление
+const ExampleSection = styled(BaseSection)`
+  background: linear-gradient(135deg, ${customColors.secondary}10 0%, ${customColors.white} 100%);
+  border-radius: 16px;
+`;
+
+// Секция условий
+const TermsSection = styled(BaseSection)`
+  background: ${customColors.white};
+  border-radius: 16px;
+`;
+
+// Секция нижнего QR-кода - удаляем полукруг
+const BottomQrSection = styled(BaseSection)`
+  background: linear-gradient(0deg, ${customColors.secondary}15 0%, ${customColors.white} 100%);
+  border-radius: 16px;
+  text-align: center;
+`;
+
+// InfoBlock с центрированным содержимым - убираем разные фигуры, делаем равномерное скругление
 const InfoBlock = styled(motion.div)<{ blockType?: number }>`
   padding: 30px;
   background: #f8f9fa;
@@ -300,91 +263,18 @@ const InfoBlock = styled(motion.div)<{ blockType?: number }>`
   overflow: hidden;
   z-index: 1;
   
-  /* Разные формы блоков в зависимости от типа */
-  border-radius: ${props => {
-    switch(props.blockType) {
-      case 1: return '20px 20px 50px 20px'; // Скругление внизу справа
-      case 2: return '20px 50px 20px 20px'; // Скругление вверху справа
-      case 3: return '50px 20px 20px 20px'; // Скругление вверху слева
-      case 4: return '20px 20px 20px 50px'; // Скругление внизу слева
-      case 5: return '30px 30px 10px 10px'; // Скругление сверху
-      case 6: return '10px 10px 30px 30px'; // Скругление снизу
-      default: return '20px'; // Обычное скругление
-    }
-  }};
+  /* Делаем равномерное скругление для всех блоков */
+  border-radius: 16px;
   
-  /* Фоновые фигуры внутри блоков */
-  &:before {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    
-    ${props => {
-      switch(props.blockType) {
-        case 1: return `
-          bottom: 0;
-          right: 0;
-          width: 90px;
-          height: 90px;
-          background: ${customColors.secondary}15;
-          border-radius: 0 0 0 100%;
-        `;
-        case 2: return `
-          top: 0;
-          right: 0;
-          width: 80px;
-          height: 80px;
-          background: ${customColors.secondary}20;
-          border-radius: 0 0 0 100%;
-        `;
-        case 3: return `
-          top: 0;
-          left: 0;
-          width: 100px;
-          height: 100px;
-          background: ${customColors.secondary}15;
-          border-radius: 0 0 100% 0;
-        `;
-        case 4: return `
-          bottom: 0;
-          left: 0;
-          width: 70px;
-          height: 70px;
-          background: ${customColors.secondary}20;
-          border-radius: 0 100% 0 0;
-        `;
-        case 5: return `
-          top: -20px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 200px;
-          height: 40px;
-          background: ${customColors.secondary}15;
-          border-radius: 0 0 50% 50%;
-        `;
-        case 6: return `
-          bottom: -15px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 180px;
-          height: 30px;
-          background: ${customColors.secondary}15;
-          border-radius: 50% 50% 0 0;
-        `;
-        default: return `
-          display: none;
-        `;
-      }
-    }}
-  }
-
+  /* Удаляем фоновые фигуры внутри блоков */
+  
   &:hover {
     transform: translateY(-5px);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
   }
 `;
 
-// Контейнер для QR-кода с центрированием
+// Контейнер для QR-кода с улучшенной центровкой
 const QRCodeContainer = styled(Box)`
   background: white;
   border-radius: 16px;
@@ -396,9 +286,20 @@ const QRCodeContainer = styled(Box)`
   justify-content: center;
   max-width: 320px;
   margin: 0 auto;
+  overflow: hidden;
+  
+  @media (max-width: 768px) {
+    padding: 16px;
+    max-width: 280px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 12px;
+    max-width: 250px;
+  }
 `;
 
-// Анимированный блок для QR-кода
+// Анимированный блок для QR-кода с идеальным центрированием
 const AnimatedQRCode = styled(motion.div)`
   display: flex;
   flex-direction: column;
@@ -408,9 +309,18 @@ const AnimatedQRCode = styled(motion.div)`
   
   /* Центрирование QR-кода */
   & > svg {
-    margin: 0 auto;
-    display: block;
+    margin: 0 auto !important;
+    display: block !important;
   }
+`;
+
+// Обертка для центрирования QR-кода и текста
+const QRCodeWrapper = styled(Box)`
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100%;
+  padding: 8px 0;
 `;
 
 const FloatingButton = styled(Button)`
@@ -531,36 +441,33 @@ const LocateMe = ({ onLocate }: { onLocate: (lat: number, lng: number) => void }
   );
 };
 
-// Типографика с фиксированными параметрами для предотвращения "скачущих" символов
+// Основной текст с правильным шрифтом и улучшенным адаптивом
 const CenteredTypography = styled(Typography)`
   text-align: center;
-  font-size: ${props => props.variant === 'h5' ? '1.25rem' : '1rem'};
-  font-family: 'Alegreya, sans-serif';
+  font-family: 'Tilda Sans', sans-serif;
   line-height: 1.5;
-  letter-spacing: 0.015em;
   margin: 0 auto;
   max-width: 800px;
   
-  /* Предотвращаем скачки текста при рендеринге */
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  height: auto;
-  min-height: ${props => props.variant === 'h5' ? '2.5rem' : '1.5rem'};
+  @media (max-width: 768px) {
+    max-width: 95%;
+  }
 `;
 
-// Заголовки с фиксированными параметрами
+// Заголовок с правильным шрифтом
 const HeadingTypography = styled(Typography)`
   text-align: center;
-  font-family: 'Garamond, serif';
+  font-family: 'Vetrino', sans-serif;
   font-weight: 700;
   line-height: 1.2;
-  letter-spacing: 0.01em;
   
-  /* Предотвращаем скачки текста при рендеринге */
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  @media (max-width: 768px) {
+    font-size: 1.8rem;
+  }
+  
+  @media (max-width: 480px) {
+    font-size: 1.5rem;
+  }
 `;
 
 // Информационный блок с заголовком
@@ -569,7 +476,7 @@ const InfoBlockTitle = styled(Typography)`
   align-items: center;
   gap: 8px;
   margin-bottom: 16px;
-  font-family: 'Garamond, serif';
+  font-family: 'Vetrino', sans-serif;
   font-weight: 600;
   font-size: 1.25rem;
   
@@ -671,8 +578,8 @@ const MobileResponsiveGrid = styled(Grid)(({ theme }) => ({
   [theme.breakpoints.down('sm')]: {
     flexDirection: 'column',
     alignItems: 'center',
-    gap: theme.spacing(4),
-    padding: theme.spacing(0, 2)
+    gap: theme.spacing(3),
+    padding: theme.spacing(0, 1)
   }
 }));
 
@@ -692,28 +599,6 @@ const MobileResponsiveSection = styled(Box)(({ theme }) => ({
   }
 }));
 
-// Унифицированные размеры круглых элементов для мобильной версии
-const CircleStep = styled(Box)(({ theme }) => ({
-  width: '50px',
-  height: '50px',
-  borderRadius: '50%',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: customColors.primary, // Темно-синий
-  color: customColors.white, // Белый текст
-  fontFamily: 'Garamond, serif',
-  fontWeight: 'bold',
-  fontSize: '20px',
-  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-  
-  [theme.breakpoints.down('sm')]: {
-    width: '40px', // Унифицированный размер для мобильной версии
-    height: '40px', // Унифицированный размер для мобильной версии
-    fontSize: '18px'
-  }
-}));
-
 // Стилизованная кнопка с улучшенной адаптивностью
 const StyledButton = styled(Button)`
   background-color: ${customColors.primary};
@@ -723,7 +608,7 @@ const StyledButton = styled(Button)`
   border-radius: 8px;
   text-transform: none;
   box-shadow: 0 2px 10px rgba(10, 61, 103, 0.2);
-  font-family: Alegreya, sans-serif;
+  font-family: "Tilda Sans", sans-serif;
   transition: all 0.3s ease;
   
   &:hover {
@@ -731,11 +616,81 @@ const StyledButton = styled(Button)`
     box-shadow: 0 4px 15px rgba(10, 61, 103, 0.3);
   }
   
-  @media (max-width: 600px) {
+  @media (max-width: 768px) {
+    padding: 8px 20px;
+    font-size: 0.95rem;
+    width: auto;
+  }
+  
+  @media (max-width: 480px) {
     width: 100%;
     padding: 8px 16px;
     margin-bottom: 8px;
     font-size: 0.9rem;
+  }
+`;
+
+// Фон для заголовка - градиент на всю площадь без полукруга
+const TitleWrapper = styled(Box)`
+  position: relative;
+  width: 100%;
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 16px;
+  padding: 0;
+  
+  &:before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, #47A3FF 0%, #0A3D67 100%);
+    z-index: 1;
+  }
+`;
+
+const MapSection = styled(Box)`
+  height: 600px;
+  position: relative;
+  margin: 40px 0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  
+  @media (max-width: 768px) {
+    height: 500px;
+    margin: 30px 0;
+  }
+  
+  @media (max-width: 480px) {
+    height: 400px;
+    margin: 20px 0;
+  }
+`;
+
+const UserCounter = styled(motion.div)`
+  position: absolute;
+  top: 20px;
+  right: 20px;
+  background: white;
+  padding: 15px 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  
+  @media (max-width: 768px) {
+    padding: 12px 20px;
+    top: 15px;
+    right: 15px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 8px 15px;
+    top: 10px;
+    right: 10px;
+    border-radius: 8px;
   }
 `;
 
@@ -807,19 +762,25 @@ const Landing: React.FC = () => {
 
   return (
     <PageContainer>
-        <Container maxWidth="lg">
+      <GlobalStyle />
+      <Container maxWidth="lg">
         {/* Hero Section */}
         <HeroSection ref={heroRef}>
-          <MobileResponsiveGrid container spacing={isMobile ? 2 : 4} alignItems="center">
+          <MobileResponsiveGrid container spacing={isMobile ? 3 : 4} alignItems="center">
             <Grid item xs={12} md={7}>
-              <MobileResponsiveBox sx={{ mb: isMobile ? 2 : 4 }}>
+              <MobileResponsiveBox sx={{ mb: isMobile ? 3 : 4 }}>
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={heroInView ? { opacity: 1, y: 0 } : {}}
                   transition={{ duration: 0.6 }}
                 >
                   <TitleWrapper>
-                    <GradientTitle variant="h1" align="center" sx={{ fontSize: isMobile ? '2rem' : '3.5rem' }}>
+                    <GradientTitle variant="h1" align="center" sx={{ 
+                      fontSize: isMobile ? '2.2rem' : '3.5rem',
+                      padding: isMobile ? '8px 16px' : '12px 30px',
+                      width: '100%',
+                      textAlign: 'center'
+                    }}>
                       Вспомнить все
                     </GradientTitle>
                   </TitleWrapper>
@@ -836,7 +797,8 @@ const Landing: React.FC = () => {
                     sx={{ 
                       fontSize: isMobile ? '1.1rem' : '1.25rem',
                       lineHeight: isMobile ? 1.4 : 1.5,
-                      mb: isMobile ? 2 : 3
+                      mb: isMobile ? 2 : 3,
+                      padding: isMobile ? '0 10px' : 0
                     }}
                   >
                     Сохрани память о родных и близких в цифровом пространстве. Поделитесь воспоминаниями через Qr-код.
@@ -896,18 +858,20 @@ const Landing: React.FC = () => {
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ duration: 0.5 }}
                     >
-                      <CenteredTypography variant="subtitle1" sx={{ mb: 2 }}>
+                      <CenteredTypography variant="subtitle1" sx={{ mb: 2, textAlign: 'center', width: '100%' }}>
                         Создайте мемориальную страницу близкого с историями фотографиями и видео
                       </CenteredTypography>
-                      <QRCode 
-                        value={qrValue} 
-                        size={isMobile ? 160 : 200} 
-                        bgColor="#FFFFFF"
-                        fgColor={customColors.primary}
-                        level="M"
-                        includeMargin={false}
-                      />
-                      <CenteredTypography variant="subtitle1" sx={{ mt: 2 }}>
+                      <QRCodeWrapper>
+                        <QRCode 
+                          value={qrValue} 
+                          size={isMobile ? 160 : 200} 
+                          bgColor="#FFFFFF"
+                          fgColor={customColors.primary}
+                          level="M"
+                          includeMargin={false}
+                        />
+                      </QRCodeWrapper>
+                      <CenteredTypography variant="subtitle1" sx={{ mt: 2, textAlign: 'center', width: '100%' }}>
                         Карта памяти
                       </CenteredTypography>
                     </AnimatedQRCode>
@@ -1128,10 +1092,19 @@ const Landing: React.FC = () => {
                 zoom={9} 
                 style={{ height: '100%', width: '100%' }} 
                 zoomControl={false}
+                bounds={[
+                  [55.3, 36.8], // Юго-западный угол (примерно границы МО)
+                  [56.2, 38.5]  // Северо-восточный угол (примерно границы МО)
+                ]}
+                maxBounds={[
+                  [54.3, 35.8], // Не позволяем отдалиться от центра слишком далеко
+                  [57.2, 39.5]
+                ]}
               >
                 <TileLayer
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                   attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  noWrap={true}
                 />
                 
                 <LocateMe onLocate={handleLocate} />
@@ -1187,10 +1160,18 @@ const Landing: React.FC = () => {
               <StepCard stepNumber={1}>
                 <CircleStep>1</CircleStep>
                 <Box>
-                  <Typography variant="h6" gutterBottom sx={{ fontFamily: 'Alegreya, sans-serif' }}>
+                  <Typography variant="h6" sx={{ 
+                    fontFamily: "'Vetrino', sans-serif", 
+                    marginBottom: '8px',
+                    fontSize: { xs: '1.1rem', sm: '1.2rem', md: '1.25rem' }
+                  }}>
                     Регистрация
                   </Typography>
-                  <Typography color="textSecondary" align="center" sx={{ fontFamily: 'Garamond, serif' }}>
+                  <Typography sx={{ 
+                    fontFamily: "'Tilda Sans', sans-serif",
+                    color: 'text.secondary',
+                    fontSize: { xs: '0.875rem', sm: '0.9rem', md: '1rem' }
+                  }}>
                     Отсканируй Qr-код из конверта, введи заранее созданные логин и пароль. По желанию смените их.
                   </Typography>
                 </Box>
@@ -1205,10 +1186,18 @@ const Landing: React.FC = () => {
               <StepCard stepNumber={2}>
                 <CircleStep>2</CircleStep>
                 <Box>
-                  <Typography variant="h6" gutterBottom sx={{ fontFamily: 'Garamond, serif' }}>
+                  <Typography variant="h6" sx={{ 
+                    fontFamily: "'Vetrino', sans-serif", 
+                    marginBottom: '8px',
+                    fontSize: { xs: '1.1rem', sm: '1.2rem', md: '1.25rem' }
+                  }}>
                     Создание уникальной страницы памяти
                   </Typography>
-                  <Typography color="textSecondary" align="center" sx={{ fontFamily: 'Alegreya, sans-serif' }}>
+                  <Typography sx={{ 
+                    fontFamily: "'Tilda Sans', sans-serif",
+                    color: 'text.secondary',
+                    fontSize: { xs: '0.875rem', sm: '0.9rem', md: '1rem' }
+                  }}>
                     С помощью визуального конструктора или заранее созданных шаблонов разместите фотографии, видео, биографию и другую информацию о близком человеке.
                   </Typography>
                 </Box>
@@ -1223,10 +1212,18 @@ const Landing: React.FC = () => {
               <StepCard stepNumber={3}>
                 <CircleStep>3</CircleStep>
                 <Box>
-                  <Typography variant="h6" gutterBottom sx={{ fontFamily: 'Alegreya, sans-serif' }}>
+                  <Typography variant="h6" sx={{ 
+                    fontFamily: "'Vetrino', sans-serif", 
+                    marginBottom: '8px',
+                    fontSize: { xs: '1.1rem', sm: '1.2rem', md: '1.25rem' }
+                  }}>
                     Формирование семейного древа
                   </Typography>
-                  <Typography color="textSecondary" align="center" sx={{ fontFamily: 'Garamond, serif' }}>
+                  <Typography sx={{ 
+                    fontFamily: "'Tilda Sans', sans-serif",
+                    color: 'text.secondary',
+                    fontSize: { xs: '0.875rem', sm: '0.9rem', md: '1rem' }
+                  }}>
                     Разместите генеалогическое древо своей семьи.
                   </Typography>
                 </Box>
@@ -1241,10 +1238,18 @@ const Landing: React.FC = () => {
               <StepCard stepNumber={4}>
                 <CircleStep>4</CircleStep>
                 <Box>
-                  <Typography variant="h6" gutterBottom sx={{ fontFamily: 'Garamond, serif' }}>
+                  <Typography variant="h6" sx={{ 
+                    fontFamily: "'Vetrino', sans-serif", 
+                    marginBottom: '8px',
+                    fontSize: { xs: '1.1rem', sm: '1.2rem', md: '1.25rem' }
+                  }}>
                     Размещение QR-кода
                   </Typography>
-                  <Typography color="textSecondary" align="center" sx={{ fontFamily: 'Alegreya, sans-serif' }}>
+                  <Typography sx={{ 
+                    fontFamily: "'Tilda Sans', sans-serif",
+                    color: 'text.secondary',
+                    fontSize: { xs: '0.875rem', sm: '0.9rem', md: '1rem' }
+                  }}>
                     Разместите табличку с Qr-кодом на памятнике или в месте памяти близкого человека. Поделитесь страницей памяти с родственниками.
                   </Typography>
                 </Box>

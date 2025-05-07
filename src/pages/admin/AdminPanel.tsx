@@ -1047,8 +1047,8 @@ const AdminPanel: React.FC = () => {
   // Функция для создания нового пользователя
   const handleCreateUser = useCallback(async () => {
     if (!userForm.username || !userForm.password || !userForm.name) {
-      setSnackbar({
-        open: true,
+    setSnackbar({
+      open: true,
         message: 'Заполните все поля',
         severity: 'error'
       });

@@ -483,9 +483,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Сохраняем все ключи профилей и виджетов перед очисткой
     const keysToPreserve: Record<string, string> = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (
           key.startsWith(PROFILE_PREFIX) || 
           key.startsWith(WIDGETS_PREFIX) || 
           key.startsWith(SETTINGS_PREFIX) || 
