@@ -51,7 +51,8 @@ import {
   SupervisorAccount as AdminIcon,
   Search as SearchIcon,
   Refresh as RefreshIcon,
-  FilterList as FilterListIcon
+  FilterList as FilterListIcon,
+  Clear as ClearIcon
 } from '@mui/icons-material';
 import { styled } from '@mui/material/styles';
 import axios from 'axios';
@@ -247,6 +248,8 @@ const AdminToolbar = styled(Box)(({ theme }) => ({
   [theme.breakpoints.down('sm')]: {
     flexDirection: 'column',
     alignItems: 'stretch',
+    padding: theme.spacing(1.5, 1),
+    gap: theme.spacing(1.5),
   },
   willChange: 'transform',
   transform: 'translateZ(0)',
@@ -276,7 +279,8 @@ const UserTableRow = memo(({
   onQR, 
   actionLoading,
   isSelected,
-  onToggleSelect
+  onToggleSelect,
+  isMobile
 }: { 
   user: User; 
   onEdit: (user: User | null) => void; 
@@ -285,6 +289,7 @@ const UserTableRow = memo(({
   actionLoading: boolean;
   isSelected: boolean;
   onToggleSelect: (userId: number) => void;
+  isMobile: boolean;
 }) => {
   const statusColor = user.subscription?.is_active ? 'success' : 'error';
   const statusText = user.subscription?.is_active ? 'Активен' : 'Не активен';
@@ -306,7 +311,13 @@ const UserTableRow = memo(({
         cursor: 'pointer',
         ...(isSelected && {
           backgroundColor: (theme) => `${theme.palette.primary.light}20 !important`,
-        })
+        }),
+        // Уменьшаем отступы и шрифт для мобильных устройств
+        '& .MuiTableCell-root': {
+          py: { xs: 1, sm: 1.5 },
+          px: { xs: 1, sm: 2 },
+          fontSize: { xs: '0.75rem', sm: '0.875rem' }
+        }
       }}
     >
       <TableCell padding="checkbox">
@@ -316,9 +327,10 @@ const UserTableRow = memo(({
           onClick={(e) => e.stopPropagation()}
           onChange={handleToggleSelect}
           inputProps={{ 'aria-labelledby': `user-${user.id}` }}
+          size={isMobile ? "small" : "medium"}
         />
       </TableCell>
-      <TableCell>{user.id}</TableCell>
+      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{user.id}</TableCell>
       <TableCell component="th" scope="row" id={`user-${user.id}`}>
         {user.username}
       </TableCell>
@@ -328,26 +340,31 @@ const UserTableRow = memo(({
           size="small" 
           color={statusColor} 
           label={statusText}
-          sx={{ fontWeight: 'medium' }}
+          sx={{ fontWeight: 'medium', fontSize: { xs: '0.7rem', sm: '0.75rem' } }}
         />
       </TableCell>
-      <TableCell>
+      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
         {user.subscription?.activation_date ? 
           new Date(user.subscription.activation_date).toLocaleDateString() : '-'}
       </TableCell>
-      <TableCell>
+      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
         {user.subscription?.expiration_date ? 
           new Date(user.subscription.expiration_date).toLocaleDateString() : '-'}
       </TableCell>
       <TableCell align="right">
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'flex-end',
+          gap: { xs: 0, sm: 0.5 }
+        }}>
           <Tooltip title="Редактировать">
             <IconButton 
               size="small" 
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleEdit(); }}
               disabled={actionLoading}
+              sx={{ padding: { xs: 0.5, sm: 1 } }}
             >
-              <EditIcon fontSize="small" />
+              <EditIcon fontSize={isMobile ? "small" : "medium"} />
             </IconButton>
           </Tooltip>
           <Tooltip title="Удалить">
@@ -355,8 +372,9 @@ const UserTableRow = memo(({
               size="small" 
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleDelete(); }}
               disabled={actionLoading}
+              sx={{ padding: { xs: 0.5, sm: 1 } }}
             >
-              <DeleteIcon fontSize="small" />
+              <DeleteIcon fontSize={isMobile ? "small" : "medium"} />
             </IconButton>
           </Tooltip>
           <Tooltip title="QR-код">
@@ -364,8 +382,9 @@ const UserTableRow = memo(({
               size="small" 
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleQR(); }}
               disabled={actionLoading}
+              sx={{ padding: { xs: 0.5, sm: 1 } }}
             >
-              <QrCodeIcon fontSize="small" />
+              <QrCodeIcon fontSize={isMobile ? "small" : "medium"} />
             </IconButton>
           </Tooltip>
         </Box>
@@ -375,25 +394,35 @@ const UserTableRow = memo(({
 });
 
 // Компонент "Скелет" загрузки таблицы
-const TableLoadingSkeleton = memo(() => (
-  <>
-    {Array.from(new Array(TABLE_SKELETON_COUNT)).map((_, index) => (
-      <TableRow key={index}>
-        <TableCell><Skeleton animation="wave" /></TableCell>
-        <TableCell><Skeleton animation="wave" /></TableCell>
-        <TableCell><Skeleton animation="wave" /></TableCell>
-        <TableCell><Skeleton animation="wave" width={80} /></TableCell>
-        <TableCell><Skeleton animation="wave" width={100} /></TableCell>
-        <TableCell><Skeleton animation="wave" width={100} /></TableCell>
-        <TableCell align="right">
-          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-            <Skeleton animation="wave" width={120} height={36} />
-          </Box>
-        </TableCell>
-      </TableRow>
-    ))}
-  </>
-));
+const TableLoadingSkeleton = memo(() => {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  
+  return (
+    <>
+      {Array.from(new Array(TABLE_SKELETON_COUNT)).map((_, index) => (
+        <TableRow key={index}>
+          <TableCell><Skeleton animation="wave" /></TableCell>
+          {!isMobile && <TableCell><Skeleton animation="wave" /></TableCell>}
+          <TableCell><Skeleton animation="wave" /></TableCell>
+          <TableCell><Skeleton animation="wave" /></TableCell>
+          <TableCell><Skeleton animation="wave" width={80} /></TableCell>
+          {!isMobile && (
+            <>
+              <TableCell><Skeleton animation="wave" width={100} /></TableCell>
+              <TableCell><Skeleton animation="wave" width={100} /></TableCell>
+            </>
+          )}
+          <TableCell align="right">
+            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+              <Skeleton animation="wave" width={isMobile ? 80 : 120} height={36} />
+            </Box>
+          </TableCell>
+        </TableRow>
+      ))}
+    </>
+  );
+});
 
 // Редюсер для управления состоянием админ-панели
 const adminPanelReducer = (state: AdminPanelState, action: AdminPanelAction): AdminPanelState => {
@@ -595,11 +624,12 @@ const AdminPanel: React.FC = () => {
   );
   
   // Обработчик изменения поискового запроса
-  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    dispatch({ type: 'SET_SEARCH_VALUE', payload: value });
-    debouncedSearch(value);
-  }, [debouncedSearch]);
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    dispatch({ type: 'SET_SEARCH_VALUE', payload: e.target.value });
+    
+    // Используем debounce для поиска, чтобы не перегружать вычисления при каждом нажатии клавиши
+    debouncedSearch(e.target.value);
+  };
   
   // Обработчики для пагинации
   const handleChangePage = useCallback((event: unknown, newPage: number) => {
@@ -1112,6 +1142,12 @@ const AdminPanel: React.FC = () => {
     }
   }, [userForm, state.users, handleCloseEditDialog, updateStats]);
 
+  // Добавляем обработчик очистки поиска
+  const handleClearSearch = () => {
+    dispatch({ type: 'SET_SEARCH_VALUE', payload: '' });
+    dispatch({ type: 'SET_SEARCH_QUERY', payload: '' });
+  };
+
   return (
     <Box 
       sx={{ 
@@ -1238,60 +1274,82 @@ const AdminPanel: React.FC = () => {
       <AdminToolbar>
         <TextField
           placeholder="Поиск пользователей..."
-          size="small"
-                    value={state.searchInputValue}
+          value={state.searchInputValue}
           onChange={handleSearchChange}
+          variant="outlined"
+          size={isMobile ? "small" : "medium"}
+          fullWidth={isMobile}
           InputProps={{
             startAdornment: (
               <InputAdornment position="start">
-                          <SearchIcon fontSize="small" />
+                <SearchIcon fontSize={isMobile ? "small" : "medium"} />
               </InputAdornment>
             ),
+            endAdornment: state.searchInputValue ? (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={handleClearSearch}>
+                  <ClearIcon fontSize={isMobile ? "small" : "medium"} />
+                </IconButton>
+              </InputAdornment>
+            ) : null,
           }}
-                    sx={{ width: { xs: '100%', sm: 300 } }}
+          sx={{ width: { xs: '100%', sm: 300 } }}
         />
         
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          gap: { xs: 0.5, sm: 1 },
+          flexWrap: 'wrap',
+          justifyContent: { xs: 'space-between', sm: 'flex-end' },
+          width: { xs: '100%', sm: 'auto' }
+        }}>
           {state.selectedUsers.length > 0 && (
-          <Button 
-            variant="outlined" 
+            <Button 
+              variant="outlined" 
               color="error"
               size="small"
-              startIcon={<DeleteIcon />}
+              startIcon={<DeleteIcon fontSize={isMobile ? "small" : "medium"} />}
               onClick={handleOpenMultiDeleteDialog}
               disabled={state.actionLoading}
+              sx={{ fontSize: { xs: '0.75rem', sm: '0.8rem' } }}
             >
               Удалить ({state.selectedUsers.length})
             </Button>
           )}
           <Button 
             variant="outlined" 
-                      size="small"
-                      startIcon={state.refreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
+            size="small"
+            startIcon={state.refreshing ? 
+              <CircularProgress size={isMobile ? 16 : 20} /> : 
+              <RefreshIcon fontSize={isMobile ? "small" : "medium"} />
+            }
             onClick={() => fetchUsers(true)}
-                      disabled={state.loading || state.refreshing}
+            disabled={state.loading || state.refreshing}
+            sx={{ fontSize: { xs: '0.75rem', sm: '0.8rem' } }}
           >
             Обновить
           </Button>
           <Button
             variant="contained"
-                      size="small"
-            startIcon={<AddIcon />}
-                      onClick={() => handleOpenEditDialog(null)}
-                      disabled={state.loading || state.refreshing}
+            size="small"
+            startIcon={<AddIcon fontSize={isMobile ? "small" : "medium"} />}
+            onClick={() => handleOpenEditDialog(null)}
+            disabled={state.loading || state.refreshing}
+            sx={{ fontSize: { xs: '0.75rem', sm: '0.8rem' } }}
           >
-                      Добавить
+            Добавить
           </Button>
           <Tooltip title="Очистить все данные">
             <Button
               variant="outlined"
               color="error"
               size="small"
-              startIcon={<DeleteIcon />}
+              startIcon={<DeleteIcon fontSize={isMobile ? "small" : "medium"} />}
               onClick={handleOpenClearAllDialog}
               disabled={state.actionLoading || persistentMockData?.length === 0}
+              sx={{ fontSize: { xs: '0.75rem', sm: '0.8rem' } }}
             >
-              Очистить все
+              {isMobile ? "Очистить" : "Очистить все"}
             </Button>
           </Tooltip>
         </Box>
@@ -1302,48 +1360,49 @@ const AdminPanel: React.FC = () => {
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
-                        <TableCell padding="checkbox">
-                          <Checkbox
-                            color="primary"
-                            indeterminate={state.selectedUsers.length > 0 && !isAllSelected}
-                            checked={isAllSelected}
-                            onChange={handleSelectAllUsers}
-                            disabled={state.users.length === 0 || state.loading}
-                          />
-                        </TableCell>
-              <TableCell width={60}>ID</TableCell>
+              <TableCell padding="checkbox">
+                <Checkbox
+                  color="primary"
+                  indeterminate={state.selectedUsers.length > 0 && !isAllSelected}
+                  checked={isAllSelected}
+                  onChange={handleSelectAllUsers}
+                  disabled={state.users.length === 0 || state.loading}
+                />
+              </TableCell>
+              <TableCell width={60} sx={{ display: { xs: 'none', sm: 'table-cell' } }}>ID</TableCell>
               <TableCell>Логин</TableCell>
-                        <TableCell>Имя</TableCell>
-                        <TableCell width={120}>Статус</TableCell>
-                        <TableCell width={120}>Активация</TableCell>
-                        <TableCell width={120}>Истечение</TableCell>
-                        <TableCell align="right" width={120}>Действия</TableCell>
+              <TableCell>Имя</TableCell>
+              <TableCell width={120}>Статус</TableCell>
+              <TableCell width={120} sx={{ display: { xs: 'none', md: 'table-cell' } }}>Активация</TableCell>
+              <TableCell width={120} sx={{ display: { xs: 'none', md: 'table-cell' } }}>Истечение</TableCell>
+              <TableCell align="right" width={120}>Действия</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-                      {state.loading && state.users.length === 0 ? (
-                        <TableLoadingSkeleton />
-                      ) : state.users.length === 0 ? (
+            {state.loading && state.users.length === 0 ? (
+              <TableLoadingSkeleton />
+            ) : state.users.length === 0 ? (
               <TableRow>
-                          <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
-                            <Typography color="text.secondary">
-                              {state.searchQuery ? 'Пользователи не найдены' : 'Список пользователей пуст'}
+                <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                  <Typography color="text.secondary">
+                    {state.searchQuery ? 'Пользователи не найдены' : 'Список пользователей пуст'}
                   </Typography>
                 </TableCell>
               </TableRow>
-                      ) : (
-                        visibleUsers.map(user => (
-                          <UserTableRow
-                            key={user.id}
-                            user={user}
-                            onEdit={handleOpenEditDialog}
-                            onDelete={handleOpenDeleteDialog}
-                            onQR={handleOpenQRDialog}
-                            actionLoading={state.actionLoading}
-                            isSelected={state.selectedUsers.includes(user.id)}
-                            onToggleSelect={handleToggleUserSelection}
-                          />
-                        ))
+            ) : (
+              visibleUsers.map(user => (
+                <UserTableRow
+                  key={user.id}
+                  user={user}
+                  onEdit={handleOpenEditDialog}
+                  onDelete={handleOpenDeleteDialog}
+                  onQR={handleOpenQRDialog}
+                  actionLoading={state.actionLoading}
+                  isSelected={state.selectedUsers.includes(user.id)}
+                  onToggleSelect={handleToggleUserSelection}
+                  isMobile={isMobile}
+                />
+              ))
             )}
           </TableBody>
         </Table>
@@ -1353,14 +1412,28 @@ const AdminPanel: React.FC = () => {
                 {state.users.length > 0 && (
       <TablePagination
         component="div"
-                    count={state.users.length}
-                    page={state.page}
-                    rowsPerPage={state.rowsPerPage}
+        count={state.users.length}
+        page={state.page}
+        rowsPerPage={state.rowsPerPage}
         onPageChange={handleChangePage}
         onRowsPerPageChange={handleChangeRowsPerPage}
-                    rowsPerPageOptions={[5, 10, 25]}
-                    labelRowsPerPage="Строк:"
+        rowsPerPageOptions={isMobile ? [5, 10] : [5, 10, 25]}
+        labelRowsPerPage={isMobile ? "Строк:" : "Строк на странице:"}
         labelDisplayedRows={({ from, to, count }) => `${from}–${to} из ${count}`}
+        sx={{
+          '.MuiTablePagination-selectLabel': {
+            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+          },
+          '.MuiTablePagination-select': {
+            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+          },
+          '.MuiTablePagination-displayedRows': {
+            fontSize: { xs: '0.75rem', sm: '0.875rem' }
+          },
+          '.MuiTablePagination-actions': {
+            marginLeft: { xs: 0, sm: 2 }
+          }
+        }}
       />
                 )}
     </Paper>
@@ -1375,10 +1448,15 @@ const AdminPanel: React.FC = () => {
         onClose={handleCloseEditDialog} 
         maxWidth="sm" 
         fullWidth
+        fullScreen={isMobile}
         keepMounted={false}
         sx={{
           '& .MuiBackdrop-root': {
             backdropFilter: 'blur(2px)',
+          },
+          '& .MuiDialog-paper': {
+            margin: isMobile ? 0 : '32px',
+            maxHeight: isMobile ? '100%' : 'calc(100% - 64px)'
           }
         }}
       >
@@ -1389,37 +1467,41 @@ const AdminPanel: React.FC = () => {
           <Box sx={{ pt: 1 }}>
           <TextField
             fullWidth
-              label="Имя"
-              margin="normal"
-              value={userForm.name}
-              onChange={handleUserFormChange('name')}
+            label="Имя"
+            margin="normal"
+            value={userForm.name}
+            onChange={handleUserFormChange('name')}
+            size={isMobile ? "small" : "medium"}
           />
           <TextField
             fullWidth
-              label="Логин"
+            label="Логин"
+            margin="normal"
+            value={userForm.username}
+            onChange={handleUserFormChange('username')}
+            size={isMobile ? "small" : "medium"}
+          />
+          {!selectedUser && (
+            <TextField
+              fullWidth
+              label="Пароль"
+              type="password"
               margin="normal"
-              value={userForm.username}
-              onChange={handleUserFormChange('username')}
+              value={userForm.password}
+              onChange={handleUserFormChange('password')}
+              size={isMobile ? "small" : "medium"}
             />
-            {!selectedUser && (
-          <TextField
-            fullWidth
-                label="Пароль"
-                type="password"
-                margin="normal"
-                value={userForm.password}
-                onChange={handleUserFormChange('password')}
-              />
-            )}
+          )}
           </Box>
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseEditDialog}>Отмена</Button>
+          <Button onClick={handleCloseEditDialog} size={isMobile ? "small" : "medium"}>Отмена</Button>
           <Button 
             onClick={selectedUser ? handleEditUser : handleCreateUser}
             variant="contained"
             disabled={state.actionLoading}
-            startIcon={state.actionLoading ? <CircularProgress size={16} /> : null}
+            startIcon={state.actionLoading ? <CircularProgress size={isMobile ? 16 : 20} /> : null}
+            size={isMobile ? "small" : "medium"}
           >
             {selectedUser ? 'Сохранить' : 'Создать'}
           </Button>
