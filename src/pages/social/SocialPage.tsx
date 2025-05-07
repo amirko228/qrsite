@@ -431,6 +431,44 @@ const WidgetContent: React.FC<{
   const [isDragging, setIsDragging] = useState(false);
   const constraints = useRef<HTMLDivElement>(null);
   const [posY, setPosY] = useState(0);
+  const [dragStartY, setDragStartY] = useState(0);
+  const [activeDropzone, setActiveDropzone] = useState<number | null>(null);
+  
+  // Обработчик начала перетаскивания
+  const handleDragStart = (_: any, info: PanInfo) => {
+    setIsDragging(true);
+    setDragStartY(info.point.y);
+  };
+
+  // Обработчик процесса перетаскивания
+  const handleDrag = (_: any, info: PanInfo) => {
+    const offsetY = info.offset.y;
+    setPosY(offsetY);
+    
+    // Вычисляем новый индекс в зависимости от направления перетаскивания и расстояния
+    // Если смещение больше 100px вниз, предлагаем переместить виджет вниз
+    // Если смещение больше 100px вверх, предлагаем переместить виджет вверх
+    if (offsetY > 100 && index < total - 1) {
+      setActiveDropzone(index + 1);
+    } else if (offsetY < -100 && index > 0) {
+      setActiveDropzone(index - 1);
+    } else {
+      setActiveDropzone(null);
+    }
+  };
+
+  // Обработчик завершения перетаскивания
+  const handleDragEnd = (_: any, info: PanInfo) => {
+    setIsDragging(false);
+    setPosY(0);
+    
+    // Если есть активная зона и функция изменения позиции
+    if (activeDropzone !== null && onPositionChange && activeDropzone !== index) {
+      onPositionChange(widget.id, activeDropzone);
+    }
+    
+    setActiveDropzone(null);
+  };
   
   // Функция для рендера контента виджета в зависимости от его типа
   const renderWidgetContent = () => {
@@ -656,7 +694,7 @@ const WidgetContent: React.FC<{
           layout
           id={`dropzone-top-${widget.id}`}
           data-index={index}
-          $isActive={isDragging}
+          $isActive={activeDropzone === 0}
           whileHover={{ height: 20, backgroundColor: 'rgba(33, 150, 243, 0.15)' }}
         />
       }
@@ -687,23 +725,11 @@ const WidgetContent: React.FC<{
         }}
         drag={isOwner ? "y" : false}
         dragConstraints={constraints}
-        dragElastic={0}
+        dragElastic={0.2}  // Увеличиваем эластичность для лучшего ощущения
         dragMomentum={false}
-        onDragStart={() => setIsDragging(true)}
-        onDragEnd={() => {
-          setIsDragging(false);
-          setPosY(0);
-          
-          if (onPositionChange) {
-            // Простое определение новой позиции на основе индекса
-            // Если виджет перетащили вниз, увеличиваем индекс, иначе уменьшаем
-            const newIndex = posY > 50 ? index + 1 : (posY < -50 ? Math.max(0, index - 1) : index);
-            
-            if (newIndex !== index) {
-              onPositionChange(widget.id, newIndex);
-            }
-          }
-        }}
+        onDragStart={handleDragStart}
+        onDrag={handleDrag}
+        onDragEnd={handleDragEnd}
         whileTap={{ scale: 1.01 }}
         dragDirectionLock
       >
@@ -751,7 +777,7 @@ const WidgetContent: React.FC<{
         layout
         id={`dropzone-bottom-${widget.id}`}
         data-index={index + 1}
-        $isActive={isDragging}
+        $isActive={activeDropzone === index + 1}
         whileHover={{ height: 20, backgroundColor: 'rgba(33, 150, 243, 0.15)' }}
       />
     </WidgetContainer>
