@@ -39,11 +39,13 @@ import {
   QrCode, 
   Share, 
   Save,
-  FamilyRestroom 
+  FamilyRestroom,
+  DragIndicator
 } from '@mui/icons-material';
 import styled from 'styled-components';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
 import FamilyTreeWidget from '../../components/widgets/FamilyTreeWidget';
 import QRCode from 'react-qr-code';
 import { useAuth } from '../../contexts/AuthContext';
@@ -150,7 +152,7 @@ const widgetContainerVariants = {
 };
 
 // Улучшим обработчик перетаскивания для виджетов
-const WidgetElement = styled(motion.div)<{
+const WidgetElement = styled.div<{
   $backgroundColor?: string;
   $textColor?: string;
   $isSelected?: boolean;
@@ -171,13 +173,10 @@ const WidgetElement = styled(motion.div)<{
   };
   transform: ${props => props.$isDragging ? 'scale(1.03)' : 'scale(1)'};
   touch-action: none;
+  padding: 16px;
   
   &:hover {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-  }
-  
-  &:active {
-    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   }
   
   /* Более заметные стили при выборе виджета */
@@ -192,225 +191,67 @@ const WidgetElement = styled(motion.div)<{
   
   @media (max-width: 768px) {
     border-radius: 10px;
+    padding: 12px;
   }
   
   @media (max-width: 480px) {
     border-radius: 8px;
+    padding: 10px;
   }
 `;
 
 // Улучшаем стили для процесса перетаскивания виджетов
-const DragHandle = styled(motion.div)`
+const DragHandle = styled.div`
   position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  top: 6px;
-  width: clamp(80px, 25%, 120px);
-  height: 6px;
-  border-radius: 6px;
-  background-color: rgba(0, 0, 0, 0.15);
+  right: 16px;
+  top: 16px;
   cursor: grab;
   opacity: 0.7;
   transition: all 0.25s ease;
   z-index: 10;
   -webkit-tap-highlight-color: transparent;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 
   &:hover {
-    background-color: rgba(33, 150, 243, 0.65);
-    height: 10px;
     opacity: 1;
-    width: clamp(100px, 35%, 150px);
   }
 
   ${WidgetElement}:hover & {
     opacity: 1;
-    height: 8px;
   }
 
   &:active {
     cursor: grabbing;
-    background-color: rgba(33, 150, 243, 0.8);
-    height: 10px;
-    width: clamp(100px, 35%, 150px);
   }
   
   @media (max-width: 768px) {
-    width: 80px;
-    height: 6px;
-    opacity: 0.8;
+    right: 12px;
+    top: 12px;
   }
   
   @media (max-width: 480px) {
-    width: 60px;
-    height: 5px;
-    opacity: 0.9;
-    top: 4px;
-  }
-  
-  @media (hover: none) {
-    opacity: 0.9;
-    width: 70px;
+    right: 10px;
+    top: 10px;
   }
 `;
 
 // Визуальный индикатор места перетаскивания
-const DropZone = styled(motion.div)<{ $isActive?: boolean }>`
+const DropIndicator = styled.div<{ isActive: boolean }>`
   width: 100%;
-  height: 20px;
-  background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.25)' : 'transparent'};
-  border-radius: 10px;
+  height: 4px;
+  background-color: ${props => props.isActive ? '#2196f3' : 'transparent'};
   margin: 8px 0;
   transition: all 0.3s ease;
-  position: relative;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 100%;
-    height: 3px;
-    background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.7)' : 'transparent'};
-    opacity: ${props => props.$isActive ? 1 : 0};
-    transition: all 0.3s ease;
-  }
-  
-  &:hover {
-    background-color: rgba(33, 150, 243, 0.2);
-    height: 30px;
-    
-    &::before {
-      opacity: 1;
-      background-color: rgba(33, 150, 243, 0.7);
-      height: 4px;
-    }
-  }
-  
-  @media (max-width: 768px) {
-    height: 18px;
-    margin: 6px 0;
-    
-    &:hover {
-      height: 24px;
-    }
-  }
-  
-  @media (max-width: 480px) {
-    height: 16px;
-    margin: 5px 0;
-    
-    &:hover {
-      height: 22px;
-    }
-  }
+  border-radius: 4px;
 `;
 
-// Панель инструментов
-const ToolbarContainer = styled.div`
-  position: sticky;
-  top: 0;
-  z-index: 100;
-  background-color: rgba(255, 255, 255, 0.97);
-  padding: clamp(14px, 2vw, 20px);
-  border-radius: clamp(14px, 1.5vw, 20px);
-  margin-bottom: clamp(24px, 3.5vh, 32px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.07);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: clamp(10px, 1.2vw, 16px);
-  max-width: min(850px, 95%);
-  margin: 0 auto clamp(24px, 3.5vh, 32px) auto;
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(0, 0, 0, 0.03);
-  
-  @media (max-width: 992px) {
-    padding: 14px;
-    gap: 10px;
-  }
-  
-  @media (max-width: 768px) {
-    padding: 12px;
-    flex-wrap: wrap;
-    gap: 8px;
-    border-radius: 12px;
-    margin-bottom: 16px;
-    max-width: 100%;
-    margin: 0 6px 16px;
-    width: calc(100% - 12px);
-  }
-  
-  @media (max-width: 480px) {
-    padding: 8px;
-    flex-direction: column;
-    align-items: stretch;
-    border-radius: 10px;
-    gap: 8px;
-    margin: 0 4px 12px;
-    width: calc(100% - 8px);
-    box-shadow: 0 5px 10px rgba(0, 0, 0, 0.05);
-  }
-  
-  @media (max-width: 360px) {
-    padding: 6px;
-    gap: 6px;
-  }
-`;
-
-// Панель блоков-виджетов слева
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const LeftSidePanel = styled.div<{ $isOpen: boolean }>`
-  position: fixed;
-  left: ${props => props.$isOpen ? "0" : "-280px"};
-  top: 0;
-  height: 100vh;
-  width: 280px;
-  background-color: white;
-  box-shadow: ${props => props.$isOpen ? "0 0 15px rgba(0, 0, 0, 0.1)" : "none"};
-  transition: all 0.3s ease;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  overflow-y: auto;
-  padding: 16px 0;
-`;
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const SidePanelHeader = styled.div`
-  padding: 0 16px 16px;
-  border-bottom: 1px solid #eee;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-`;
-
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-const PanelToggleButton = styled.div<{ $isOpen: boolean }>`
-  position: fixed;
-  left: ${props => props.$isOpen ? "280px" : "0"};
-  top: 50%;
-  transform: translateY(-50%);
-  background-color: white;
-  border-top-right-radius: 8px;
-  border-bottom-right-radius: 8px;
-  box-shadow: 4px 0 8px rgba(0, 0, 0, 0.1);
-  z-index: 1001;
-  transition: all 0.3s ease;
-  
-  button {
-    padding: 12px 8px;
-    min-width: 40px;
-    height: 80px;
-  }
-`;
-
-// Контролы виджета (добавляем обратно компонент, который был удален)
+// Контролы виджета
 const WidgetControls = styled.div`
   position: absolute;
   top: 8px;
-  right: 8px;
+  left: 8px;
   display: flex;
   gap: 4px;
   opacity: 0;
@@ -430,48 +271,16 @@ const WidgetControls = styled.div`
   }
 `;
 
-// Компонент виджета с содержимым
+// Компонент для рендеринга содержимого виджета
 const WidgetContent: React.FC<{
   widget: Widget;
+  index: number;
   isSelected: boolean;
   onSelect: () => void;
   onDelete: () => void;
   onEdit: () => void;
-  onPositionChange?: (id: string, targetIndex: number) => void;
-  index: number;
-  total: number;
-}> = ({ widget, isSelected, onSelect, onDelete, onEdit, onPositionChange, index, total }) => {
-  const [isDragging, setIsDragging] = useState(false);
-  const constraints = useRef<HTMLDivElement>(null);
-  const [posY, setPosY] = useState(0);
-  const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
-  const [dropzones, setDropzones] = useState<HTMLElement[]>([]);
-  const [dragDirection, setDragDirection] = useState<'up' | 'down' | null>(null);
-  const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
+}> = ({ widget, index, isSelected, onSelect, onDelete, onEdit }) => {
   
-  // Автоматическая прокрутка при приближении к краям экрана
-  useEffect(() => {
-    let scrollInterval: ReturnType<typeof setInterval> | null = null;
-    
-    if (isDragging && autoScrollSpeed !== 0) {
-      scrollInterval = setInterval(() => {
-        window.scrollBy(0, autoScrollSpeed);
-      }, 16); // примерно 60fps
-    }
-    
-    return () => {
-      if (scrollInterval) clearInterval(scrollInterval);
-    };
-  }, [isDragging, autoScrollSpeed]);
-  
-  // Кешируем зоны перетаскивания при первом перетаскивании
-  useEffect(() => {
-    if (isDragging && dropzones.length === 0) {
-      const zones = Array.from(document.querySelectorAll('[id^="dropzone-"]')) as HTMLElement[];
-      setDropzones(zones);
-    }
-  }, [isDragging, dropzones.length]);
-
   // Функция для рендера контента виджета в зависимости от его типа
   const renderWidgetContent = () => {
     switch (widget.type) {
@@ -502,9 +311,9 @@ const WidgetContent: React.FC<{
               boxShadow: { xs: '0 2px 6px rgba(0, 0, 0, 0.06)', sm: '0 4px 10px rgba(0, 0, 0, 0.08)' },
               mb: { xs: 0.5, sm: 1 }
             }}>
-            <img 
-              src={widget.content.url} 
-              alt={widget.content.caption || 'Изображение'} 
+              <img 
+                src={widget.content.url} 
+                alt={widget.content.caption || 'Изображение'} 
                 style={{ 
                   width: '100%', 
                   height: 'auto', 
@@ -572,7 +381,7 @@ const WidgetContent: React.FC<{
               boxShadow: { xs: '0 2px 6px rgba(0, 0, 0, 0.06)', sm: '0 4px 10px rgba(0, 0, 0, 0.08)' },
               mb: { xs: 0.5, sm: 1 }
             }}>
-            <iframe 
+              <iframe 
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -581,11 +390,11 @@ const WidgetContent: React.FC<{
                   height: '100%',
                   border: 'none'
                 }}
-              src={`https://www.youtube.com/embed/${widget.content.videoId}`} 
-              title="YouTube video" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-              allowFullScreen
-            ></iframe>
+                src={`https://www.youtube.com/embed/${widget.content.videoId}`} 
+                title="YouTube video" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowFullScreen
+              ></iframe>
             </Box>
             {widget.content.caption && (
               <Typography 
@@ -673,223 +482,68 @@ const WidgetContent: React.FC<{
     }
   };
 
-  // Обрабатываем взаимодействие со всеми зонами перетаскивания
-  const findClosestDropzone = useCallback((draggedCenter: number) => {
-    if (!dropzones.length) return { zone: null as HTMLElement | null, index: -1 };
-    
-    let closestZone: HTMLElement | null = null;
-    let minDistance = Infinity;
-    let targetIndex = index;
-    
-    dropzones.forEach(zone => {
-      const zoneRect = zone.getBoundingClientRect();
-      const zoneCenter = zoneRect.top + zoneRect.height / 2;
-      const distance = Math.abs(draggedCenter - zoneCenter);
-      
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestZone = zone;
-        const dataIndex = zone.getAttribute('data-index');
-        targetIndex = dataIndex ? parseInt(dataIndex, 10) : index;
-      }
-    });
-    
-    return { zone: closestZone, index: targetIndex };
-  }, [dropzones, index]);
-
   return (
-    <WidgetContainer 
-      ref={constraints}
-      variants={widgetContainerVariants}
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      layout
-      layoutId={`widget-container-${widget.id}`}
-      transition={{
-        layout: { 
-          type: "spring", 
-          stiffness: 80, 
-          damping: 20,
-          mass: 1.2
-        }
-      }}
-    >
-      {index === 0 && 
-        <DropZone 
-          layout
-          id={`dropzone-top-${widget.id}`}
-          data-index={index}
-          $isActive={isDragging}
-          whileHover={{ height: 30, backgroundColor: 'rgba(33, 150, 243, 0.2)' }}
-        />
-      }
-      
-      <WidgetElement
-        $backgroundColor={widget.backgroundColor}
-        $textColor={widget.textColor}
-        $isSelected={isSelected}
-        $isDragging={isDragging}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect();
-        }}
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ 
-          opacity: 1, 
-          scale: isDragging ? 1.02 : 1,
-          y: posY,
-          transition: {
-            scale: { type: "spring", stiffness: 300, damping: 20 },
-            opacity: { duration: 0.2 }
-          }
-        }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        transition={{ 
-          duration: 0.2,
-          y: { type: "spring", stiffness: 350, damping: 25 }
-        }}
-        drag="y"
-        dragDirectionLock
-        dragConstraints={constraints}
-        dragElastic={0.1}
-        dragTransition={{ 
-          bounceStiffness: 350, 
-          bounceDamping: 25,
-          power: 0.2
-        }}
-        dragMomentum={false}
-        onDragStart={(e, info) => {
-          setIsDragging(true);
-          setDragStartPos({ x: info.point.x, y: info.point.y });
-          // Добавляем тактильную обратную связь для устройств, поддерживающих вибрацию
-          if (window.navigator && window.navigator.vibrate) {
-            window.navigator.vibrate(50);
-          }
-        }}
-        onDrag={(e, info) => {
-          setPosY(info.offset.y);
-          
-          // Определяем направление перетаскивания
-          const newDirection = info.delta.y > 0 ? 'down' : 'up';
-          if (newDirection !== dragDirection) {
-            setDragDirection(newDirection);
-          }
-          
-          // Автоматическая прокрутка при приближении к краям экрана
-          const mouseY = info.point.y;
-          const windowHeight = window.innerHeight;
-          const scrollThreshold = 100; // пиксели от края экрана
-          
-          if (mouseY < scrollThreshold) {
-            // Прокрутка вверх при приближении к верхнему краю
-            const intensity = Math.max(1, (scrollThreshold - mouseY) / 20);
-            setAutoScrollSpeed(-intensity);
-          } else if (mouseY > windowHeight - scrollThreshold) {
-            // Прокрутка вниз при приближении к нижнему краю
-            const intensity = Math.max(1, (mouseY - (windowHeight - scrollThreshold)) / 20);
-            setAutoScrollSpeed(intensity);
-          } else {
-            setAutoScrollSpeed(0);
-          }
-          
-          // Находим ближайшую зону для визуального выделения
-          if (dropzones.length > 0) {
-            const draggedElement = e.currentTarget as HTMLElement;
-            const draggedRect = draggedElement.getBoundingClientRect();
-            const draggedCenter = draggedRect.top + draggedRect.height / 2;
-            
-            const { zone } = findClosestDropzone(draggedCenter);
-            
-            // Сбрасываем все зоны
-            dropzones.forEach(z => {
-              z.style.backgroundColor = 'transparent';
-              z.style.height = '20px';
-            });
-            
-            // Выделяем текущую зону
-            if (zone) {
-              zone.style.backgroundColor = 'rgba(33, 150, 243, 0.25)';
-              zone.style.height = '30px';
-            }
-          }
-        }}
-        onDragEnd={(e, info) => {
-          setPosY(0);
-          setIsDragging(false);
-          setAutoScrollSpeed(0);
-          
-          // Добавляем тактильную обратную связь при завершении перетаскивания
-          if (window.navigator && window.navigator.vibrate) {
-            window.navigator.vibrate(25);
-          }
-          
-          // Сбрасываем все выделенные зоны
-          dropzones.forEach(z => {
-            z.style.backgroundColor = 'transparent';
-            z.style.height = '20px';
-          });
-          
-          // Находим ближайшую зону и перемещаем виджет туда
-          if (onPositionChange) {
-            const draggedElement = e.target as HTMLElement;
-            const draggedRect = draggedElement.getBoundingClientRect();
-            const draggedCenter = draggedRect.top + draggedRect.height / 2;
-            
-            const { index: targetIndex } = findClosestDropzone(draggedCenter);
-            
-            if (targetIndex !== -1 && targetIndex !== index) {
-              onPositionChange(widget.id, targetIndex);
-            }
-          }
-        }}
-      >
-        <DragHandle 
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-        />
-        <WidgetControls className="widget-controls">
-          <IconButton 
-            size="small" 
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            sx={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
-              padding: { xs: '2px', sm: '4px' },
-              '& .MuiSvgIcon-root': { 
-                fontSize: { xs: '0.9rem', sm: '1.25rem' } 
-              }
+    <Draggable draggableId={widget.id} index={index}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          style={{
+            ...provided.draggableProps.style,
+            margin: '0 0 16px 0'
+          }}
+        >
+          <WidgetElement 
+            $backgroundColor={widget.backgroundColor}
+            $textColor={widget.textColor}
+            $isSelected={isSelected}
+            $isDragging={snapshot.isDragging}
+            onClick={(e) => {
+              e.stopPropagation();
+              onSelect();
             }}
           >
-            <Edit fontSize="small" />
-          </IconButton>
-          <IconButton 
-            size="small" 
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            sx={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
-              padding: { xs: '2px', sm: '4px' },
-              '& .MuiSvgIcon-root': { 
-                fontSize: { xs: '0.9rem', sm: '1.25rem' } 
-              }
-            }}
-          >
-            <Delete fontSize="small" />
-          </IconButton>
-        </WidgetControls>
-        
-        {renderWidgetContent()}
-      </WidgetElement>
-      
-      <DropZone 
-        layout
-        id={`dropzone-bottom-${widget.id}`}
-        data-index={index + 1}
-        $isActive={isDragging}
-        whileHover={{ height: 30, backgroundColor: 'rgba(33, 150, 243, 0.2)' }}
-      />
-    </WidgetContainer>
+            <div {...provided.dragHandleProps}>
+              <DragHandle>
+                <DragIndicator color="action" />
+              </DragHandle>
+            </div>
+            <WidgetControls>
+              <IconButton 
+                size="small" 
+                onClick={(e) => { e.stopPropagation(); onEdit(); }}
+                sx={{ 
+                  backgroundColor: 'rgba(255, 255, 255, 0.8)', 
+                  '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
+                  padding: { xs: '2px', sm: '4px' },
+                  '& .MuiSvgIcon-root': { 
+                    fontSize: { xs: '0.9rem', sm: '1.25rem' } 
+                  }
+                }}
+              >
+                <Edit fontSize="small" />
+              </IconButton>
+              <IconButton 
+                size="small" 
+                onClick={(e) => { e.stopPropagation(); onDelete(); }}
+                sx={{ 
+                  backgroundColor: 'rgba(255, 255, 255, 0.8)', 
+                  '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
+                  padding: { xs: '2px', sm: '4px' },
+                  '& .MuiSvgIcon-root': { 
+                    fontSize: { xs: '0.9rem', sm: '1.25rem' } 
+                  }
+                }}
+              >
+                <Delete fontSize="small" />
+              </IconButton>
+            </WidgetControls>
+            
+            {renderWidgetContent()}
+          </WidgetElement>
+        </div>
+      )}
+    </Draggable>
   );
 };
 
@@ -1717,7 +1371,7 @@ const SocialPage: React.FC = () => {
     name: '',
     bio: '',
     avatar: '',
-      theme: 'light'
+    theme: 'light'
   });
   
   const isOwner = !id && isLoggedIn;
@@ -2195,7 +1849,102 @@ const SocialPage: React.FC = () => {
     }
   };
 
-  // Обновляем секцию просмотра публичного профиля
+  // Функция для обработки окончания перетаскивания
+  const handleDragEnd = (result: DropResult) => {
+    const { destination, source } = result;
+    
+    // Если нет места назначения или место не изменилось - ничего не делаем
+    if (!destination || (destination.index === source.index)) {
+      return;
+    }
+    
+    // Перемещаем виджет в массиве
+    setWidgets(prevWidgets => {
+      const newWidgets = Array.from(prevWidgets);
+      const [removed] = newWidgets.splice(source.index, 1);
+      newWidgets.splice(destination.index, 0, removed);
+      return newWidgets;
+    });
+    
+    // Обратная связь через вибрацию
+    if (window.navigator && window.navigator.vibrate) {
+      window.navigator.vibrate(50);
+    }
+  };
+
+  // Рендер виджетов на странице (в режиме редактирования)
+  const renderEditableWidgets = () => {
+    return (
+      <DragDropContext onDragEnd={handleDragEnd}>
+        <Droppable droppableId="widgets-list">
+          {(provided) => (
+            <div
+              {...provided.droppableProps}
+              ref={provided.innerRef}
+              style={{ width: '100%' }}
+            >
+              {widgets.map((widget, index) => (
+                <WidgetContent
+                  key={widget.id}
+                  widget={widget}
+                  index={index}
+                  isSelected={widget.id === selectedWidgetId}
+                  onSelect={() => handleWidgetSelect(widget.id)}
+                  onDelete={() => handleDeleteWidget(widget.id)}
+                  onEdit={() => handleEditWidget(widget.id)}
+                />
+              ))}
+              {provided.placeholder}
+              
+              {widgets.length === 0 && (
+                <Box sx={{ 
+                  textAlign: 'center', 
+                  py: 8,
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: 2,
+                  border: '2px dashed #dee2e6'
+                }}>
+                  <Add sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+                  <Typography variant="h6" color="text.secondary">
+                    Нажмите "Добавить блок" чтобы начать создание профиля
+                  </Typography>
+                </Box>
+              )}
+            </div>
+          )}
+        </Droppable>
+      </DragDropContext>
+    );
+  };
+  
+  // Рендер виджетов на странице (в режиме просмотра)
+  const renderViewWidgets = () => {
+    return (
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+        {widgets.map((widget) => (
+          <Box
+            key={widget.id}
+            sx={{
+              backgroundColor: widget.backgroundColor,
+              color: widget.textColor,
+              borderRadius: 2,
+              p: 3,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.12)'
+            }}
+          >
+            {renderWidgetContent(widget)}
+          </Box>
+        ))}
+        
+        {widgets.length === 0 && (
+          <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
+            У пользователя пока нет содержимого на странице
+          </Typography>
+        )}
+      </Box>
+    );
+  };
+
   return (
     <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 } }}>
       {loading ? (
@@ -2217,7 +1966,7 @@ const SocialPage: React.FC = () => {
                 gap: { xs: 2, sm: 0 }
               }}>
                 <Typography variant="h4" sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}>
-                    Мой профиль
+                  Мой профиль
                 </Typography>
                 
                 <Box sx={{ 
@@ -2273,73 +2022,25 @@ const SocialPage: React.FC = () => {
               </Box>
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                    {widgets.map((widget, index) => (
-              <WidgetContent
-                key={widget.id}
-                widget={widget}
-                isSelected={widget.id === selectedWidgetId}
-                onSelect={() => handleWidgetSelect(widget.id)}
-                onDelete={() => handleDeleteWidget(widget.id)}
-                    onEdit={() => handleEditWidget(widget.id)}
-                    onPositionChange={handleWidgetPositionChange}
-                    index={index}
-                    total={widgets.length}
-              />
-            ))}
-            
-              {widgets.length === 0 && (
-              <Box sx={{ 
-                    textAlign: 'center', 
-                py: 8,
-                backgroundColor: '#f8f9fa',
-                borderRadius: 2,
-                border: '2px dashed #dee2e6'
-              }}>
-                <Add sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                <Typography variant="h6" color="text.secondary">
-                    Нажмите "Добавить блок" чтобы начать создание профиля
-                  </Typography>
-                </Box>
-              )}
-          </Box>
-        </ProfileContainer>
-      )}
-      {id && (
-        <ProfileContainer>
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h4" gutterBottom>
-                {profile.name}
-              </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {profile.bio}
-            </Typography>
-          </Box>
-          
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-            {widgets.map((widget) => (
-              <Box
-                key={widget.id}
-                sx={{
-                  backgroundColor: widget.backgroundColor,
-                  color: widget.textColor,
-                  borderRadius: 2,
-                  p: 3,
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.12)'
-                }}
-              >
-                  {renderWidgetContent(widget)}
+                {renderEditableWidgets()}
               </Box>
-            ))}
-            
-            {widgets.length === 0 && (
-              <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-                  У пользователя пока нет содержимого на странице
+            </ProfileContainer>
+          )}
+          {id && (
+            <ProfileContainer>
+              <Box sx={{ mb: 4 }}>
+                <Typography variant="h4" gutterBottom>
+                  {profile.name}
                 </Typography>
-            )}
-        </Box>
-        </ProfileContainer>
-      )}
-      </>
+                <Typography variant="body1" color="text.secondary">
+                  {profile.bio}
+                </Typography>
+              </Box>
+              
+              {renderViewWidgets()}
+            </ProfileContainer>
+          )}
+        </>
       )}
 
       {selectedWidgetId && (
