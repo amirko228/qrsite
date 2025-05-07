@@ -45,7 +45,10 @@ const fadeIn = keyframes`
 
 // Стилизованный заголовок с градиентом
 const GradientTitle = styled(Typography)`
-  color: ${customColors.white};
+  background: linear-gradient(135deg, ${customColors.secondary} 0%, ${customColors.primary} 100%);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
   display: inline-block;
   position: relative;
   font-family: Garamond, serif;
@@ -62,30 +65,20 @@ const TitleWrapper = styled(Box)`
   position: relative;
   display: inline-block;
   margin-bottom: 10px;
-  
-  &:before {
-    content: '';
-    position: absolute;
-    top: -20px;
-    left: -30px;
-    right: -30px;
-    bottom: -10px;
-    background: linear-gradient(135deg, ${customColors.white} 0%, ${customColors.secondary}60 100%);
-    border-radius: 50% 20% 30% 10%;
-    transform: rotate(-2deg);
-    z-index: -1;
-  }
+  padding: 8px 24px;
+  border-radius: 12px;
+  background: linear-gradient(135deg, ${customColors.white} 0%, ${customColors.secondary}30 100%);
   
   &::after {
     content: '';
     position: absolute;
     top: 0;
     right: 0;
-    width: 80px;
-    height: 80px;
+    width: 60px;
+    height: 60px;
     background: ${customColors.secondary};
     border-radius: 0 0 0 100%;
-    z-index: -1;
+    z-index: 1;
   }
 `;
 
