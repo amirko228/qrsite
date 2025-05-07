@@ -105,7 +105,8 @@ const BaseSection = styled(Box)`
 // Единый стиль секций, с градиентом на всю площадь
 const HeroSection = styled(BaseSection)`
   padding: 48px 32px;
-  background: linear-gradient(135deg, ${customColors.white} 0%, ${customColors.secondary}15 100%);
+  background: linear-gradient(135deg, #0A3D67 0%, #3E9AFF 100%);
+  box-shadow: 0 8px 30px rgba(10, 61, 103, 0.2);
   
   @media (max-width: 768px) {
     padding: 36px 24px;
@@ -660,7 +661,7 @@ const TitleWrapper = styled(Box)`
     left: 0;
     right: 0;
     bottom: 0;
-    background: linear-gradient(90deg, #47A3FF 0%, #0A3D67 100%);
+    background: transparent;
     z-index: 1;
   }
 `;
@@ -823,7 +824,8 @@ const Landing: React.FC = () => {
                       fontSize: isMobile ? '2.2rem' : '3.5rem',
                       padding: isMobile ? '8px 16px' : '12px 30px',
                       width: '100%',
-                      textAlign: 'center'
+                      textAlign: 'center',
+                      color: 'white'
                     }}>
                       Вспомнить все
                     </GradientTitle>
@@ -836,7 +838,7 @@ const Landing: React.FC = () => {
                 >
                   <CenteredTypography 
                     variant="h5" 
-                    color="textSecondary" 
+                    color="white" 
                     paragraph 
                     sx={{ 
                       fontSize: isMobile ? '1.1rem' : '1.25rem',
@@ -902,7 +904,7 @@ const Landing: React.FC = () => {
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ duration: 0.5 }}
                     >
-                      <CenteredTypography variant="subtitle1" sx={{ mb: 2, textAlign: 'center', width: '100%' }}>
+                      <CenteredTypography variant="subtitle1" sx={{ mb: 2, textAlign: 'center', width: '100%', color: 'white' }}>
                         Создайте мемориальную страницу близкого с историями фотографиями и видео
                       </CenteredTypography>
                       <QRCodeWrapper>
@@ -915,7 +917,7 @@ const Landing: React.FC = () => {
                         includeMargin={false}
                       />
                       </QRCodeWrapper>
-                      <CenteredTypography variant="subtitle1" sx={{ mt: 2, textAlign: 'center', width: '100%' }}>
+                      <CenteredTypography variant="subtitle1" sx={{ mt: 2, textAlign: 'center', width: '100%', color: 'white' }}>
                         Карта памяти
                       </CenteredTypography>
                     </AnimatedQRCode>
