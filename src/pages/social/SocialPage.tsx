@@ -149,83 +149,71 @@ const widgetContainerVariants = {
   }
 };
 
-// Стиль для виджета
+// Улучшим обработчик перетаскивания для виджетов
 const WidgetElement = styled(motion.div)<{
-  $backgroundColor: string;
-  $textColor: string;
-  $isSelected: boolean;
+  $backgroundColor?: string;
+  $textColor?: string;
+  $isSelected?: boolean;
   $isDragging?: boolean;
 }>`
-  border-radius: 8px;
-  background-color: ${props => props.$backgroundColor};
-  color: ${props => props.$textColor};
-  padding: 20px;
-  box-shadow: ${props => {
-    if (props.$isDragging) return '0 8px 16px rgba(0, 0, 0, 0.15)';
-    if (props.$isSelected) return '0 0 0 2px #2196f3, 0 4px 12px rgba(0, 0, 0, 0.1)';
-    return '0 2px 8px rgba(0, 0, 0, 0.08)';
-  }};
+  border-radius: 12px;
   overflow: hidden;
+  background-color: ${props => props.$backgroundColor || 'white'};
+  color: ${props => props.$textColor || 'inherit'};
   position: relative;
-  width: 100%;
-  min-height: 80px;
-  transition: all 0.2s ease;
-  cursor: move;
-  transform: ${props => props.$isDragging ? 'scale(1.02)' : 'none'};
-  z-index: ${props => props.$isDragging ? 10 : 1};
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  box-shadow: ${props => 
+    props.$isDragging 
+      ? '0 10px 25px rgba(0, 0, 0, 0.2)' 
+      : props.$isSelected 
+        ? '0 5px 15px rgba(0, 0, 0, 0.15)' 
+        : '0 2px 10px rgba(0, 0, 0, 0.08)'
+  };
+  transform: ${props => props.$isDragging ? 'scale(1.02)' : 'scale(1)'};
+  touch-action: none; /* Предотвращаем стандартное поведение прокрутки при перетаскивании на мобильных устройствах */
   
   &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-    transform: ${props => props.$isDragging ? 'scale(1.02)' : 'translateY(-2px)'};
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.12);
   }
   
-  &:hover .widget-controls {
-    opacity: 1;
+  &:active {
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
   }
+  
+  /* Более заметные стили при выборе виджета */
+  ${props => props.$isSelected && `
+    outline: 2px solid #2196f3;
+    box-shadow: 0 5px 20px rgba(33, 150, 243, 0.3);
+  `}
   
   @media (max-width: 768px) {
-    padding: 16px;
-    border-radius: 6px;
+    border-radius: 10px;
+  }
+  
+  @media (max-width: 480px) {
+    border-radius: 8px;
   }
 `;
 
-// Контролы виджета
-const WidgetControls = styled.div`
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.2s;
-  z-index: 10;
-  background-color: rgba(255, 255, 255, 0.9);
-  border-radius: 4px;
-    padding: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  
-  @media (max-width: 768px) {
-    opacity: 1;
-  }
-`;
-
+// Улучшим ручку перетаскивания для лучшей визуальной обратной связи
 const DragHandle = styled(motion.div)`
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
   top: 6px;
-  width: clamp(60px, 10%, 80px);
+  width: clamp(80px, 25%, 120px);
   height: 6px;
   border-radius: 3px;
-  background-color: rgba(0, 0, 0, 0.1);
+  background-color: rgba(0, 0, 0, 0.12);
   cursor: grab;
-  opacity: 0;
+  opacity: 0.7;
   transition: all 0.2s ease;
+  z-index: 10;
 
   &:hover {
-    background-color: rgba(33, 150, 243, 0.3);
+    background-color: rgba(33, 150, 243, 0.5);
     height: 8px;
+    opacity: 1;
   }
 
   ${WidgetElement}:hover & {
@@ -234,33 +222,35 @@ const DragHandle = styled(motion.div)`
 
   &:active {
     cursor: grabbing;
-    background-color: rgba(33, 150, 243, 0.6);
+    background-color: rgba(33, 150, 243, 0.8);
     height: 8px;
   }
   
   @media (max-width: 768px) {
-    width: 60px;
-    height: 5px;
+    width: 80px;
+    height: 6px;
+    opacity: 0.8;
   }
   
   @media (max-width: 480px) {
-    width: 50px;
-    opacity: 0.5;
+    width: 60px;
+    height: 5px;
+    opacity: 0.9;
     top: 4px;
   }
   
   @media (hover: none) {
-    opacity: 0.5;
-    width: 60px;
+    opacity: 0.9;
+    width: 70px;
   }
 `;
 
 // Визуальный индикатор места перетаскивания
 const DropZone = styled(motion.div)<{ $isActive?: boolean }>`
   width: 100%;
-  height: 18px;
-  background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.2)' : 'transparent'};
-  border-radius: 9px;
+  height: 20px;
+  background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.25)' : 'transparent'};
+  border-radius: 10px;
   margin: 8px 0;
   transition: all 0.2s ease;
   position: relative;
@@ -272,38 +262,38 @@ const DropZone = styled(motion.div)<{ $isActive?: boolean }>`
     top: 50%;
     transform: translateY(-50%);
     width: 100%;
-    height: 2px;
+    height: 3px;
     background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.7)' : 'transparent'};
     opacity: ${props => props.$isActive ? 1 : 0};
     transition: all 0.2s ease;
   }
   
   &:hover {
-    background-color: rgba(33, 150, 243, 0.15);
-    height: 24px;
+    background-color: rgba(33, 150, 243, 0.2);
+    height: 26px;
     
     &::before {
       opacity: 1;
-      background-color: rgba(33, 150, 243, 0.6);
-      height: 3px;
+      background-color: rgba(33, 150, 243, 0.7);
+      height: 4px;
     }
   }
   
   @media (max-width: 768px) {
-    height: 15px;
-    margin: 5px 0;
+    height: 18px;
+    margin: 6px 0;
     
     &:hover {
-      height: 18px;
+      height: 22px;
     }
   }
   
   @media (max-width: 480px) {
-    height: 12px;
-    margin: 4px 0;
+    height: 16px;
+    margin: 5px 0;
     
     &:hover {
-      height: 15px;
+      height: 20px;
     }
   }
 `;
@@ -405,6 +395,30 @@ const PanelToggleButton = styled.div<{ $isOpen: boolean }>`
     padding: 12px 8px;
     min-width: 40px;
     height: 80px;
+  }
+`;
+
+// Контролы виджета (добавляем обратно компонент, который был удален)
+const WidgetControls = styled.div`
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+  z-index: 10;
+  background-color: rgba(255, 255, 255, 0.9);
+  border-radius: 4px;
+  padding: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  
+  ${WidgetElement}:hover & {
+    opacity: 1;
+  }
+  
+  @media (max-width: 768px) {
+    opacity: 1;
   }
 `;
 
@@ -678,15 +692,30 @@ const WidgetContent: React.FC<{
         }}
         drag="y"
         dragConstraints={constraints}
-        dragElastic={0.02}
+        dragElastic={0.1} // Увеличиваем эластичность для лучшего ощущения
+        dragTransition={{ 
+          bounceStiffness: 300, 
+          bounceDamping: 20 
+        }} // Улучшение физики перетаскивания
         dragMomentum={false}
-        onDragStart={() => setIsDragging(true)}
+        onDragStart={() => {
+          setIsDragging(true);
+          // Добавляем тактильную обратную связь для устройств, поддерживающих вибрацию
+          if (window.navigator && window.navigator.vibrate) {
+            window.navigator.vibrate(50);
+          }
+        }}
         onDrag={(e, info) => {
           setPosY(info.offset.y);
         }}
         onDragEnd={(e, info) => {
           setPosY(0);
           setIsDragging(false);
+          
+          // Добавляем тактильную обратную связь при завершении перетаскивания
+          if (window.navigator && window.navigator.vibrate) {
+            window.navigator.vibrate(25);
+          }
           
           // Находим ближайшую зону и перемещаем виджет туда
           if (onPositionChange) {

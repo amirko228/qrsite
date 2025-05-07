@@ -344,6 +344,20 @@ const MapControls = styled(Paper)`
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   z-index: 1000;
   width: 300px;
+  
+  @media (max-width: 768px) {
+    width: calc(100% - 40px);
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 10px;
+    border-radius: 10px;
+    width: calc(100% - 20px);
+  }
 `;
 
 const ProfileMarker = styled(Box)`
@@ -652,21 +666,23 @@ const TitleWrapper = styled(Box)`
 `;
 
 const MapSection = styled(Box)`
-  height: 600px;
   position: relative;
-  margin: 40px 0;
+  height: 600px;
   border-radius: 16px;
   overflow: hidden;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.1);
+  
+  @media (max-width: 992px) {
+    height: 500px;
+  }
   
   @media (max-width: 768px) {
-    height: 500px;
-    margin: 30px 0;
+    height: 450px;
   }
   
   @media (max-width: 480px) {
     height: 400px;
-    margin: 20px 0;
+    border-radius: 12px;
   }
 `;
 
@@ -674,23 +690,24 @@ const UserCounter = styled(motion.div)`
   position: absolute;
   top: 20px;
   right: 20px;
-  background: white;
-  padding: 15px 25px;
-  border-radius: 12px;
+  background-color: white;
+  padding: 10px 15px;
+  border-radius: 50px;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
   z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   
   @media (max-width: 768px) {
-    padding: 12px 20px;
-    top: 15px;
-    right: 15px;
+    padding: 8px 12px;
+    top: 10px;
+    right: 10px;
   }
   
   @media (max-width: 480px) {
-    padding: 8px 15px;
-    top: 10px;
-    right: 10px;
-    border-radius: 8px;
+    padding: 6px 10px;
+    border-radius: 30px;
   }
 `;
 
@@ -1092,6 +1109,7 @@ const Landing: React.FC = () => {
                 zoom={9} 
                 style={{ height: '100%', width: '100%' }} 
                 zoomControl={false}
+                attributionControl={!isMobile}
                 bounds={[
                   [55.3, 36.8], // Юго-западный угол (примерно границы МО)
                   [56.2, 38.5]  // Северо-восточный угол (примерно границы МО)
@@ -1103,7 +1121,7 @@ const Landing: React.FC = () => {
               >
                 <TileLayer
                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                  attribution={isMobile ? '' : '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'}
                   noWrap={true}
                 />
                 
