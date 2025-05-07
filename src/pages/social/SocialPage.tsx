@@ -216,19 +216,20 @@ const DragHandle = styled(motion.div)`
   left: 50%;
   transform: translateX(-50%);
   top: 6px;
-  width: clamp(60px, 10%, 80px);
-  height: 6px;
-  border-radius: 3px;
-  background-color: rgba(0, 0, 0, 0.1);
+  width: clamp(80px, 30%, 120px);
+  height: 10px;
+  border-radius: 5px;
+  background-color: rgba(33, 150, 243, 0.3);
   cursor: grab;
-  opacity: 0;
+  opacity: 0.8;
   transition: all 0.2s ease;
-  z-index: 10; /* Убедимся, что ручка всегда доступна для перетаскивания */
-  touch-action: none; /* Предотвращаем прокрутку страницы на тач-устройствах */
+  z-index: 10;
+  touch-action: none;
 
   &:hover {
-    background-color: rgba(33, 150, 243, 0.3);
-    height: 8px;
+    background-color: rgba(33, 150, 243, 0.5);
+    height: 12px;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
   }
 
   ${WidgetElement}:hover & {
@@ -237,24 +238,27 @@ const DragHandle = styled(motion.div)`
 
   &:active {
     cursor: grabbing;
-    background-color: rgba(33, 150, 243, 0.6);
-    height: 8px;
+    background-color: rgba(33, 150, 243, 0.8);
+    height: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
   
   @media (max-width: 768px) {
-    width: 60px;
-    height: 5px;
+    width: 80px;
+    height: 10px;
+    opacity: 0.9;
   }
   
   @media (max-width: 480px) {
-    width: 50px;
-    opacity: 0.5;
-    top: 4px;
+    width: 70px;
+    opacity: 0.85;
+    top: 6px;
   }
   
   @media (hover: none) {
-    opacity: 0.5;
-    width: 60px;
+    opacity: 0.9;
+    width: 80px;
+    height: 10px;
   }
 `;
 
@@ -422,7 +426,8 @@ const WidgetContent: React.FC<{
   onPositionChange?: (id: string, targetIndex: number) => void;
   index: number;
   total: number;
-}> = ({ widget, isSelected, onSelect, onDelete, onEdit, onPositionChange, index, total }) => {
+  isOwner?: boolean;
+}> = ({ widget, isSelected, onSelect, onDelete, onEdit, onPositionChange, index, total, isOwner = true }) => {
   const [isDragging, setIsDragging] = useState(false);
   const constraints = useRef<HTMLDivElement>(null);
   const [posY, setPosY] = useState(0);
@@ -680,73 +685,47 @@ const WidgetContent: React.FC<{
         duration: 0.2,
         y: { type: "spring", stiffness: 300, damping: 25 }
       }}
-      drag="y"
+      drag={isOwner ? "y" : false}
       dragConstraints={constraints}
-      dragElastic={0.01} // Уменьшаем эластичность для лучшего контроля
+      dragElastic={0}
       dragMomentum={false}
       onDragStart={(e) => {
         e.stopPropagation();
         setIsDragging(true);
+        
+        // Добавляем класс к body для предотвращения прокрутки страницы
+        document.body.classList.add('dragging-widget');
+        
+        // Делаем виджет более выразительным при перетаскивании
+        const element = e.currentTarget as HTMLElement;
+        element.style.boxShadow = '0 10px 25px rgba(0, 0, 0, 0.2)';
+        element.style.zIndex = '100';
       }}
       onDrag={(e, info) => {
         e.stopPropagation();
         setPosY(info.offset.y);
         
-        // Предварительный просмотр позиции
-        const draggedElement = e.target as HTMLElement;
-        const draggedRect = draggedElement.getBoundingClientRect();
-        const draggedCenter = draggedRect.top + draggedRect.height / 2;
-        
-        // Найдем все зоны перетаскивания и выделим ближайшую
-        const dropzones = document.querySelectorAll('[id^="dropzone-"]');
-        let closestZone: Element | null = null;
-        let minDistance = Infinity;
-        
-        dropzones.forEach(zone => {
-          const zoneRect = zone.getBoundingClientRect();
-          const zoneCenter = zoneRect.top + zoneRect.height / 2;
-          const distance = Math.abs(draggedCenter - zoneCenter);
-          
-          if (distance < minDistance) {
-            minDistance = distance;
-            closestZone = zone;
-          }
-        });
-        
-        // Выделяем визуально ближайшую зону
-        dropzones.forEach(zone => {
-          if (zone === closestZone) {
-            (zone as HTMLElement).style.backgroundColor = 'rgba(33, 150, 243, 0.2)';
-            (zone as HTMLElement).style.height = '24px';
-          } else {
-            (zone as HTMLElement).style.backgroundColor = 'transparent';
-            (zone as HTMLElement).style.height = '18px';
-          }
-        });
-      }}
-      onDragEnd={(e, info) => {
-        e.stopPropagation();
-        setPosY(0);
-        setIsDragging(false);
-        
-        // Сбрасываем стили всех зон
-        const dropzones = document.querySelectorAll('[id^="dropzone-"]');
-        dropzones.forEach((zone) => {
-          (zone as HTMLElement).style.backgroundColor = 'transparent';
-          (zone as HTMLElement).style.height = '18px';
-        });
-        
-        // Находим ближайшую зону и перемещаем виджет туда
-        if (onPositionChange) {
+        try {
+          // Предварительный просмотр позиции
           const draggedElement = e.target as HTMLElement;
           const draggedRect = draggedElement.getBoundingClientRect();
           const draggedCenter = draggedRect.top + draggedRect.height / 2;
           
           // Найдем все зоны перетаскивания
-          let closestZone: Element | null = null;
-          let minDistance = Infinity;
-          let targetIndex = index;
+          const dropzones = Array.from(document.querySelectorAll('[id^="dropzone-"]'))
+            .map(zone => zone as HTMLElement);
           
+          let closestZone: HTMLElement | null = null;
+          let minDistance = Infinity;
+          
+          // Сначала скроем все зоны
+          dropzones.forEach(zone => {
+            zone.style.backgroundColor = 'transparent';
+            zone.style.height = '24px';
+            zone.style.opacity = '0.4';
+          });
+          
+          // Затем найдём и выделим ближайшую зону
           dropzones.forEach(zone => {
             const zoneRect = zone.getBoundingClientRect();
             const zoneCenter = zoneRect.top + zoneRect.height / 2;
@@ -755,38 +734,114 @@ const WidgetContent: React.FC<{
             if (distance < minDistance) {
               minDistance = distance;
               closestZone = zone;
-              targetIndex = parseInt(zone.getAttribute('data-index') || `${index}`, 10);
             }
           });
           
-          if (closestZone && targetIndex !== index) {
-            onPositionChange(widget.id, targetIndex);
+          // Выделяем визуально ближайшую зону
+          if (closestZone) {
+            closestZone.style.backgroundColor = 'rgba(33, 150, 243, 0.3)';
+            closestZone.style.height = '30px';
+            closestZone.style.opacity = '1';
+            
+            const currentIndex = parseInt(closestZone.getAttribute('data-index') || '0', 10);
+            
+            // Анимируем соседние зоны
+            dropzones.forEach(zone => {
+              const zoneIndex = parseInt(zone.getAttribute('data-index') || '0', 10);
+              const distance = Math.abs(zoneIndex - currentIndex);
+              
+              if (distance <= 2 && zone !== closestZone) {
+                const intensity = 1 - distance * 0.4;
+                zone.style.backgroundColor = `rgba(33, 150, 243, ${0.1 * intensity})`;
+                zone.style.height = `${Math.max(18, 24 - distance * 4)}px`;
+                zone.style.opacity = '0.8';
+              }
+            });
           }
+        } catch (error) {
+          console.error('Ошибка при перетаскивании:', error);
         }
       }}
-      // Улучшаем работу на мобильных устройствах
-      whileTap={{ scale: 1.02 }}
+      onDragEnd={(e, info) => {
+        e.stopPropagation();
+        setPosY(0);
+        setIsDragging(false);
+        
+        try {
+          // Убираем класс для разрешения прокрутки страницы
+          document.body.classList.remove('dragging-widget');
+          
+          // Возвращаем стили виджета
+          const element = e.currentTarget as HTMLElement;
+          element.style.boxShadow = '';
+          element.style.zIndex = '';
+          
+          // Сбрасываем стили всех зон
+          const dropzones = Array.from(document.querySelectorAll('[id^="dropzone-"]'))
+            .map(zone => zone as HTMLElement);
+          
+          dropzones.forEach(zone => {
+            zone.style.backgroundColor = 'transparent';
+            zone.style.height = '18px';
+            zone.style.opacity = '1';
+          });
+          
+          // Находим ближайшую зону и перемещаем виджет туда
+          if (onPositionChange) {
+            const draggedElement = e.target as HTMLElement;
+            const draggedRect = draggedElement.getBoundingClientRect();
+            const draggedCenter = draggedRect.top + draggedRect.height / 2;
+            
+            let closestZone: HTMLElement | null = null;
+            let minDistance = Infinity;
+            let targetIndex = index;
+            
+            dropzones.forEach(zone => {
+              const zoneRect = zone.getBoundingClientRect();
+              const zoneCenter = zoneRect.top + zoneRect.height / 2;
+              const distance = Math.abs(draggedCenter - zoneCenter);
+              
+              if (distance < minDistance) {
+                minDistance = distance;
+                closestZone = zone;
+                targetIndex = parseInt(zone.getAttribute('data-index') || `${index}`, 10);
+              }
+            });
+            
+            if (closestZone && targetIndex !== index) {
+              // Визуализируем перемещение виджета
+              element.style.transition = 'transform 0.3s ease-out';
+              
+              setTimeout(() => {
+                // Сбрасываем анимацию перемещения после применения изменений
+                element.style.transition = '';
+                onPositionChange(widget.id, targetIndex);
+              }, 50);
+            }
+          }
+        } catch (error) {
+          console.error('Ошибка при завершении перетаскивания:', error);
+        }
+      }}
+      whileTap={{ scale: 1.01 }}
       dragDirectionLock
     >
       <DragHandle 
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.95, backgroundColor: 'rgba(33, 150, 243, 0.6)' }}
-        style={{
-          opacity: useMediaQuery('(hover: none)') ? 0.6 : undefined,
-          width: useMediaQuery('(max-width: 480px)') ? '50px' : undefined
-        }}
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.98, backgroundColor: 'rgba(33, 150, 243, 0.7)' }}
       />
       <WidgetControls className="widget-controls">
           <IconButton 
             size="small" 
             onClick={(e) => { e.stopPropagation(); onEdit(); }}
             sx={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
-              padding: { xs: '2px', sm: '4px' },
+              backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 1)' },
+              padding: { xs: '4px', sm: '6px' },
               '& .MuiSvgIcon-root': { 
-                fontSize: { xs: '0.9rem', sm: '1.25rem' } 
-              }
+                fontSize: { xs: '1rem', sm: '1.25rem' } 
+              },
+              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
             }}
           >
           <Edit fontSize="small" />
@@ -795,12 +850,13 @@ const WidgetContent: React.FC<{
             size="small" 
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
             sx={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
-              padding: { xs: '2px', sm: '4px' },
+              backgroundColor: 'rgba(255, 255, 255, 0.9)', 
+              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 1)' },
+              padding: { xs: '4px', sm: '6px' },
               '& .MuiSvgIcon-root': { 
-                fontSize: { xs: '0.9rem', sm: '1.25rem' } 
-              }
+                fontSize: { xs: '1rem', sm: '1.25rem' } 
+              },
+              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
             }}
           >
           <Delete fontSize="small" />
@@ -2200,6 +2256,7 @@ const SocialPage: React.FC = () => {
                     onPositionChange={handleWidgetPositionChange}
                     index={index}
                     total={widgets.length}
+                    isOwner={isOwner}
               />
             ))}
             
