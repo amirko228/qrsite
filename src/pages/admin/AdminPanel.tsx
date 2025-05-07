@@ -399,28 +399,28 @@ const TableLoadingSkeleton = memo(() => {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   
   return (
-    <>
-      {Array.from(new Array(TABLE_SKELETON_COUNT)).map((_, index) => (
-        <TableRow key={index}>
-          <TableCell><Skeleton animation="wave" /></TableCell>
+  <>
+    {Array.from(new Array(TABLE_SKELETON_COUNT)).map((_, index) => (
+      <TableRow key={index}>
+        <TableCell><Skeleton animation="wave" /></TableCell>
           {!isMobile && <TableCell><Skeleton animation="wave" /></TableCell>}
-          <TableCell><Skeleton animation="wave" /></TableCell>
-          <TableCell><Skeleton animation="wave" /></TableCell>
-          <TableCell><Skeleton animation="wave" width={80} /></TableCell>
+        <TableCell><Skeleton animation="wave" /></TableCell>
+        <TableCell><Skeleton animation="wave" /></TableCell>
+        <TableCell><Skeleton animation="wave" width={80} /></TableCell>
           {!isMobile && (
             <>
-              <TableCell><Skeleton animation="wave" width={100} /></TableCell>
-              <TableCell><Skeleton animation="wave" width={100} /></TableCell>
+        <TableCell><Skeleton animation="wave" width={100} /></TableCell>
+        <TableCell><Skeleton animation="wave" width={100} /></TableCell>
             </>
           )}
-          <TableCell align="right">
-            <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+        <TableCell align="right">
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
               <Skeleton animation="wave" width={isMobile ? 80 : 120} height={36} />
-            </Box>
-          </TableCell>
-        </TableRow>
-      ))}
-    </>
+          </Box>
+        </TableCell>
+      </TableRow>
+    ))}
+  </>
   );
 });
 
@@ -1274,7 +1274,7 @@ const AdminPanel: React.FC = () => {
       <AdminToolbar>
         <TextField
           placeholder="Поиск пользователей..."
-          value={state.searchInputValue}
+                    value={state.searchInputValue}
           onChange={handleSearchChange}
           variant="outlined"
           size={isMobile ? "small" : "medium"}
@@ -1293,7 +1293,7 @@ const AdminPanel: React.FC = () => {
               </InputAdornment>
             ) : null,
           }}
-          sx={{ width: { xs: '100%', sm: 300 } }}
+                    sx={{ width: { xs: '100%', sm: 300 } }}
         />
         
         <Box sx={{ 
@@ -1304,8 +1304,8 @@ const AdminPanel: React.FC = () => {
           width: { xs: '100%', sm: 'auto' }
         }}>
           {state.selectedUsers.length > 0 && (
-            <Button 
-              variant="outlined" 
+          <Button 
+            variant="outlined" 
               color="error"
               size="small"
               startIcon={<DeleteIcon fontSize={isMobile ? "small" : "medium"} />}
@@ -1318,26 +1318,26 @@ const AdminPanel: React.FC = () => {
           )}
           <Button 
             variant="outlined" 
-            size="small"
+                      size="small"
             startIcon={state.refreshing ? 
               <CircularProgress size={isMobile ? 16 : 20} /> : 
               <RefreshIcon fontSize={isMobile ? "small" : "medium"} />
             }
             onClick={() => fetchUsers(true)}
-            disabled={state.loading || state.refreshing}
+                      disabled={state.loading || state.refreshing}
             sx={{ fontSize: { xs: '0.75rem', sm: '0.8rem' } }}
           >
             Обновить
           </Button>
           <Button
             variant="contained"
-            size="small"
+                      size="small"
             startIcon={<AddIcon fontSize={isMobile ? "small" : "medium"} />}
-            onClick={() => handleOpenEditDialog(null)}
-            disabled={state.loading || state.refreshing}
+                      onClick={() => handleOpenEditDialog(null)}
+                      disabled={state.loading || state.refreshing}
             sx={{ fontSize: { xs: '0.75rem', sm: '0.8rem' } }}
           >
-            Добавить
+                      Добавить
           </Button>
           <Tooltip title="Очистить все данные">
             <Button
@@ -1360,49 +1360,49 @@ const AdminPanel: React.FC = () => {
         <Table stickyHeader size="small">
           <TableHead>
             <TableRow>
-              <TableCell padding="checkbox">
-                <Checkbox
-                  color="primary"
-                  indeterminate={state.selectedUsers.length > 0 && !isAllSelected}
-                  checked={isAllSelected}
-                  onChange={handleSelectAllUsers}
-                  disabled={state.users.length === 0 || state.loading}
-                />
-              </TableCell>
+                        <TableCell padding="checkbox">
+                          <Checkbox
+                            color="primary"
+                            indeterminate={state.selectedUsers.length > 0 && !isAllSelected}
+                            checked={isAllSelected}
+                            onChange={handleSelectAllUsers}
+                            disabled={state.users.length === 0 || state.loading}
+                          />
+                        </TableCell>
               <TableCell width={60} sx={{ display: { xs: 'none', sm: 'table-cell' } }}>ID</TableCell>
               <TableCell>Логин</TableCell>
-              <TableCell>Имя</TableCell>
-              <TableCell width={120}>Статус</TableCell>
+                        <TableCell>Имя</TableCell>
+                        <TableCell width={120}>Статус</TableCell>
               <TableCell width={120} sx={{ display: { xs: 'none', md: 'table-cell' } }}>Активация</TableCell>
               <TableCell width={120} sx={{ display: { xs: 'none', md: 'table-cell' } }}>Истечение</TableCell>
-              <TableCell align="right" width={120}>Действия</TableCell>
+                        <TableCell align="right" width={120}>Действия</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {state.loading && state.users.length === 0 ? (
-              <TableLoadingSkeleton />
-            ) : state.users.length === 0 ? (
+                      {state.loading && state.users.length === 0 ? (
+                        <TableLoadingSkeleton />
+                      ) : state.users.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
-                  <Typography color="text.secondary">
-                    {state.searchQuery ? 'Пользователи не найдены' : 'Список пользователей пуст'}
+                          <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
+                            <Typography color="text.secondary">
+                              {state.searchQuery ? 'Пользователи не найдены' : 'Список пользователей пуст'}
                   </Typography>
                 </TableCell>
               </TableRow>
-            ) : (
-              visibleUsers.map(user => (
-                <UserTableRow
-                  key={user.id}
-                  user={user}
-                  onEdit={handleOpenEditDialog}
-                  onDelete={handleOpenDeleteDialog}
-                  onQR={handleOpenQRDialog}
-                  actionLoading={state.actionLoading}
-                  isSelected={state.selectedUsers.includes(user.id)}
-                  onToggleSelect={handleToggleUserSelection}
+                      ) : (
+                        visibleUsers.map(user => (
+                          <UserTableRow
+                            key={user.id}
+                            user={user}
+                            onEdit={handleOpenEditDialog}
+                            onDelete={handleOpenDeleteDialog}
+                            onQR={handleOpenQRDialog}
+                            actionLoading={state.actionLoading}
+                            isSelected={state.selectedUsers.includes(user.id)}
+                            onToggleSelect={handleToggleUserSelection}
                   isMobile={isMobile}
-                />
-              ))
+                          />
+                        ))
             )}
           </TableBody>
         </Table>
@@ -1412,9 +1412,9 @@ const AdminPanel: React.FC = () => {
                 {state.users.length > 0 && (
       <TablePagination
         component="div"
-        count={state.users.length}
-        page={state.page}
-        rowsPerPage={state.rowsPerPage}
+                    count={state.users.length}
+                    page={state.page}
+                    rowsPerPage={state.rowsPerPage}
         onPageChange={handleChangePage}
         onRowsPerPageChange={handleChangeRowsPerPage}
         rowsPerPageOptions={isMobile ? [5, 10] : [5, 10, 25]}
@@ -1467,31 +1467,31 @@ const AdminPanel: React.FC = () => {
           <Box sx={{ pt: 1 }}>
           <TextField
             fullWidth
-            label="Имя"
-            margin="normal"
-            value={userForm.name}
-            onChange={handleUserFormChange('name')}
+              label="Имя"
+              margin="normal"
+              value={userForm.name}
+              onChange={handleUserFormChange('name')}
             size={isMobile ? "small" : "medium"}
           />
           <TextField
             fullWidth
-            label="Логин"
-            margin="normal"
-            value={userForm.username}
-            onChange={handleUserFormChange('username')}
-            size={isMobile ? "small" : "medium"}
-          />
-          {!selectedUser && (
-            <TextField
-              fullWidth
-              label="Пароль"
-              type="password"
+              label="Логин"
               margin="normal"
-              value={userForm.password}
-              onChange={handleUserFormChange('password')}
-              size={isMobile ? "small" : "medium"}
+              value={userForm.username}
+              onChange={handleUserFormChange('username')}
+            size={isMobile ? "small" : "medium"}
             />
-          )}
+            {!selectedUser && (
+          <TextField
+            fullWidth
+                label="Пароль"
+                type="password"
+                margin="normal"
+                value={userForm.password}
+                onChange={handleUserFormChange('password')}
+              size={isMobile ? "small" : "medium"}
+              />
+            )}
           </Box>
         </DialogContent>
         <DialogActions>

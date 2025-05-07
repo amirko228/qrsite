@@ -612,15 +612,15 @@ const Navigation: React.FC = () => {
             
             {isMobile && isLoggedIn && (
               <>
-                <Tooltip title="Профиль">
-                  <IconButton
-                    onClick={() => navigate('/social')}
-                    color="primary"
-                    sx={{ mr: 1 }}
-                  >
-                    <AccountCircle />
-                  </IconButton>
-                </Tooltip>
+              <Tooltip title="Профиль">
+                <IconButton
+                  onClick={() => navigate('/social')}
+                  color="primary"
+                  sx={{ mr: 1 }}
+                >
+                  <AccountCircle />
+                </IconButton>
+              </Tooltip>
                 
                 {user?.is_admin && (
                   <Tooltip title="Админ-панель">

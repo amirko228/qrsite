@@ -161,29 +161,33 @@ const WidgetElement = styled(motion.div)<{
   background-color: ${props => props.$backgroundColor || 'white'};
   color: ${props => props.$textColor || 'inherit'};
   position: relative;
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition: box-shadow 0.3s ease, transform 0.3s ease;
   box-shadow: ${props => 
     props.$isDragging 
-      ? '0 10px 25px rgba(0, 0, 0, 0.2)' 
+      ? '0 15px 35px rgba(0, 0, 0, 0.25)' 
       : props.$isSelected 
         ? '0 5px 15px rgba(0, 0, 0, 0.15)' 
         : '0 2px 10px rgba(0, 0, 0, 0.08)'
   };
-  transform: ${props => props.$isDragging ? 'scale(1.02)' : 'scale(1)'};
-  touch-action: none; /* Предотвращаем стандартное поведение прокрутки при перетаскивании на мобильных устройствах */
+  transform: ${props => props.$isDragging ? 'scale(1.03)' : 'scale(1)'};
+  touch-action: none;
   
   &:hover {
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.12);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
   }
   
   &:active {
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
   }
   
   /* Более заметные стили при выборе виджета */
   ${props => props.$isSelected && `
-    outline: 2px solid #2196f3;
-    box-shadow: 0 5px 20px rgba(33, 150, 243, 0.3);
+    outline: 3px solid #2196f3;
+    box-shadow: 0 8px 25px rgba(33, 150, 243, 0.35);
+  `}
+  
+  ${props => props.$isDragging && `
+    z-index: 10;
   `}
   
   @media (max-width: 768px) {
@@ -203,28 +207,31 @@ const DragHandle = styled(motion.div)`
   top: 6px;
   width: clamp(80px, 25%, 120px);
   height: 6px;
-  border-radius: 3px;
-  background-color: rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  background-color: rgba(0, 0, 0, 0.15);
   cursor: grab;
   opacity: 0.7;
-  transition: all 0.2s ease;
+  transition: all 0.25s ease;
   z-index: 10;
-  -webkit-tap-highlight-color: transparent; /* Убираем подсветку при тапе на мобильных */
+  -webkit-tap-highlight-color: transparent;
 
   &:hover {
-    background-color: rgba(33, 150, 243, 0.5);
-    height: 8px;
+    background-color: rgba(33, 150, 243, 0.65);
+    height: 10px;
     opacity: 1;
+    width: clamp(100px, 35%, 150px);
   }
 
   ${WidgetElement}:hover & {
     opacity: 1;
+    height: 8px;
   }
 
   &:active {
     cursor: grabbing;
     background-color: rgba(33, 150, 243, 0.8);
-    height: 8px;
+    height: 10px;
+    width: clamp(100px, 35%, 150px);
   }
   
   @media (max-width: 768px) {
@@ -253,7 +260,7 @@ const DropZone = styled(motion.div)<{ $isActive?: boolean }>`
   background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.25)' : 'transparent'};
   border-radius: 10px;
   margin: 8px 0;
-  transition: all 0.2s ease;
+  transition: all 0.3s ease;
   position: relative;
   
   &::before {
@@ -266,12 +273,12 @@ const DropZone = styled(motion.div)<{ $isActive?: boolean }>`
     height: 3px;
     background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.7)' : 'transparent'};
     opacity: ${props => props.$isActive ? 1 : 0};
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
   }
   
   &:hover {
     background-color: rgba(33, 150, 243, 0.2);
-    height: 26px;
+    height: 30px;
     
     &::before {
       opacity: 1;
@@ -285,7 +292,7 @@ const DropZone = styled(motion.div)<{ $isActive?: boolean }>`
     margin: 6px 0;
     
     &:hover {
-      height: 22px;
+      height: 24px;
     }
   }
   
@@ -294,7 +301,7 @@ const DropZone = styled(motion.div)<{ $isActive?: boolean }>`
     margin: 5px 0;
     
     &:hover {
-      height: 20px;
+      height: 22px;
     }
   }
 `;
@@ -440,6 +447,22 @@ const WidgetContent: React.FC<{
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
   const [dropzones, setDropzones] = useState<HTMLElement[]>([]);
   const [dragDirection, setDragDirection] = useState<'up' | 'down' | null>(null);
+  const [autoScrollSpeed, setAutoScrollSpeed] = useState(0);
+  
+  // Автоматическая прокрутка при приближении к краям экрана
+  useEffect(() => {
+    let scrollInterval: ReturnType<typeof setInterval> | null = null;
+    
+    if (isDragging && autoScrollSpeed !== 0) {
+      scrollInterval = setInterval(() => {
+        window.scrollBy(0, autoScrollSpeed);
+      }, 16); // примерно 60fps
+    }
+    
+    return () => {
+      if (scrollInterval) clearInterval(scrollInterval);
+    };
+  }, [isDragging, autoScrollSpeed]);
   
   // Кешируем зоны перетаскивания при первом перетаскивании
   useEffect(() => {
@@ -698,7 +721,7 @@ const WidgetContent: React.FC<{
           id={`dropzone-top-${widget.id}`}
           data-index={index}
           $isActive={isDragging}
-          whileHover={{ height: 20, backgroundColor: 'rgba(33, 150, 243, 0.15)' }}
+          whileHover={{ height: 30, backgroundColor: 'rgba(33, 150, 243, 0.2)' }}
         />
       }
       
@@ -727,14 +750,14 @@ const WidgetContent: React.FC<{
           y: { type: "spring", stiffness: 350, damping: 25 }
         }}
         drag="y"
-        dragDirectionLock  // Блокируем движение только по оси Y
+        dragDirectionLock
         dragConstraints={constraints}
-        dragElastic={0.1} // Увеличиваем эластичность для лучшего ощущения
+        dragElastic={0.1}
         dragTransition={{ 
           bounceStiffness: 350, 
           bounceDamping: 25,
           power: 0.2
-        }} // Улучшение физики перетаскивания
+        }}
         dragMomentum={false}
         onDragStart={(e, info) => {
           setIsDragging(true);
@@ -751,6 +774,23 @@ const WidgetContent: React.FC<{
           const newDirection = info.delta.y > 0 ? 'down' : 'up';
           if (newDirection !== dragDirection) {
             setDragDirection(newDirection);
+          }
+          
+          // Автоматическая прокрутка при приближении к краям экрана
+          const mouseY = info.point.y;
+          const windowHeight = window.innerHeight;
+          const scrollThreshold = 100; // пиксели от края экрана
+          
+          if (mouseY < scrollThreshold) {
+            // Прокрутка вверх при приближении к верхнему краю
+            const intensity = Math.max(1, (scrollThreshold - mouseY) / 20);
+            setAutoScrollSpeed(-intensity);
+          } else if (mouseY > windowHeight - scrollThreshold) {
+            // Прокрутка вниз при приближении к нижнему краю
+            const intensity = Math.max(1, (mouseY - (windowHeight - scrollThreshold)) / 20);
+            setAutoScrollSpeed(intensity);
+          } else {
+            setAutoScrollSpeed(0);
           }
           
           // Находим ближайшую зону для визуального выделения
@@ -770,13 +810,14 @@ const WidgetContent: React.FC<{
             // Выделяем текущую зону
             if (zone) {
               zone.style.backgroundColor = 'rgba(33, 150, 243, 0.25)';
-              zone.style.height = '26px';
+              zone.style.height = '30px';
             }
           }
         }}
         onDragEnd={(e, info) => {
           setPosY(0);
           setIsDragging(false);
+          setAutoScrollSpeed(0);
           
           // Добавляем тактильную обратную связь при завершении перетаскивания
           if (window.navigator && window.navigator.vibrate) {
@@ -846,7 +887,7 @@ const WidgetContent: React.FC<{
         id={`dropzone-bottom-${widget.id}`}
         data-index={index + 1}
         $isActive={isDragging}
-        whileHover={{ height: 20, backgroundColor: 'rgba(33, 150, 243, 0.15)' }}
+        whileHover={{ height: 30, backgroundColor: 'rgba(33, 150, 243, 0.2)' }}
       />
     </WidgetContainer>
   );
@@ -1795,26 +1836,11 @@ const SocialPage: React.FC = () => {
       
       if (currentIndex === -1) return prev;
       
-      // Оптимизированное перемещение элемента массива
+      // Извлекаем перемещаемый виджет
       const [movedWidget] = updatedWidgets.splice(currentIndex, 1);
       
-      // Вставляем виджет в новую позицию с анимацией
-      updatedWidgets.splice(targetIndex, 0, {
-        ...movedWidget,
-        // Добавляем временную метку для анимации
-        id: `${movedWidget.id}_${Date.now()}`
-      });
-      
-      // После анимации восстанавливаем исходный ID
-      setTimeout(() => {
-        setWidgets(current => 
-          current.map(w => 
-            w.id === `${movedWidget.id}_${Date.now()}` 
-              ? { ...w, id: movedWidget.id } 
-              : w
-          )
-        );
-      }, 300);
+      // Вставляем виджет в новую позицию
+      updatedWidgets.splice(targetIndex, 0, movedWidget);
       
       return updatedWidgets;
     });
@@ -1823,7 +1849,6 @@ const SocialPage: React.FC = () => {
     if (window.navigator && window.navigator.vibrate) {
       window.navigator.vibrate([30, 50, 30]);
     }
-    
   }, [widgets.length]);
 
   const handleAddWidgetClose = useCallback(() => {
