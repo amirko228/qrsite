@@ -478,18 +478,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Оптимизированный выход пользователя
   const logout = useCallback(() => {
-    // Сохраняем данные пользователей для админ-панели
+    // Сохраняем данные пользователей для админ-панели и профилей
     const adminPanelData = localStorage.getItem(USERS_STORAGE_KEY);
     
-    console.log('Выход пользователя: полная очистка localStorage');
-    
-    // ПОЛНАЯ очистка localStorage
-    localStorage.clear();
-    
-    // Восстанавливаем только данные для админ-панели
-    if (adminPanelData) {
-      localStorage.setItem(USERS_STORAGE_KEY, adminPanelData);
+    // Сохраняем все ключи профилей и виджетов перед очисткой
+    const keysToPreserve: Record<string, string> = {};
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (
+          key.startsWith(PROFILE_PREFIX) || 
+          key.startsWith(WIDGETS_PREFIX) || 
+          key.startsWith(SETTINGS_PREFIX) || 
+          key === USERS_STORAGE_KEY
+        )) {
+        keysToPreserve[key] = localStorage.getItem(key) || '';
+      }
     }
+    
+    console.log('Выход пользователя: очистка данных аутентификации');
+    
+    // Удаляем только ключи, связанные с аутентификацией
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem('current_user_id');
+    localStorage.removeItem('current_user_name');
+    localStorage.removeItem('current_user_is_admin');
+    
+    // Восстанавливаем сохраненные данные (профили и пр.)
+    Object.entries(keysToPreserve).forEach(([key, value]) => {
+      localStorage.setItem(key, value);
+    });
     
     // Очищаем состояние React
     setUser(null);
