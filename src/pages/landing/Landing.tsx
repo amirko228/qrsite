@@ -904,7 +904,7 @@ const Landing: React.FC = () => {
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ duration: 0.5 }}
                     >
-                      <CenteredTypography variant="subtitle1" sx={{ mb: 2, textAlign: 'center', width: '100%', color: 'white' }}>
+                      <CenteredTypography variant="subtitle1" sx={{ mb: 2, textAlign: 'center', width: '100%', color: customColors.primary }}>
                         Создайте мемориальную страницу близкого с историями фотографиями и видео
                       </CenteredTypography>
                       <QRCodeWrapper>
@@ -917,7 +917,7 @@ const Landing: React.FC = () => {
                         includeMargin={false}
                       />
                       </QRCodeWrapper>
-                      <CenteredTypography variant="subtitle1" sx={{ mt: 2, textAlign: 'center', width: '100%', color: 'white' }}>
+                      <CenteredTypography variant="subtitle1" sx={{ mt: 2, textAlign: 'center', width: '100%', color: customColors.primary }}>
                         Карта памяти
                       </CenteredTypography>
                     </AnimatedQRCode>
