@@ -43,7 +43,7 @@ import {
 } from '@mui/icons-material';
 import styled from 'styled-components';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import FamilyTreeWidget from '../../components/widgets/FamilyTreeWidget';
 import QRCode from 'react-qr-code';
 import { useAuth } from '../../contexts/AuthContext';
@@ -149,45 +149,51 @@ const widgetContainerVariants = {
   }
 };
 
-// Стиль для виджета
+// Обновление WidgetElement для лучшей визуальной обратной связи при перетаскивании
 const WidgetElement = styled(motion.div)<{
-  $backgroundColor: string;
-  $textColor: string;
-  $isSelected: boolean;
+  $backgroundColor?: string;
+  $textColor?: string;
+  $isSelected?: boolean;
   $isDragging?: boolean;
 }>`
-  border-radius: 8px;
-  background-color: ${props => props.$backgroundColor};
-  color: ${props => props.$textColor};
-  padding: 20px;
-  box-shadow: ${props => {
-    if (props.$isDragging) return '0 8px 16px rgba(0, 0, 0, 0.15)';
-    if (props.$isSelected) return '0 0 0 2px #2196f3, 0 4px 12px rgba(0, 0, 0, 0.1)';
-    return '0 2px 8px rgba(0, 0, 0, 0.08)';
-  }};
-  overflow: hidden;
   position: relative;
+  background-color: ${props => props.$backgroundColor || 'white'};
+  color: ${props => props.$textColor || 'inherit'};
+  padding: clamp(12px, 3vw, 20px);
+  border-radius: clamp(10px, 1.5vw, 16px);
+  box-shadow: ${props => props.$isDragging 
+    ? '0 10px 25px rgba(0, 0, 0, 0.15), 0 2px 10px rgba(0, 0, 0, 0.12)' 
+    : props.$isSelected 
+      ? '0 4px 12px rgba(0, 0, 0, 0.1), 0 1px 4px rgba(0, 0, 0, 0.08)' 
+      : '0 2px 8px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03)'};
+  cursor: pointer;
+  overflow: hidden;
   width: 100%;
-  min-height: 80px;
-  transition: all 0.2s ease;
-  cursor: move;
-  touch-action: none; /* Предотвращаем прокрутку страницы на тач-устройствах при перетаскивании */
-  transform: ${props => props.$isDragging ? 'scale(1.02)' : 'none'};
-  z-index: ${props => props.$isDragging ? 10 : 1};
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+  transform: ${props => props.$isDragging ? 'scale(1.03)' : 'scale(1)'};
+  touch-action: ${props => props.$isDragging ? 'none' : 'auto'};
+  
+  ${props => props.$isSelected && `
+    outline: 2px solid ${theme.palette.primary.main};
+  `}
   
   &:hover {
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-    transform: ${props => props.$isDragging ? 'scale(1.02)' : 'translateY(-2px)'};
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08), 0 3px 6px rgba(0, 0, 0, 0.05);
   }
   
-  &:hover .widget-controls {
-    opacity: 1;
-  }
+  ${props => props.$isDragging && `
+    z-index: 1100;
+  `}
   
   @media (max-width: 768px) {
-    padding: 16px;
-    border-radius: 6px;
+    padding: 14px;
+    border-radius: 10px;
+  }
+  
+  @media (max-width: 480px) {
+    padding: 12px;
+    border-radius: 8px;
   }
 `;
 
@@ -216,20 +222,17 @@ const DragHandle = styled(motion.div)`
   left: 50%;
   transform: translateX(-50%);
   top: 6px;
-  width: clamp(80px, 30%, 120px);
-  height: 10px;
-  border-radius: 5px;
-  background-color: rgba(33, 150, 243, 0.3);
+  width: clamp(60px, 30%, 100px);
+  height: 8px;
+  border-radius: 4px;
+  background-color: rgba(0, 0, 0, 0.15);
   cursor: grab;
-  opacity: 0.8;
+  opacity: 0;
   transition: all 0.2s ease;
-  z-index: 10;
-  touch-action: none;
 
   &:hover {
     background-color: rgba(33, 150, 243, 0.5);
-    height: 12px;
-    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+    height: 10px;
   }
 
   ${WidgetElement}:hover & {
@@ -238,40 +241,40 @@ const DragHandle = styled(motion.div)`
 
   &:active {
     cursor: grabbing;
-    background-color: rgba(33, 150, 243, 0.8);
-    height: 12px;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+    background-color: rgba(33, 150, 243, 0.7);
+    height: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
   }
   
   @media (max-width: 768px) {
     width: 80px;
-    height: 10px;
-    opacity: 0.9;
+    height: 8px;
+    opacity: 1;
+    top: 4px;
   }
   
   @media (max-width: 480px) {
-    width: 70px;
-    opacity: 0.85;
-    top: 6px;
+    width: 60px;
+    opacity: 1;
+    height: 8px;
+    top: 3px;
   }
   
   @media (hover: none) {
-    opacity: 0.9;
-    width: 80px;
-    height: 10px;
+    opacity: 1;
+    width: 60px;
   }
 `;
 
 // Визуальный индикатор места перетаскивания
 const DropZone = styled(motion.div)<{ $isActive?: boolean }>`
   width: 100%;
-  height: 18px;
-  background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.2)' : 'transparent'};
-  border-radius: 9px;
-  margin: 8px 0;
-  transition: all 0.2s ease;
+  height: 20px;
+  background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.3)' : 'transparent'};
+  border-radius: 10px;
+  margin: 10px 0;
+  transition: all 0.15s ease;
   position: relative;
-  z-index: 5; /* Убедимся, что зона перетаскивания всегда доступна */
   
   &::before {
     content: '';
@@ -280,38 +283,38 @@ const DropZone = styled(motion.div)<{ $isActive?: boolean }>`
     top: 50%;
     transform: translateY(-50%);
     width: 100%;
-    height: 2px;
-    background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.7)' : 'transparent'};
+    height: 3px;
+    background-color: ${props => props.$isActive ? 'rgba(33, 150, 243, 0.8)' : 'transparent'};
     opacity: ${props => props.$isActive ? 1 : 0};
-    transition: all 0.2s ease;
+    transition: all 0.15s ease;
   }
   
   &:hover {
-    background-color: rgba(33, 150, 243, 0.15);
-    height: 24px;
+    background-color: rgba(33, 150, 243, 0.2);
+    height: 28px;
     
     &::before {
       opacity: 1;
-      background-color: rgba(33, 150, 243, 0.6);
-      height: 3px;
+      background-color: rgba(33, 150, 243, 0.7);
+      height: 4px;
     }
   }
   
   @media (max-width: 768px) {
-    height: 15px;
-    margin: 5px 0;
+    height: 18px;
+    margin: 6px 0;
     
     &:hover {
-      height: 18px;
+      height: 22px;
     }
   }
   
   @media (max-width: 480px) {
-    height: 12px;
-    margin: 4px 0;
+    height: 16px;
+    margin: 5px 0;
     
     &:hover {
-      height: 15px;
+      height: 20px;
     }
   }
 `;
@@ -426,49 +429,10 @@ const WidgetContent: React.FC<{
   onPositionChange?: (id: string, targetIndex: number) => void;
   index: number;
   total: number;
-  isOwner?: boolean;
-}> = ({ widget, isSelected, onSelect, onDelete, onEdit, onPositionChange, index, total, isOwner = true }) => {
+}> = ({ widget, isSelected, onSelect, onDelete, onEdit, onPositionChange, index, total }) => {
   const [isDragging, setIsDragging] = useState(false);
   const constraints = useRef<HTMLDivElement>(null);
   const [posY, setPosY] = useState(0);
-  const [dragStartY, setDragStartY] = useState(0);
-  const [activeDropzone, setActiveDropzone] = useState<number | null>(null);
-  
-  // Обработчик начала перетаскивания
-  const handleDragStart = (_: any, info: PanInfo) => {
-    setIsDragging(true);
-    setDragStartY(info.point.y);
-  };
-
-  // Обработчик процесса перетаскивания
-  const handleDrag = (_: any, info: PanInfo) => {
-    const offsetY = info.offset.y;
-    setPosY(offsetY);
-    
-    // Вычисляем новый индекс в зависимости от направления перетаскивания и расстояния
-    // Если смещение больше 100px вниз, предлагаем переместить виджет вниз
-    // Если смещение больше 100px вверх, предлагаем переместить виджет вверх
-    if (offsetY > 100 && index < total - 1) {
-      setActiveDropzone(index + 1);
-    } else if (offsetY < -100 && index > 0) {
-      setActiveDropzone(index - 1);
-    } else {
-      setActiveDropzone(null);
-    }
-  };
-
-  // Обработчик завершения перетаскивания
-  const handleDragEnd = (_: any, info: PanInfo) => {
-    setIsDragging(false);
-    setPosY(0);
-    
-    // Если есть активная зона и функция изменения позиции
-    if (activeDropzone !== null && onPositionChange && activeDropzone !== index) {
-      onPositionChange(widget.id, activeDropzone);
-    }
-    
-    setActiveDropzone(null);
-  };
   
   // Функция для рендера контента виджета в зависимости от его типа
   const renderWidgetContent = () => {
@@ -694,20 +658,20 @@ const WidgetContent: React.FC<{
           layout
           id={`dropzone-top-${widget.id}`}
           data-index={index}
-          $isActive={activeDropzone === 0}
+          $isActive={isDragging}
           whileHover={{ height: 20, backgroundColor: 'rgba(33, 150, 243, 0.15)' }}
         />
       }
       
-      <WidgetElement
-        $backgroundColor={widget.backgroundColor}
-        $textColor={widget.textColor}
-        $isSelected={isSelected}
+    <WidgetElement
+      $backgroundColor={widget.backgroundColor}
+      $textColor={widget.textColor}
+      $isSelected={isSelected}
         $isDragging={isDragging}
-        onClick={(e) => {
-          e.stopPropagation();
-          onSelect();
-        }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ 
           opacity: 1, 
@@ -723,61 +687,146 @@ const WidgetContent: React.FC<{
           duration: 0.2,
           y: { type: "spring", stiffness: 300, damping: 25 }
         }}
-        drag={isOwner ? "y" : false}
+        drag="y"
         dragConstraints={constraints}
-        dragElastic={0.2}  // Увеличиваем эластичность для лучшего ощущения
+        dragElastic={0.02}
         dragMomentum={false}
-        onDragStart={handleDragStart}
-        onDrag={handleDrag}
-        onDragEnd={handleDragEnd}
-        whileTap={{ scale: 1.01 }}
-        dragDirectionLock
+        onDragStart={() => setIsDragging(true)}
+        onDrag={(e, info) => {
+          setPosY(info.offset.y);
+          
+          // Добавляем хаптическую обратную связь для мобильных устройств
+          if (window.navigator.vibrate && info.delta.y !== 0) {
+            // Вибрация только при существенном перемещении
+            if (Math.abs(info.delta.y) > 5) {
+              window.navigator.vibrate(5);
+            }
+          }
+          
+          // Визуальная подсветка ближайшей зоны сброса при перетаскивании
+          if (onPositionChange) {
+            const draggedElement = e.target as HTMLElement;
+            const draggedRect = draggedElement.getBoundingClientRect();
+            const draggedCenter = draggedRect.top + draggedRect.height / 2;
+            
+            // Найдем все зоны перетаскивания
+            const dropzones = document.querySelectorAll('[id^="dropzone-"]');
+            
+            // Сначала сбросим активность для всех зон
+            dropzones.forEach(zone => {
+              (zone as HTMLElement).style.backgroundColor = 'transparent';
+            });
+            
+            // Найдем ближайшую зону и подсветим её
+            let closestZone = null;
+            let minDistance = Infinity;
+            
+            dropzones.forEach(zone => {
+              const zoneRect = zone.getBoundingClientRect();
+              const zoneCenter = zoneRect.top + zoneRect.height / 2;
+              const distance = Math.abs(draggedCenter - zoneCenter);
+              
+              if (distance < minDistance) {
+                minDistance = distance;
+                closestZone = zone;
+              }
+            });
+            
+            // Подсветим ближайшую зону
+            if (closestZone && minDistance < 50) {
+              (closestZone as HTMLElement).style.backgroundColor = 'rgba(33, 150, 243, 0.3)';
+            }
+          }
+        }}
+        onDragEnd={(e, info) => {
+          setPosY(0);
+          setIsDragging(false);
+          
+          // Сбрасываем подсветку для всех зон
+          const dropzones = document.querySelectorAll('[id^="dropzone-"]');
+          dropzones.forEach(zone => {
+            (zone as HTMLElement).style.backgroundColor = 'transparent';
+          });
+          
+          // Находим ближайшую зону и перемещаем виджет туда
+          if (onPositionChange) {
+            const draggedElement = e.target as HTMLElement;
+            const draggedRect = draggedElement.getBoundingClientRect();
+            const draggedCenter = draggedRect.top + draggedRect.height / 2;
+            
+            // Найдем все зоны перетаскивания
+            let closestZone = null;
+            let minDistance = Infinity;
+            let targetIndex = index;
+            
+            dropzones.forEach(zone => {
+              const zoneRect = zone.getBoundingClientRect();
+              const zoneCenter = zoneRect.top + zoneRect.height / 2;
+              const distance = Math.abs(draggedCenter - zoneCenter);
+              
+              if (distance < minDistance) {
+                minDistance = distance;
+                closestZone = zone;
+                targetIndex = parseInt(zone.getAttribute('data-index') || `${index}`, 10);
+              }
+            });
+            
+            // Применяем перемещение только если расстояние достаточно мало и индекс изменился
+            if (closestZone && targetIndex !== index && minDistance < 80) {
+              // Добавляем вибрацию для мобильных устройств при успешном перемещении
+              if (window.navigator.vibrate) {
+                window.navigator.vibrate([15, 50, 15]);
+              }
+              
+              // Применяем изменение позиции
+              onPositionChange(widget.id, targetIndex);
+            }
+          }
+        }}
       >
         <DragHandle 
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.98, backgroundColor: 'rgba(33, 150, 243, 0.7)' }}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.95 }}
         />
-        <WidgetControls className="widget-controls">
+      <WidgetControls className="widget-controls">
           <IconButton 
             size="small" 
             onClick={(e) => { e.stopPropagation(); onEdit(); }}
             sx={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.9)', 
-              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 1)' },
-              padding: { xs: '4px', sm: '6px' },
+              backgroundColor: 'rgba(255, 255, 255, 0.8)', 
+              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
+              padding: { xs: '2px', sm: '4px' },
               '& .MuiSvgIcon-root': { 
-                fontSize: { xs: '1rem', sm: '1.25rem' } 
-              },
-              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+                fontSize: { xs: '0.9rem', sm: '1.25rem' } 
+              }
             }}
           >
-            <Edit fontSize="small" />
-          </IconButton>
+          <Edit fontSize="small" />
+        </IconButton>
           <IconButton 
             size="small" 
             onClick={(e) => { e.stopPropagation(); onDelete(); }}
             sx={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.9)', 
-              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 1)' },
-              padding: { xs: '4px', sm: '6px' },
+              backgroundColor: 'rgba(255, 255, 255, 0.8)', 
+              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
+              padding: { xs: '2px', sm: '4px' },
               '& .MuiSvgIcon-root': { 
-                fontSize: { xs: '1rem', sm: '1.25rem' } 
-              },
-              boxShadow: '0 2px 5px rgba(0,0,0,0.1)'
+                fontSize: { xs: '0.9rem', sm: '1.25rem' } 
+              }
             }}
           >
-            <Delete fontSize="small" />
-          </IconButton>
-        </WidgetControls>
-        
-        {renderWidgetContent()}
-      </WidgetElement>
+          <Delete fontSize="small" />
+        </IconButton>
+      </WidgetControls>
+      
+      {renderWidgetContent()}
+    </WidgetElement>
       
       <DropZone 
         layout
         id={`dropzone-bottom-${widget.id}`}
         data-index={index + 1}
-        $isActive={activeDropzone === index + 1}
+        $isActive={isDragging}
         whileHover={{ height: 20, backgroundColor: 'rgba(33, 150, 243, 0.15)' }}
       />
     </WidgetContainer>
@@ -2163,7 +2212,6 @@ const SocialPage: React.FC = () => {
                     onPositionChange={handleWidgetPositionChange}
                     index={index}
                     total={widgets.length}
-                    isOwner={isOwner}
               />
             ))}
             
