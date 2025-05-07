@@ -258,7 +258,7 @@ async def universal_login(request: Request):
         
         # Создаем токен
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
+    access_token = create_access_token(
             data={"sub": user.username}, expires_delta=access_token_expires
         )
         

@@ -313,7 +313,7 @@ const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = memo(({ content, onC
       setErrors({ network: networkError, url: urlError });
       return;
     }
-    
+
     // Сохраняем сеть
     const updatedNetworks = [...networks];
     
@@ -370,8 +370,8 @@ const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = memo(({ content, onC
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h6">Социальные сети</Typography>
         {!readOnly && (
-          <Button
-            variant="outlined"
+          <Button 
+            variant="outlined" 
             size="small"
             startIcon={<AddIcon />}
             onClick={() => handleOpenDialog()}
@@ -379,7 +379,7 @@ const SocialLinksWidget: React.FC<SocialLinksWidgetProps> = memo(({ content, onC
             Добавить
           </Button>
         )}
-      </Box>
+        </Box>
       
       <LinksContainer>
         {networks.length === 0 ? (

@@ -1,7 +1,10 @@
-import React, { lazy, Suspense, memo } from 'react';
+import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { ThemeProvider, createTheme, CircularProgress, Box } from '@mui/material';
+import { ThemeProvider, CircularProgress, Box } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ThemeProvider as StyledThemeProvider } from 'styled-components';
+import CssBaseline from '@mui/material/CssBaseline';
+import customTheme from './theme/theme';
 
 // Ленивая загрузка компонентов для оптимизации
 const Landing = lazy(() => import('./pages/landing/Landing'));
@@ -19,120 +22,86 @@ const AdminPanel = lazy(() => import('./pages/admin/AdminPanel'));
 
 // Компонент загрузки для обеспечения лучшего UX во время загрузки страниц
 const LoadingScreen = () => (
-  <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+  <Box
+    sx={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: '100vh',
+      width: '100vw',
+    }}
+  >
     <CircularProgress />
   </Box>
 );
 
-// Компонент для проверки авторизации
-const ProtectedRoute = memo(({ children }: { children: React.ReactNode }) => {
-  const { isLoggedIn, isLoading } = useAuth();
+// Компонент для защищенных маршрутов (требуется аутентификация)
+const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isLoading } = useAuth();
   const location = useLocation();
   
   if (isLoading) {
     return <LoadingScreen />;
   }
   
-  if (!isLoggedIn) {
+  if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
   return <>{children}</>;
-});
+};
 
-// Компонент для проверки прав администратора
-const AdminRoute = memo(({ children }: { children: React.ReactNode }) => {
-  const { user, isLoggedIn, isLoading } = useAuth();
+// Компонент для маршрутов администратора
+const AdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isLoading } = useAuth();
   const location = useLocation();
   
   if (isLoading) {
     return <LoadingScreen />;
   }
   
-  if (!isLoggedIn) {
+  // Дополнительная проверка администратора
+  const isActuallyAdmin = user && user.is_admin === true;
+  
+  // Выводим отладочную информацию
+  console.log('Проверка доступа к админ-панели:', {
+    username: user?.username,
+    isAdmin: user?.is_admin,
+    hasAccess: isActuallyAdmin
+  });
+  
+  if (!isActuallyAdmin) {
+    console.log('Доступ запрещен. Перенаправление на /login');
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
   
-  if (!user?.is_admin) {
-    return <Navigate to="/social" replace />;
-  }
-  
   return <>{children}</>;
-});
+};
 
-// Оптимизированная тема
-const theme = createTheme({
-  palette: {
-    primary: {
-      main: '#2196f3',
-    },
-    secondary: {
-      main: '#f50057',
-    },
-  },
-  typography: {
-    fontFamily: '"Roboto", "Arial", sans-serif',
-    h1: {
-      fontSize: '3.5rem',
-      fontWeight: 700,
-      lineHeight: 1.2,
-    },
-    h4: {
-      fontSize: '1.75rem',
-      fontWeight: 600,
-      lineHeight: 1.4,
-    },
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          textTransform: 'none',
-          borderRadius: 8,
-          padding: '8px 24px',
-        },
-        contained: {
-          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
-          '&:hover': {
-            boxShadow: '0 6px 10px rgba(0, 0, 0, 0.15)',
-          },
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          borderRadius: 12,
-        },
-      },
-    },
-    // Добавляем оптимизации для улучшения производительности
-    MuiTableCell: {
-      styleOverrides: {
-        root: {
-          padding: '8px 16px',
-        },
-      },
-    },
-    MuiTableRow: {
-      styleOverrides: {
-        root: {
-          '&:hover': {
-            backgroundColor: 'rgba(0, 0, 0, 0.04)',
-          },
-        },
-      },
-    },
-    MuiTextField: {
-      defaultProps: {
-        variant: 'outlined',
-        size: 'small',
-      },
-    },
-  },
-});
+// Отдельный компонент для админ-панели без футера
+const AdminLayout = () => {
+  return (
+    <Suspense fallback={<LoadingScreen />}>
+      <Navigation />
+      <AdminPanel />
+    </Suspense>
+  );
+};
 
-const AppRoutes = memo(() => {
+// Базовая структура приложения с навигацией и футером для авторизованных пользователей
+const AppLayout = () => {
+  const location = useLocation();
+  const isAdminPanel = location.pathname === '/admin';
+  
+  // Для админ-панели используем отдельный шаблон без футера
+  if (isAdminPanel) {
+    return (
+      <AdminRoute>
+        <AdminLayout />
+      </AdminRoute>
+    );
+  }
+
   return (
     <Suspense fallback={<LoadingScreen />}>
       <Navigation />
@@ -157,14 +126,6 @@ const AppRoutes = memo(() => {
             </ProtectedRoute>
           } 
         />
-        <Route 
-          path="/admin" 
-          element={
-            <AdminRoute>
-              <AdminPanel />
-            </AdminRoute>
-          } 
-        />
         <Route path="/subscription" element={<Subscription />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
@@ -173,18 +134,23 @@ const AppRoutes = memo(() => {
       <Footer />
     </Suspense>
   );
-});
+};
 
 const App: React.FC = () => {
   return (
-    <ThemeProvider theme={theme}>
+    <ThemeProvider theme={customTheme}>
+      <CssBaseline />
+      <StyledThemeProvider theme={customTheme}>
       <Router>
         <AuthProvider>
-          <AppRoutes />
+            <Routes>
+              <Route path="/*" element={<AppLayout />} />
+            </Routes>
         </AuthProvider>
       </Router>
+      </StyledThemeProvider>
     </ThemeProvider>
   );
 };
 
-export default memo(App);
+export default App;

@@ -36,7 +36,8 @@ import {
   InputAdornment,
   Divider,
   useTheme,
-  useMediaQuery
+  useMediaQuery,
+  Checkbox
 } from '@mui/material';
 import { 
   Add as AddIcon, 
@@ -70,7 +71,46 @@ const FETCH_THROTTLE = 2000; // мс между запросами к API
 const apiCache = new Map();
 
 // Глобальные данные для сохранения изменений между обновлениями
-let persistentMockData: User[] | null = null;
+const loadPersistentData = (): User[] | null => {
+  try {
+    const savedData = localStorage.getItem('adminPanelData');
+    return savedData ? JSON.parse(savedData) : null;
+  } catch (e) {
+    console.error('Ошибка при загрузке сохраненных данных:', e);
+    return null;
+  }
+};
+
+const savePersistentData = (data: User[]) => {
+  try {
+    localStorage.setItem('adminPanelData', JSON.stringify(data));
+  } catch (e) {
+    console.error('Ошибка при сохранении данных:', e);
+  }
+};
+
+// Инициализация данных, если они отсутствуют
+const initializeMockData = (): User[] => {
+  const mockData = Array.from({ length: 100 }, (_, i) => ({
+    id: i + 1,
+    username: `user${i + 1}`,
+    name: `Пользователь ${i + 1}`,
+    subscription: {
+      activation_date: i % 3 === 0 ? new Date().toISOString() : null,
+      expiration_date: i % 3 === 0 ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null,
+      is_active: i % 3 === 0
+    }
+  }));
+  savePersistentData(mockData);
+  return mockData;
+};
+
+let persistentMockData: User[] | null = loadPersistentData();
+
+// Если данные не были загружены, инициализируем их
+if (!persistentMockData) {
+  persistentMockData = initializeMockData();
+}
 
 // Функция debounce для оптимизации поиска
 const debounce = <T extends (...args: any[]) => any>(func: T, wait: number) => {
@@ -119,6 +159,7 @@ interface AdminPanelState {
   page: number;
   rowsPerPage: number;
   currentTab: number;
+  selectedUsers: number[];
 }
 
 type AdminPanelAction = 
@@ -130,7 +171,11 @@ type AdminPanelAction =
   | { type: 'SET_SEARCH_VALUE'; payload: string }
   | { type: 'SET_PAGE'; payload: number }
   | { type: 'SET_ROWS_PER_PAGE'; payload: number }
-  | { type: 'SET_CURRENT_TAB'; payload: number };
+  | { type: 'SET_CURRENT_TAB'; payload: number }
+  | { type: 'SET_SELECTED_USERS'; payload: number[] }
+  | { type: 'TOGGLE_USER_SELECTION'; payload: number }
+  | { type: 'SELECT_ALL_USERS'; payload: number[] }
+  | { type: 'CLEAR_SELECTION'; payload: void };
 
 // Стили компонентов
 const StyledTableRow = styled(TableRow)(({ theme }) => ({
@@ -229,13 +274,17 @@ const UserTableRow = memo(({
   onEdit, 
   onDelete, 
   onQR, 
-  actionLoading 
+  actionLoading,
+  isSelected,
+  onToggleSelect
 }: { 
   user: User; 
-  onEdit: (user: User) => void; 
+  onEdit: (user: User | null) => void; 
   onDelete: (user: User) => void; 
   onQR: (user: User) => void; 
-  actionLoading: boolean; 
+  actionLoading: boolean;
+  isSelected: boolean;
+  onToggleSelect: (userId: number) => void;
 }) => {
   const statusColor = user.subscription?.is_active ? 'success' : 'error';
   const statusText = user.subscription?.is_active ? 'Активен' : 'Не активен';
@@ -243,11 +292,36 @@ const UserTableRow = memo(({
   const handleEdit = useCallback(() => onEdit(user), [onEdit, user]);
   const handleDelete = useCallback(() => onDelete(user), [onDelete, user]);
   const handleQR = useCallback(() => onQR(user), [onQR, user]);
+  const handleToggleSelect = useCallback((e: React.MouseEvent | React.ChangeEvent<HTMLInputElement>) => {
+    e.stopPropagation();
+    onToggleSelect(user.id);
+  }, [onToggleSelect, user.id]);
   
   return (
-    <StyledTableRow hover>
+    <StyledTableRow 
+      hover
+      onClick={handleToggleSelect}
+      selected={isSelected}
+      sx={{
+        cursor: 'pointer',
+        ...(isSelected && {
+          backgroundColor: (theme) => `${theme.palette.primary.light}20 !important`,
+        })
+      }}
+    >
+      <TableCell padding="checkbox">
+        <Checkbox
+          color="primary"
+          checked={isSelected}
+          onClick={(e) => e.stopPropagation()}
+          onChange={handleToggleSelect}
+          inputProps={{ 'aria-labelledby': `user-${user.id}` }}
+        />
+      </TableCell>
       <TableCell>{user.id}</TableCell>
-      <TableCell component="th" scope="row">{user.username}</TableCell>
+      <TableCell component="th" scope="row" id={`user-${user.id}`}>
+        {user.username}
+      </TableCell>
       <TableCell>{user.name}</TableCell>
       <TableCell>
         <Chip 
@@ -270,7 +344,7 @@ const UserTableRow = memo(({
           <Tooltip title="Редактировать">
             <IconButton 
               size="small" 
-              onClick={handleEdit}
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleEdit(); }}
               disabled={actionLoading}
             >
               <EditIcon fontSize="small" />
@@ -279,7 +353,7 @@ const UserTableRow = memo(({
           <Tooltip title="Удалить">
             <IconButton 
               size="small" 
-              onClick={handleDelete}
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleDelete(); }}
               disabled={actionLoading}
             >
               <DeleteIcon fontSize="small" />
@@ -288,7 +362,7 @@ const UserTableRow = memo(({
           <Tooltip title="QR-код">
             <IconButton 
               size="small" 
-              onClick={handleQR}
+              onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleQR(); }}
               disabled={actionLoading}
             >
               <QrCodeIcon fontSize="small" />
@@ -342,6 +416,25 @@ const adminPanelReducer = (state: AdminPanelState, action: AdminPanelAction): Ad
       return { ...state, rowsPerPage: action.payload, page: 0 };
     case 'SET_CURRENT_TAB':
       return { ...state, currentTab: action.payload, page: 0 };
+    case 'SET_SELECTED_USERS':
+      return { ...state, selectedUsers: action.payload };
+    case 'TOGGLE_USER_SELECTION': {
+      const userId = action.payload;
+      const selectedUsers = [...state.selectedUsers];
+      const index = selectedUsers.indexOf(userId);
+      
+      if (index === -1) {
+        selectedUsers.push(userId);
+      } else {
+        selectedUsers.splice(index, 1);
+      }
+      
+      return { ...state, selectedUsers };
+    }
+    case 'SELECT_ALL_USERS':
+      return { ...state, selectedUsers: action.payload };
+    case 'CLEAR_SELECTION':
+      return { ...state, selectedUsers: [] };
     default:
       return state;
   }
@@ -395,6 +488,55 @@ const StatCard = memo(({
   </Paper>
 ));
 
+// Функция для создания профиля пользователя
+const createUserProfile = (userId: string, name: string) => {
+  const profileKey = `profile_${userId}`;
+  const widgetsKey = `widgets_${userId}`;
+  const settingsKey = `settings_${userId}`;
+  
+  const initialProfile = {
+    id: userId,
+    name: name,
+    bio: '',
+    avatar: '',
+    theme: 'light',
+    isPublic: true,
+    createdByAdmin: true
+  };
+  
+  localStorage.setItem(profileKey, JSON.stringify(initialProfile));
+  localStorage.setItem(widgetsKey, JSON.stringify([]));
+  localStorage.setItem(settingsKey, JSON.stringify({
+    theme: 'light',
+    notifications: true,
+    privacy: 'public'
+  }));
+  
+  return initialProfile;
+};
+
+// Функция для получения профиля пользователя
+const getUserProfile = (userId: string) => {
+  const profileKey = `profile_${userId}`;
+  try {
+    const savedProfile = localStorage.getItem(profileKey);
+    return savedProfile ? JSON.parse(savedProfile) : null;
+  } catch (e) {
+    console.error('Ошибка при загрузке профиля:', e);
+    return null;
+  }
+};
+
+// Функция для обновления профиля пользователя
+const updateUserProfile = (userId: string, profile: any) => {
+  const profileKey = `profile_${userId}`;
+  try {
+    localStorage.setItem(profileKey, JSON.stringify(profile));
+  } catch (e) {
+    console.error('Ошибка при сохранении профиля:', e);
+  }
+};
+
 // Главный компонент админ-панели
 const AdminPanel: React.FC = () => {
   const navigate = useNavigate();
@@ -411,17 +553,36 @@ const AdminPanel: React.FC = () => {
     searchInputValue: '',
     page: 0,
     rowsPerPage: 10,
-    currentTab: 0
+    currentTab: 0,
+    selectedUsers: []
   });
   
   // Локальное состояние диалогов
   const [openDeleteDialog, setOpenDeleteDialog] = useState(false);
   const [openEditDialog, setOpenEditDialog] = useState(false);
   const [openQRDialog, setOpenQRDialog] = useState(false);
+  const [openMultiDeleteDialog, setOpenMultiDeleteDialog] = useState(false);
+  const [openClearAllDialog, setOpenClearAllDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [userForm, setUserForm] = useState<UserFormData>({ name: '', username: '', password: '' });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
   const [stats, setStats] = useState<Stats>({ totalUsers: 0, activeSubscriptions: 0, expiredSubscriptions: 0 });
+  const [newUser, setNewUser] = useState({
+    username: '',
+    password: '',
+    name: ''
+  });
+  
+  // Функция для обновления статистики на основе актуальных данных
+  const updateStats = useCallback(() => {
+    if (persistentMockData) {
+      setStats({
+        totalUsers: persistentMockData.length,
+        activeSubscriptions: persistentMockData.filter(user => user.subscription?.is_active).length,
+        expiredSubscriptions: persistentMockData.filter(user => !user.subscription?.is_active).length
+      });
+    }
+  }, []);
   
   // Оптимизированные обработчики
   
@@ -496,33 +657,38 @@ const AdminPanel: React.FC = () => {
     }
     
     try {
-      // Использование кеша
+      // При явном refresh или при первичной загрузке - всегда берем последние данные
+      if (isRefreshing || state.users.length === 0) {
+        // Сбрасываем кеш
+        apiCache.clear();
+      }
+      
+      // Использование кеша только если нет обновления и не первый вызов
       const cacheKey = `users-${state.searchQuery}-${state.currentTab}`;
-      if (apiCache.has(cacheKey) && !isRefreshing) {
+      if (apiCache.has(cacheKey) && !isRefreshing && state.users.length > 0) {
         dispatch({ type: 'SET_USERS', payload: apiCache.get(cacheKey) });
+        updateStats(); // Всегда обновляем статистику
         dispatch({ type: 'SET_LOADING', payload: false });
         dispatch({ type: 'SET_REFRESHING', payload: false });
         return;
       }
-      
+
       // Эмуляция API запроса
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Создаем моковые данные только если они ещё не были созданы
-      if (!persistentMockData) {
-        persistentMockData = Array.from({ length: 100 }, (_, i) => ({
-          id: i + 1,
-          username: `user${i + 1}`,
-          name: `Пользователь ${i + 1}`,
-          subscription: {
-            activation_date: i % 3 === 0 ? new Date().toISOString() : null,
-            expiration_date: i % 3 === 0 ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() : null,
-            is_active: i % 3 === 0
-          }
-        }));
+      // Загружаем последние данные из localStorage
+      let freshData = loadPersistentData();
+      
+      // Если данных нет, инициализируем пустым массивом
+      if (!freshData) {
+        freshData = [];
+        savePersistentData(freshData);
       }
       
-      // Используем сохраненные данные вместо создания новых каждый раз
+      // Обновляем persistentMockData текущими данными
+      persistentMockData = freshData;
+      
+      // Используем сохраненные данные
       let filteredData = [...persistentMockData];
       
       // Фильтрация по поиску
@@ -534,24 +700,24 @@ const AdminPanel: React.FC = () => {
         );
       }
       
-      // Фильтрация по вкладке
-      if (state.currentTab === 1) {
-        filteredData = filteredData.filter(user => user.subscription?.is_active);
-      } else if (state.currentTab === 2) {
-        filteredData = filteredData.filter(user => !user.subscription?.is_active);
-      }
+      // Фильтрация по вкладке - исправляем логику для вкладки пользователей
+      // На вкладке 0 (Обзор) не применяем фильтры
+      // На вкладке 1 (Пользователи) показываем всех пользователей без дополнительной фильтрации
       
       // Кешируем результат
       apiCache.set(cacheKey, filteredData);
       
       // Обновляем статистику из актуальных данных
-      setStats({
-        totalUsers: persistentMockData.length,
-        activeSubscriptions: persistentMockData.filter(user => user.subscription?.is_active).length,
-        expiredSubscriptions: persistentMockData.filter(user => !user.subscription?.is_active).length
-      });
+      updateStats();
       
       dispatch({ type: 'SET_USERS', payload: filteredData });
+      
+      console.log("Данные загружены:", {
+        totalFromStorage: persistentMockData.length,
+        filteredCount: filteredData.length,
+        searchQuery: state.searchQuery,
+        currentTab: state.currentTab
+      });
     } catch (error) {
       console.error('Ошибка загрузки пользователей:', error);
       setSnackbar({
@@ -563,90 +729,57 @@ const AdminPanel: React.FC = () => {
       dispatch({ type: 'SET_LOADING', payload: false });
       dispatch({ type: 'SET_REFRESHING', payload: false });
     }
-  }, [state.currentTab, state.searchQuery]);
+  }, [state.currentTab, state.searchQuery, updateStats, state.users.length]);
   
   // Обработчик редактирования пользователя
   const handleEditUser = useCallback(async () => {
+    if (!selectedUser) return;
+
     dispatch({ type: 'SET_ACTION_LOADING', payload: true });
-    
+
     try {
-      // Симуляция API запроса
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      if (selectedUser) {
-        // Обновляем существующего пользователя
-        const updatedUsers = state.users.map(user => 
-          user.id === selectedUser.id 
-            ? { ...user, name: userForm.name, username: userForm.username } 
-            : user
-        );
-        
-        dispatch({
-          type: 'SET_USERS',
-          payload: updatedUsers
-        });
-        
-        // Также обновляем в глобальных данных
-        if (persistentMockData) {
-          persistentMockData = persistentMockData.map(user => 
-            user.id === selectedUser.id 
-              ? { ...user, name: userForm.name, username: userForm.username } 
-              : user
-          );
-        }
-        
-        setSnackbar({
-          open: true,
-          message: 'Пользователь успешно обновлен',
-          severity: 'success'
-        });
-      } else {
-        // Создаем нового пользователя
-        const newUser: User = {
-          id: Math.max(...state.users.map(u => u.id), 0) + 1,
-          name: userForm.name,
-          username: userForm.username,
-          subscription: {
-            activation_date: null,
-            expiration_date: null,
-            is_active: false
-          }
-        };
-        
-        const updatedUsers = [...state.users, newUser];
-        
-        dispatch({
-          type: 'SET_USERS',
-          payload: updatedUsers
-        });
-        
-        // Также добавляем в глобальные данные
-        if (persistentMockData) {
-          persistentMockData = [...persistentMockData, newUser];
-        }
-        
-        setSnackbar({
-          open: true,
-          message: 'Пользователь успешно создан',
-          severity: 'success'
-        });
+      // Обновляем данные пользователя
+      const updatedUsers = state.users.map(user => 
+        user.id === selectedUser.id 
+          ? { ...user, name: userForm.name }
+          : user
+      );
+
+      // Обновляем профиль пользователя
+      const userProfile = getUserProfile(selectedUser.id.toString());
+      if (userProfile) {
+        userProfile.name = userForm.name;
+        updateUserProfile(selectedUser.id.toString(), userProfile);
       }
-      
-      // Очищаем кеш
-      apiCache.clear();
+
+      dispatch({ type: 'SET_USERS', payload: updatedUsers });
+      savePersistentData(updatedUsers);
       
       handleCloseEditDialog();
+      updateStats();
+
+      setSnackbar({
+        open: true,
+        message: 'Пользователь успешно обновлен',
+        severity: 'success'
+      });
+
+      console.log("Обновлен пользователь:", {
+        id: selectedUser.id,
+        name: userForm.name,
+        profile: userProfile
+      });
     } catch (error) {
       console.error('Ошибка обновления пользователя:', error);
       setSnackbar({
         open: true,
-        message: 'Ошибка обновления пользователя',
+        message: 'Ошибка при обновлении пользователя',
         severity: 'error'
       });
     } finally {
       dispatch({ type: 'SET_ACTION_LOADING', payload: false });
     }
-  }, [selectedUser, userForm, state.users, handleCloseEditDialog]);
+  }, [selectedUser, userForm.name, state.users, handleCloseEditDialog, updateStats]);
   
   // Обработчик удаления пользователя
   const handleDeleteUser = useCallback(async () => {
@@ -658,6 +791,10 @@ const AdminPanel: React.FC = () => {
       // Симуляция API запроса
       await new Promise(resolve => setTimeout(resolve, 500));
       
+      // Загружаем актуальные данные
+      let currentData = loadPersistentData() || [];
+      
+      // Фильтруем пользователей в UI
       const filteredUsers = state.users.filter(user => user.id !== selectedUser.id);
       
       dispatch({
@@ -666,31 +803,42 @@ const AdminPanel: React.FC = () => {
       });
       
       // Также удаляем из глобальных данных
-      if (persistentMockData) {
-        persistentMockData = persistentMockData.filter(user => user.id !== selectedUser.id);
-      }
+      persistentMockData = currentData.filter(user => user.id !== selectedUser.id);
+      savePersistentData(persistentMockData);
       
       // Очищаем кеш
       apiCache.clear();
       
-      setSnackbar({
-        open: true,
+      // Принудительно обновляем список пользователей
+      fetchUsers(true);
+      
+      // Обновляем статистику
+      updateStats();
+      
+        setSnackbar({
+          open: true,
         message: 'Пользователь успешно удален',
         severity: 'success'
       });
-      
+
       handleCloseDeleteDialog();
+      
+      console.log("Пользователь удален:", {
+        id: selectedUser.id,
+        name: selectedUser.name,
+        remainingTotal: persistentMockData.length
+      });
     } catch (error) {
       console.error('Ошибка удаления пользователя:', error);
-      setSnackbar({
-        open: true,
+        setSnackbar({
+          open: true,
         message: 'Ошибка удаления пользователя',
         severity: 'error'
       });
     } finally {
       dispatch({ type: 'SET_ACTION_LOADING', payload: false });
     }
-  }, [selectedUser, state.users, handleCloseDeleteDialog]);
+  }, [selectedUser, state.users, handleCloseDeleteDialog, updateStats, fetchUsers]);
   
   // Обработчики формы
   const handleUserFormChange = useCallback((field: keyof UserFormData) => (
@@ -712,14 +860,17 @@ const AdminPanel: React.FC = () => {
       
       const isAdmin = true; // Мок-данные
       
-      if (!isAdmin) {
+      if (isAdmin) {
+        // Загружаем данные при инициализации
+        fetchUsers(true);
+      } else {
         navigate('/login');
       }
     } catch (error) {
       console.error('Ошибка проверки авторизации:', error);
       navigate('/login');
     }
-  }, [navigate]);
+  }, [navigate, fetchUsers]);
   
   // Копирование QR-кода
   const copyQRCodeLink = useCallback(() => {
@@ -727,23 +878,63 @@ const AdminPanel: React.FC = () => {
     
     const socialLink = `${window.location.origin}/social/${selectedUser.username}`;
     navigator.clipboard.writeText(socialLink);
-    
-    setSnackbar({
-      open: true,
+
+        setSnackbar({
+          open: true,
       message: 'Ссылка скопирована в буфер обмена',
       severity: 'success'
     });
   }, [selectedUser]);
   
+  // Проверка авторизации при монтировании
+  useEffect(() => {
+    checkAdminAuth();
+    // Обновляем статистику при монтировании
+    updateStats();
+  }, [checkAdminAuth, updateStats]);
+
   // Обновление данных при изменении фильтров
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
-  
-  // Проверка авторизации при монтировании
-  useEffect(() => {
-    checkAdminAuth();
-  }, [checkAdminAuth]);
+
+  // Также добавим обработчик для очистки всего хранилища
+  const handleClearAllUsers = useCallback(async () => {
+    dispatch({ type: 'SET_ACTION_LOADING', payload: true });
+    
+    try {
+      // Очищаем всех пользователей
+      persistentMockData = [];
+      savePersistentData(persistentMockData);
+      
+      // Очищаем кеш и обновляем UI
+      apiCache.clear();
+      dispatch({ type: 'SET_USERS', payload: [] });
+      
+      // Принудительно обновляем интерфейс
+      fetchUsers(true);
+      
+      // Обновляем статистику
+      updateStats();
+
+        setSnackbar({
+          open: true,
+        message: 'Все пользователи успешно удалены',
+        severity: 'success'
+      });
+      
+      console.log("Выполнена полная очистка хранилища");
+    } catch (error) {
+      console.error('Ошибка при очистке данных:', error);
+        setSnackbar({
+          open: true,
+        message: 'Ошибка при очистке данных',
+        severity: 'error'
+      });
+    } finally {
+      dispatch({ type: 'SET_ACTION_LOADING', payload: false });
+    }
+  }, [updateStats, fetchUsers]);
   
   // Вычисляем пагинированные и отфильтрованные данные
   const visibleUsers = useMemo(() => {
@@ -751,6 +942,175 @@ const AdminPanel: React.FC = () => {
     const end = start + state.rowsPerPage;
     return state.users.slice(start, end);
   }, [state.users, state.page, state.rowsPerPage]);
+
+  // Обработчики выбора пользователей
+  const handleToggleUserSelection = useCallback((userId: number) => {
+    dispatch({ type: 'TOGGLE_USER_SELECTION', payload: userId });
+  }, []);
+
+  const handleSelectAllUsers = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.checked) {
+      // Выбираем всех пользователей на текущей странице
+      const newSelected = visibleUsers.map(user => user.id);
+      dispatch({ type: 'SET_SELECTED_USERS', payload: newSelected });
+    } else {
+      dispatch({ type: 'CLEAR_SELECTION', payload: undefined });
+    }
+  }, [visibleUsers]);
+
+  // Обработка диалога массового удаления
+  const handleOpenMultiDeleteDialog = useCallback(() => {
+    if (state.selectedUsers.length > 0) {
+      setOpenMultiDeleteDialog(true);
+    }
+  }, [state.selectedUsers]);
+
+  const handleCloseMultiDeleteDialog = useCallback(() => {
+    setOpenMultiDeleteDialog(false);
+  }, []);
+
+  // Обработка диалога очистки хранилища
+  const handleOpenClearAllDialog = useCallback(() => {
+    setOpenClearAllDialog(true);
+  }, []);
+
+  const handleCloseClearAllDialog = useCallback(() => {
+    setOpenClearAllDialog(false);
+  }, []);
+
+  // Функция для массового удаления пользователей
+  const handleDeleteMultipleUsers = useCallback(async () => {
+    if (state.selectedUsers.length === 0) return;
+    
+    dispatch({ type: 'SET_ACTION_LOADING', payload: true });
+    
+    try {
+      // Симуляция API запроса
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      // Загружаем актуальные данные
+      let currentData = loadPersistentData() || [];
+      
+      // Фильтруем пользователей в UI
+      const filteredUsers = state.users.filter(user => !state.selectedUsers.includes(user.id));
+      
+      dispatch({
+        type: 'SET_USERS',
+        payload: filteredUsers
+      });
+      
+      // Также удаляем из глобальных данных
+      persistentMockData = currentData.filter(user => !state.selectedUsers.includes(user.id));
+      savePersistentData(persistentMockData);
+      
+      // Очищаем кеш
+      apiCache.clear();
+      
+      // Очищаем выбранных пользователей
+      dispatch({ type: 'CLEAR_SELECTION', payload: undefined });
+
+      // Принудительно обновляем список пользователей
+      fetchUsers(true);
+
+      // Обновляем статистику после удаления
+      updateStats();
+      
+      setSnackbar({
+        open: true,
+        message: `Успешно удалено пользователей: ${state.selectedUsers.length}`,
+        severity: 'success'
+      });
+
+      handleCloseMultiDeleteDialog();
+      
+      console.log("Массовое удаление:", {
+        removedCount: state.selectedUsers.length,
+        remainingTotal: persistentMockData.length
+      });
+    } catch (error) {
+      console.error('Ошибка массового удаления пользователей:', error);
+      setSnackbar({
+        open: true,
+        message: 'Ошибка при удалении пользователей',
+        severity: 'error'
+      });
+    } finally {
+      dispatch({ type: 'SET_ACTION_LOADING', payload: false });
+    }
+  }, [state.selectedUsers, state.users, handleCloseMultiDeleteDialog, updateStats, fetchUsers]);
+
+  // Проверка, все ли пользователи на текущей странице выбраны
+  const isAllSelected = useMemo(() => {
+    return visibleUsers.length > 0 && visibleUsers.every(user => state.selectedUsers.includes(user.id));
+  }, [visibleUsers, state.selectedUsers]);
+
+  // Функция для создания нового пользователя
+  const handleCreateUser = useCallback(async () => {
+    if (!userForm.username || !userForm.password || !userForm.name) {
+      setSnackbar({
+        open: true,
+        message: 'Заполните все поля',
+        severity: 'error'
+      });
+      return;
+    }
+
+    dispatch({ type: 'SET_ACTION_LOADING', payload: true });
+
+    try {
+      const newUserData = {
+        id: Date.now(),
+        username: userForm.username,
+        name: userForm.name,
+        password: userForm.password,
+        subscription: null
+      };
+
+      // Создаем профиль пользователя
+      const userProfile = createUserProfile(newUserData.id.toString(), userForm.name);
+      console.log('Создан профиль пользователя:', userProfile);
+
+      // Добавляем пользователя в список (без пароля для хранения в state)
+      const userDataWithoutPassword = {
+        id: newUserData.id,
+        username: newUserData.username,
+        name: newUserData.name,
+        subscription: null
+      };
+
+      const updatedUsers = [...state.users, userDataWithoutPassword];
+      dispatch({ type: 'SET_USERS', payload: updatedUsers });
+      
+      // Сохраняем с паролем в localStorage для последующей аутентификации
+      savePersistentData([...state.users, newUserData]);
+
+      // Сбрасываем форму и закрываем диалог
+      setUserForm({ name: '', username: '', password: '' });
+      handleCloseEditDialog();
+      updateStats();
+
+      setSnackbar({
+        open: true,
+        message: 'Пользователь успешно создан',
+        severity: 'success'
+      });
+
+      console.log("Создан новый пользователь:", {
+        username: newUserData.username,
+        id: newUserData.id,
+        profile: userProfile
+      });
+    } catch (error) {
+      console.error('Ошибка создания пользователя:', error);
+      setSnackbar({
+        open: true,
+        message: 'Ошибка при создании пользователя',
+        severity: 'error'
+      });
+    } finally {
+      dispatch({ type: 'SET_ACTION_LOADING', payload: false });
+    }
+  }, [userForm, state.users, handleCloseEditDialog, updateStats]);
 
   return (
     <Box 
@@ -767,7 +1127,7 @@ const AdminPanel: React.FC = () => {
           <AdminIcon sx={{ mr: 1 }} />
           <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
             Панель администратора
-          </Typography>
+              </Typography>
           <Button color="inherit" onClick={() => navigate('/social')}>
             Выйти
           </Button>
@@ -820,7 +1180,7 @@ const AdminPanel: React.FC = () => {
             <Box sx={{ py: 2, flex: 1 }}>
               <Typography variant="h5" gutterBottom>
                 Обзор системы
-              </Typography>
+                </Typography>
               
               <Grid container spacing={3} sx={{ mt: 1 }}>
                 <Grid item xs={12} md={4}>
@@ -830,7 +1190,7 @@ const AdminPanel: React.FC = () => {
                     icon={<PersonIcon />} 
                     color={theme.palette.primary.main} 
                   />
-                </Grid>
+        </Grid>
                 <Grid item xs={12} md={4}>
                   <StatCard 
                     title="Активные подписки" 
@@ -838,7 +1198,7 @@ const AdminPanel: React.FC = () => {
                     icon={<VisibilityIcon />} 
                     color={theme.palette.success.main} 
                   />
-                </Grid>
+        </Grid>
                 <Grid item xs={12} md={4}>
                   <StatCard 
                     title="Истекшие подписки" 
@@ -846,8 +1206,8 @@ const AdminPanel: React.FC = () => {
                     icon={<VisibilityOffIcon />} 
                     color={theme.palette.error.main} 
                   />
-                </Grid>
-              </Grid>
+        </Grid>
+      </Grid>
               
               <Box sx={{ mt: 4 }}>
                 <Typography variant="h6" gutterBottom>
@@ -858,7 +1218,7 @@ const AdminPanel: React.FC = () => {
                     Графики статистики будут доступны в следующем обновлении
                   </Typography>
                 </Paper>
-              </Box>
+    </Box>
             </Box>
           ) : (
             <Box 
@@ -875,69 +1235,102 @@ const AdminPanel: React.FC = () => {
                 <LoadingProgress visible={state.loading || state.refreshing} />
                 
                 {/* Панель инструментов */}
-                <AdminToolbar>
-                  <TextField
-                    placeholder="Поиск пользователей..."
-                    size="small"
+      <AdminToolbar>
+        <TextField
+          placeholder="Поиск пользователей..."
+          size="small"
                     value={state.searchInputValue}
-                    onChange={handleSearchChange}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
+          onChange={handleSearchChange}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
                           <SearchIcon fontSize="small" />
-                        </InputAdornment>
-                      ),
-                    }}
+              </InputAdornment>
+            ),
+          }}
                     sx={{ width: { xs: '100%', sm: 300 } }}
-                  />
-                  
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <Button
-                      variant="outlined"
+        />
+        
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          {state.selectedUsers.length > 0 && (
+          <Button 
+            variant="outlined" 
+              color="error"
+              size="small"
+              startIcon={<DeleteIcon />}
+              onClick={handleOpenMultiDeleteDialog}
+              disabled={state.actionLoading}
+            >
+              Удалить ({state.selectedUsers.length})
+            </Button>
+          )}
+          <Button 
+            variant="outlined" 
                       size="small"
                       startIcon={state.refreshing ? <CircularProgress size={20} /> : <RefreshIcon />}
-                      onClick={() => fetchUsers(true)}
+            onClick={() => fetchUsers(true)}
                       disabled={state.loading || state.refreshing}
-                    >
-                      Обновить
-                    </Button>
-                    <Button
-                      variant="contained"
+          >
+            Обновить
+          </Button>
+          <Button
+            variant="contained"
                       size="small"
-                      startIcon={<AddIcon />}
+            startIcon={<AddIcon />}
                       onClick={() => handleOpenEditDialog(null)}
                       disabled={state.loading || state.refreshing}
-                    >
+          >
                       Добавить
-                    </Button>
-                  </Box>
-                </AdminToolbar>
-                
+          </Button>
+          <Tooltip title="Очистить все данные">
+            <Button
+              variant="outlined"
+              color="error"
+              size="small"
+              startIcon={<DeleteIcon />}
+              onClick={handleOpenClearAllDialog}
+              disabled={state.actionLoading || persistentMockData?.length === 0}
+            >
+              Очистить все
+            </Button>
+          </Tooltip>
+        </Box>
+      </AdminToolbar>
+      
                 {/* Таблица пользователей */}
-                <StyledTableContainer>
-                  <Table stickyHeader size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell width={60}>ID</TableCell>
-                        <TableCell>Логин</TableCell>
+      <StyledTableContainer>
+        <Table stickyHeader size="small">
+          <TableHead>
+            <TableRow>
+                        <TableCell padding="checkbox">
+                          <Checkbox
+                            color="primary"
+                            indeterminate={state.selectedUsers.length > 0 && !isAllSelected}
+                            checked={isAllSelected}
+                            onChange={handleSelectAllUsers}
+                            disabled={state.users.length === 0 || state.loading}
+                          />
+                        </TableCell>
+              <TableCell width={60}>ID</TableCell>
+              <TableCell>Логин</TableCell>
                         <TableCell>Имя</TableCell>
                         <TableCell width={120}>Статус</TableCell>
                         <TableCell width={120}>Активация</TableCell>
                         <TableCell width={120}>Истечение</TableCell>
                         <TableCell align="right" width={120}>Действия</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
+            </TableRow>
+          </TableHead>
+          <TableBody>
                       {state.loading && state.users.length === 0 ? (
                         <TableLoadingSkeleton />
                       ) : state.users.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={7} align="center" sx={{ py: 3 }}>
+              <TableRow>
+                          <TableCell colSpan={8} align="center" sx={{ py: 3 }}>
                             <Typography color="text.secondary">
                               {state.searchQuery ? 'Пользователи не найдены' : 'Список пользователей пуст'}
-                            </Typography>
-                          </TableCell>
-                        </TableRow>
+                  </Typography>
+                </TableCell>
+              </TableRow>
                       ) : (
                         visibleUsers.map(user => (
                           <UserTableRow
@@ -947,31 +1340,33 @@ const AdminPanel: React.FC = () => {
                             onDelete={handleOpenDeleteDialog}
                             onQR={handleOpenQRDialog}
                             actionLoading={state.actionLoading}
+                            isSelected={state.selectedUsers.includes(user.id)}
+                            onToggleSelect={handleToggleUserSelection}
                           />
                         ))
-                      )}
-                    </TableBody>
-                  </Table>
-                </StyledTableContainer>
-                
+            )}
+          </TableBody>
+        </Table>
+      </StyledTableContainer>
+      
                 {/* Пагинация */}
                 {state.users.length > 0 && (
-                  <TablePagination
-                    component="div"
+      <TablePagination
+        component="div"
                     count={state.users.length}
                     page={state.page}
                     rowsPerPage={state.rowsPerPage}
-                    onPageChange={handleChangePage}
-                    onRowsPerPageChange={handleChangeRowsPerPage}
+        onPageChange={handleChangePage}
+        onRowsPerPageChange={handleChangeRowsPerPage}
                     rowsPerPageOptions={[5, 10, 25]}
                     labelRowsPerPage="Строк:"
-                    labelDisplayedRows={({ from, to, count }) => `${from}–${to} из ${count}`}
-                  />
+        labelDisplayedRows={({ from, to, count }) => `${from}–${to} из ${count}`}
+      />
                 )}
-              </Paper>
-            </Box>
-          )}
-        </Box>
+    </Paper>
+          </Box>
+        )}
+          </Box>
       </Container>
 
       {/* Диалог добавления/редактирования пользователя */}
@@ -992,23 +1387,23 @@ const AdminPanel: React.FC = () => {
         </DialogTitle>
         <DialogContent dividers>
           <Box sx={{ pt: 1 }}>
-            <TextField
-              fullWidth
+          <TextField
+            fullWidth
               label="Имя"
               margin="normal"
               value={userForm.name}
               onChange={handleUserFormChange('name')}
-            />
-            <TextField
-              fullWidth
+          />
+          <TextField
+            fullWidth
               label="Логин"
               margin="normal"
               value={userForm.username}
               onChange={handleUserFormChange('username')}
             />
             {!selectedUser && (
-              <TextField
-                fullWidth
+          <TextField
+            fullWidth
                 label="Пароль"
                 type="password"
                 margin="normal"
@@ -1021,8 +1416,8 @@ const AdminPanel: React.FC = () => {
         <DialogActions>
           <Button onClick={handleCloseEditDialog}>Отмена</Button>
           <Button 
-            onClick={handleEditUser}
-            variant="contained" 
+            onClick={selectedUser ? handleEditUser : handleCreateUser}
+            variant="contained"
             disabled={state.actionLoading}
             startIcon={state.actionLoading ? <CircularProgress size={16} /> : null}
           >
@@ -1045,7 +1440,7 @@ const AdminPanel: React.FC = () => {
         <DialogTitle>Удаление пользователя</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Вы действительно хотите удалить пользователя "{selectedUser?.name}"?
+            Вы действительно хотите удалить пользователя "{selectedUser?.name}"? 
             Это действие невозможно отменить.
           </DialogContentText>
         </DialogContent>
@@ -1106,6 +1501,73 @@ const AdminPanel: React.FC = () => {
         </DialogActions>
       </Dialog>
 
+      {/* Диалог подтверждения массового удаления */}
+      <Dialog 
+        open={openMultiDeleteDialog} 
+        onClose={handleCloseMultiDeleteDialog}
+        keepMounted={false}
+        sx={{
+          '& .MuiBackdrop-root': {
+            backdropFilter: 'blur(2px)',
+          }
+        }}
+      >
+        <DialogTitle>Массовое удаление пользователей</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Вы действительно хотите удалить выбранных пользователей ({state.selectedUsers.length} шт.)? 
+            Это действие невозможно отменить.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseMultiDeleteDialog}>Отмена</Button>
+          <Button 
+            onClick={handleDeleteMultipleUsers} 
+            color="error" 
+            variant="contained"
+            disabled={state.actionLoading}
+            startIcon={state.actionLoading ? <CircularProgress size={16} /> : <DeleteIcon />}
+          >
+            Удалить всех выбранных
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Диалог подтверждения очистки всех пользователей */}
+      <Dialog 
+        open={openClearAllDialog} 
+        onClose={handleCloseClearAllDialog}
+        keepMounted={false}
+        sx={{
+          '& .MuiBackdrop-root': {
+            backdropFilter: 'blur(2px)',
+          }
+        }}
+      >
+        <DialogTitle>Очистка всех данных</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Вы действительно хотите удалить ВСЕХ пользователей? 
+            Эта операция необратима и приведет к полной очистке хранилища.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseClearAllDialog}>Отмена</Button>
+          <Button 
+            onClick={() => {
+              handleClearAllUsers();
+              handleCloseClearAllDialog();
+            }} 
+            color="error" 
+            variant="contained"
+            disabled={state.actionLoading}
+            startIcon={state.actionLoading ? <CircularProgress size={16} /> : <DeleteIcon />}
+          >
+            Удалить всех пользователей
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Уведомление */}
       <Snackbar
         open={snackbar.open}
@@ -1117,6 +1579,44 @@ const AdminPanel: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Форма создания пользователя */}
+      <div className="bg-white p-6 rounded-lg shadow-md mb-6">
+        <h2 className="text-xl font-semibold mb-4">Создать нового пользователя</h2>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Имя пользователя
+            </label>
+            <input
+              type="text"
+              value={newUser.username}
+              onChange={(e) => setNewUser(prev => ({ ...prev, username: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Введите имя пользователя"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Пароль
+            </label>
+            <input
+              type="password"
+              value={newUser.password}
+              onChange={(e) => setNewUser(prev => ({ ...prev, password: e.target.value }))}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              placeholder="Введите пароль"
+            />
+          </div>
+          <button
+            onClick={handleCreateUser}
+            disabled={state.loading}
+            className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+          >
+            {state.loading ? 'Создание...' : 'Создать пользователя'}
+          </button>
+        </div>
+      </div>
     </Box>
   );
 };

@@ -14,36 +14,36 @@ interface ProfileInfoWidgetProps {
 
 // Оптимизированные компоненты
 const AvatarDisplay = memo(({ avatar, name, size = 100 }: { avatar: string; name: string; size?: number }) => (
-  <Avatar
-    src={avatar}
-    sx={{
+          <Avatar
+            src={avatar}
+            sx={{
       width: size,
       height: size,
-      mb: 2,
-      bgcolor: 'primary.main',
+              mb: 2,
+              bgcolor: 'primary.main',
       fontSize: size / 2 + 'rem',
       boxShadow: '0 4px 8px rgba(0,0,0,0.1)'
-    }}
-  >
-    {!avatar && name.substring(0, 1).toUpperCase()}
-  </Avatar>
+            }}
+          >
+            {!avatar && name.substring(0, 1).toUpperCase()}
+          </Avatar>
 ));
 
 const ReadOnlyView = memo(({ name, bio, avatar }: { name: string; bio: string; avatar: string }) => (
   <>
     <AvatarDisplay avatar={avatar} name={name} />
-    <Typography variant="h6" align="center" gutterBottom>
-      {name}
-    </Typography>
-    <Typography
-      variant="body2"
-      align="center"
-      color="text.secondary"
-      sx={{ mt: 1, whiteSpace: 'pre-wrap' }}
-    >
-      {bio}
-    </Typography>
-  </>
+          <Typography variant="h6" align="center" gutterBottom>
+            {name}
+          </Typography>
+          <Typography
+            variant="body2"
+            align="center"
+            color="text.secondary"
+            sx={{ mt: 1, whiteSpace: 'pre-wrap' }}
+          >
+            {bio}
+          </Typography>
+        </>
 ));
 
 const EditView = memo(({ 
@@ -63,56 +63,56 @@ const EditView = memo(({
   onAvatarChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSave: () => void;
 }) => (
-  <Paper elevation={2} sx={{ p: 2, width: '100%' }}>
-    <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+        <Paper elevation={2} sx={{ p: 2, width: '100%' }}>
+          <Box sx={{ mb: 3, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
       <AvatarDisplay avatar={avatar} name={name} />
-      <IconButton
-        color="primary"
-        component="label"
-        sx={{ mt: 1 }}
-      >
-        <input
-          hidden
-          accept="image/*"
-          type="file"
+            <IconButton
+              color="primary"
+              component="label"
+              sx={{ mt: 1 }}
+            >
+              <input
+                hidden
+                accept="image/*"
+                type="file"
           onChange={onAvatarChange}
-        />
-        <PhotoCameraIcon />
-      </IconButton>
-    </Box>
+              />
+              <PhotoCameraIcon />
+            </IconButton>
+          </Box>
 
-    <TextField
-      fullWidth
-      label="Имя"
-      variant="outlined"
-      size="small"
-      value={name}
+          <TextField
+            fullWidth
+            label="Имя"
+            variant="outlined"
+            size="small"
+            value={name}
       onChange={onNameChange}
-      sx={{ mb: 2 }}
-    />
+            sx={{ mb: 2 }}
+          />
 
-    <TextField
-      fullWidth
-      label="О себе"
-      variant="outlined"
-      size="small"
-      multiline
-      rows={3}
-      value={bio}
+          <TextField
+            fullWidth
+            label="О себе"
+            variant="outlined"
+            size="small"
+            multiline
+            rows={3}
+            value={bio}
       onChange={onBioChange}
-      sx={{ mb: 2 }}
-    />
+            sx={{ mb: 2 }}
+          />
 
-    <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
-      <Button
-        variant="contained"
-        startIcon={<SaveIcon />}
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+            <Button
+              variant="contained"
+              startIcon={<SaveIcon />}
         onClick={onSave}
-      >
-        Сохранить
-      </Button>
-    </Box>
-  </Paper>
+            >
+              Сохранить
+            </Button>
+          </Box>
+        </Paper>
 ));
 
 const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = memo(({ content, onContentChange, readOnly = false }) => {

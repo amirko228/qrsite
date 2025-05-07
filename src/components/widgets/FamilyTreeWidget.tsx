@@ -275,11 +275,11 @@ const FamilyTreeWidget: React.FC<FamilyTreeWidgetProps> = ({ initialMembers = []
         setMembers(newMembers);
       } else {
         // Добавляем нового члена
-        setMembers(prev => [...prev, editMember]);
-      }
-      
-      setOpenEditor(false);
-      setEditMember(null);
+      setMembers(prev => [...prev, editMember]);
+    }
+    
+    setOpenEditor(false);
+    setEditMember(null);
       onSave(existingIndex >= 0 ? [...members] : [...members, editMember]);
     }
   }, [editMember, members, onSave]);
@@ -294,7 +294,7 @@ const FamilyTreeWidget: React.FC<FamilyTreeWidgetProps> = ({ initialMembers = []
         parentIds: m.parentIds.filter(pid => pid !== id),
         childrenIds: m.childrenIds.filter(cid => cid !== id),
         spouseIds: m.spouseIds.filter(sid => sid !== id),
-      }));
+    }));
     
     setMembers(newMembers);
     
@@ -456,7 +456,7 @@ const FamilyTreeWidget: React.FC<FamilyTreeWidgetProps> = ({ initialMembers = []
           </>
         )}
         
-        <TreeLevel>
+          <TreeLevel>
           <MemberCard 
             member={selectedMember}
             isSelected={true}
@@ -481,7 +481,7 @@ const FamilyTreeWidget: React.FC<FamilyTreeWidgetProps> = ({ initialMembers = []
               />
             </React.Fragment>
           ))}
-        </TreeLevel>
+          </TreeLevel>
         
         {children.length > 0 && (
           <>

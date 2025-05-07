@@ -1,8 +1,17 @@
 import React from 'react';
 import { Box, Container, Typography, Grid, Divider, IconButton, Link as MuiLink } from '@mui/material';
-import { Facebook, Twitter, Instagram, LinkedIn, YouTube } from '@mui/icons-material';
+import { YouTube } from '@mui/icons-material';
 import { Link } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
+import TelegramIcon from '@mui/icons-material/Telegram';
+
+// Импортируем иконку ВКонтакте (создадим компонент, так как нет в стандартных)
+const VKIcon = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15.07 2H8.93C3.33 2 2 3.33 2 8.93V15.07C2 20.67 3.33 22 8.93 22H15.07C20.67 22 22 20.67 22 15.07V8.93C22 3.33 20.67 2 15.07 2Z" stroke="currentColor" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M7 10.742C9.5 8.107 11.26 9.637 11.5 10.742C11.5 16.373 5.5 15.825 5.5 15.825M11.5 10.742C11.5 10.742 11.5 10.742 11.5 10.742C11.5 10.742 12.75 10.175 14 10.742C15.25 11.309 16.669 13.149 16.669 13.149C16.669 13.149 18.252 16.373 19 15.825" stroke="currentColor" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+  </svg>
+);
 
 const FooterContainer = styled(Box)(({ theme }) => ({
   backgroundColor: '#f9f9f9',
@@ -39,23 +48,17 @@ const Footer: React.FC = () => {
         <Grid container spacing={4}>
           <Grid item xs={12} sm={6} md={3}>
             <Typography variant="h6" color="text.primary" gutterBottom>
-              SocialQR
+              Pagememory
             </Typography>
             <Typography variant="body2" color="text.secondary">
-              Создайте свою цифровую память и делитесь ею с близкими людьми через удобный QR-код.
+              Приобретите Qr-код и соберите в одном месте воспоминания о близком человеке.
             </Typography>
             <Box sx={{ mt: 3 }}>
-              <SocialIcon size="small" aria-label="Facebook">
-                <Facebook fontSize="small" />
+              <SocialIcon size="small" aria-label="Telegram">
+                <TelegramIcon fontSize="small" />
               </SocialIcon>
-              <SocialIcon size="small" aria-label="Twitter">
-                <Twitter fontSize="small" />
-              </SocialIcon>
-              <SocialIcon size="small" aria-label="Instagram">
-                <Instagram fontSize="small" />
-              </SocialIcon>
-              <SocialIcon size="small" aria-label="LinkedIn">
-                <LinkedIn fontSize="small" />
+              <SocialIcon size="small" aria-label="VK">
+                <VKIcon />
               </SocialIcon>
               <SocialIcon size="small" aria-label="YouTube">
                 <YouTube fontSize="small" />
@@ -78,7 +81,7 @@ const Footer: React.FC = () => {
                 <MuiLink component={Link} to="/faq" sx={{ textDecoration: 'none' }}>Частые вопросы</MuiLink>
               </LinkItem>
               <LinkItem component="li">
-                <MuiLink href="mailto:info@socialqr.app" sx={{ textDecoration: 'none' }}>Связаться с нами</MuiLink>
+                <MuiLink href="mailto:info@pagememory.app" sx={{ textDecoration: 'none' }}>Связаться с нами</MuiLink>
               </LinkItem>
             </Box>
           </Grid>
@@ -125,7 +128,7 @@ const Footer: React.FC = () => {
         
         <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <Typography variant="body2" color="text.secondary">
-            © {currentYear} SocialQR. Все права защищены.
+            © {currentYear} Pagememory. Все права защищены.
           </Typography>
           <Box>
             <MuiLink 

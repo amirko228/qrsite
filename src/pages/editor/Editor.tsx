@@ -450,22 +450,22 @@ const Editor: React.FC = () => {
           
           setWidgets(loadedWidgets);
         } else {
-          const response = await axios.get('/api/widgets', {
-            headers: { Authorization: `Bearer ${token}` }
-          });
+        const response = await axios.get('/api/widgets', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        
+        if (response.data) {
+          const loadedWidgets = response.data.map((widget: any) => ({
+            id: widget.id.toString(),
+            type: widget.type,
+            content: widget.content,
+            position: { x: widget.position_x, y: widget.position_y },
+            size: { width: widget.width, height: widget.height },
+            anchor: widget.anchor || 'center',
+            zIndex: widget.z_index || 1,
+          }));
           
-          if (response.data) {
-            const loadedWidgets = response.data.map((widget: any) => ({
-              id: widget.id.toString(),
-              type: widget.type,
-              content: widget.content,
-              position: { x: widget.position_x, y: widget.position_y },
-              size: { width: widget.width, height: widget.height },
-              anchor: widget.anchor || 'center',
-              zIndex: widget.z_index || 1,
-            }));
-            
-            setWidgets(loadedWidgets);
+          setWidgets(loadedWidgets);
           }
         }
       } catch (error) {
@@ -635,20 +635,20 @@ const Editor: React.FC = () => {
         
         await mockSaveWidgets(widgetsData);
       } else {
-        // Оптимизация: отправляем все виджеты одним запросом
-        await axios.post('/api/widgets/batch', { widgets: widgets.map(widget => ({
-          id: widget.id.length <= 10 ? widget.id : undefined, // Если ID длинный - это новый виджет
-          type: widget.type,
-          content: widget.content,
-          position_x: widget.position.x,
-          position_y: widget.position.y,
-          width: widget.size.width,
-          height: widget.size.height,
-          anchor: widget.anchor,
-          z_index: widget.zIndex
-        }))}, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
+      // Оптимизация: отправляем все виджеты одним запросом
+      await axios.post('/api/widgets/batch', { widgets: widgets.map(widget => ({
+        id: widget.id.length <= 10 ? widget.id : undefined, // Если ID длинный - это новый виджет
+        type: widget.type,
+        content: widget.content,
+        position_x: widget.position.x,
+        position_y: widget.position.y,
+        width: widget.size.width,
+        height: widget.size.height,
+        anchor: widget.anchor,
+        z_index: widget.zIndex
+      }))}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       }
 
       setSnackbar({
@@ -906,7 +906,7 @@ const Editor: React.FC = () => {
           <ViewModeToggle>
             <Tooltip title="Мобильный">
               <IconButton 
-                onClick={() => setViewMode('mobile')} 
+                onClick={() => setViewMode('mobile')}
                 className={viewMode === 'mobile' ? 'active' : ''}
               >
                 <PhoneIphoneIcon />
@@ -914,7 +914,7 @@ const Editor: React.FC = () => {
             </Tooltip>
             <Tooltip title="Планшет">
               <IconButton 
-                onClick={() => setViewMode('tablet')} 
+                onClick={() => setViewMode('tablet')}
                 className={viewMode === 'tablet' ? 'active' : ''}
               >
                 <TabletIcon />
@@ -922,7 +922,7 @@ const Editor: React.FC = () => {
             </Tooltip>
             <Tooltip title="Компьютер">
               <IconButton 
-                onClick={() => setViewMode('desktop')} 
+                onClick={() => setViewMode('desktop')}
                 className={viewMode === 'desktop' ? 'active' : ''}
               >
                 <DesktopWindowsIcon />
@@ -932,17 +932,17 @@ const Editor: React.FC = () => {
         </Box>
         
         <Box sx={{ display: 'flex', gap: 1 }}>
-          <Tooltip title="Предпросмотр">
-            <IconButton 
+            <Tooltip title="Предпросмотр">
+              <IconButton 
               onClick={() => setEditorMode(editorMode === 'edit' ? 'preview' : 'edit')} 
               color={editorMode === 'preview' ? 'primary' : 'default'}
-            >
+              >
               {editorMode === 'edit' ? <VisibilityIcon /> : <ModeEditIcon />}
-            </IconButton>
-          </Tooltip>
+              </IconButton>
+            </Tooltip>
           
           <Button 
-            variant="contained" 
+            variant="contained"
             startIcon={<SaveIcon />} 
             onClick={saveWidgets}
             disabled={saving}
@@ -952,7 +952,7 @@ const Editor: React.FC = () => {
           </Button>
           
           <Button 
-            variant="outlined" 
+            variant="outlined"
             startIcon={<PublishIcon />} 
             onClick={() => navigate('/social')}
             sx={{ display: { xs: 'none', sm: 'flex' } }}
@@ -967,7 +967,7 @@ const Editor: React.FC = () => {
           >
             <SaveIcon />
           </IconButton>
-        </Box>
+              </Box>
       </Toolbar>
       
       <EditorMainContent>
@@ -981,13 +981,13 @@ const Editor: React.FC = () => {
         
         <WorkArea>
           <Canvas ref={canvasRef} viewMode={viewMode}>
-            {editorMode === 'edit' ? (
+          {editorMode === 'edit' ? (
               widgets.map((widget) => renderEditableWidget(widget))
-            ) : (
-              <PreviewCanvas>
+          ) : (
+            <PreviewCanvas>
                 {widgets.map((widget) => renderPreviewWidget(widget))}
-              </PreviewCanvas>
-            )}
+            </PreviewCanvas>
+          )}
           </Canvas>
         </WorkArea>
       </EditorMainContent>

@@ -40,11 +40,50 @@ const Auth: React.FC = () => {
 
   // Перенаправляем на нужную страницу, если уже авторизован
   useEffect(() => {
-    if (isLoggedIn) {
-      const from = location.state?.from?.pathname || (user?.is_admin ? '/admin' : '/social');
+    if (isLoggedIn && user) {
+      // Жесткая проверка статуса администратора (должно быть строго true)
+      const isAdmin = user.is_admin === true;
+      
+      // Принудительно отправляем обычных пользователей только на /social,
+      // а админов только на /admin
+      const targetPath = isAdmin ? '/admin' : '/social';
+      
+      // Логгируем для отладки
+      console.log('Перенаправление после авторизации:', {
+        username: user.username,
+        isAdmin,
+        targetPath,
+        userObject: user
+      });
+      
+      // Альтернативный путь из истории используем только если он 
+      // соответствует уровню прав пользователя
+      let from = location.state?.from?.pathname;
+      
+      // Проверяем, что путь соответствует уровню доступа
+      if (from) {
+        const isAdminPath = from.startsWith('/admin');
+        
+        // Если пытаемся перейти в админку, но не админ - отменяем
+        if (isAdminPath && !isAdmin) {
+          from = targetPath;
+          console.log('Отмена перехода в админку для обычного пользователя');
+        }
+        
+        // Если обычный путь - используем targetPath по умолчанию
+        if (!from.startsWith('/admin') && !from.startsWith('/social')) {
+          from = targetPath;
+        }
+      } else {
+        from = targetPath;
+      }
+      
+      console.log(`Итоговое перенаправление на: ${from}`);
+      
+      // Небольшая задержка для обновления состояния
       setTimeout(() => {
         navigate(from, { replace: true });
-      }, 0);
+      }, 100);
     }
   }, [isLoggedIn, navigate, user, location]);
 
@@ -109,23 +148,30 @@ const Auth: React.FC = () => {
                 )}
 
                 <Box component="form" onSubmit={handleSubmit}>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="subtitle2" component="label" htmlFor="username" gutterBottom>
+                      Логин
+                    </Typography>
                   <TextField
                     fullWidth
-                    label="Логин"
+                      id="username"
                     variant="outlined"
-                    margin="normal"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     InputProps={{
-                      startAdornment: <Email color="action" sx={{ mr: 1 }} />,
+                        startAdornment: <Lock color="action" sx={{ mr: 1 }} />,
                     }}
                   />
+                  </Box>
 
+                  <Box sx={{ mb: 1 }}>
+                    <Typography variant="subtitle2" component="label" htmlFor="password" gutterBottom>
+                      Пароль
+                    </Typography>
                   <TextField
                     fullWidth
-                    label="Пароль"
+                      id="password"
                     variant="outlined"
-                    margin="normal"
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -133,6 +179,7 @@ const Auth: React.FC = () => {
                       startAdornment: <Lock color="action" sx={{ mr: 1 }} />,
                     }}
                   />
+                  </Box>
 
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1, mb: 3 }}>
                     <MuiLink component={Link} to="/forgot-password" underline="hover">

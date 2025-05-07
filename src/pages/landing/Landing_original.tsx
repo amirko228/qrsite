@@ -14,14 +14,6 @@ import L from 'leaflet';
 import icon from 'leaflet/dist/images/marker-icon.png';
 import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
-// Определим основные цвета согласно ТЗ
-const customColors = {
-  primary: '#0A3D67', // Темно-синий
-  secondary: '#3E9AFF', // Голубой
-  white: '#FFFFFF', // Белый
-  gray: '#f8f9fa' // Светло-серый
-};
-
 let DefaultIcon = L.icon({
   iconUrl: icon,
   shadowUrl: iconShadow,
@@ -43,220 +35,10 @@ const fadeIn = keyframes`
   }
 `;
 
-// Стилизованный заголовок с градиентом
-const GradientTitle = styled(Typography)`
-  background: linear-gradient(135deg, ${customColors.secondary} 0%, ${customColors.primary} 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-  display: inline-block;
-  position: relative;
-  font-family: Garamond, serif;
-  font-weight: 700;
-  font-size: 3.5rem;
-  
-  @media (max-width: 600px) {
-    font-size: 2.5rem;
-  }
-`;
-
-// Фигура-подложка для заголовка
-const TitleWrapper = styled(Box)`
-  position: relative;
-  display: inline-block;
-  margin-bottom: 10px;
-  
-  &:before {
-    content: '';
-    position: absolute;
-    top: -20px;
-    left: -30px;
-    right: -30px;
-    bottom: -10px;
-    background: linear-gradient(135deg, ${customColors.secondary}60 0%, ${customColors.primary}40 100%);
-    border-radius: 50% 20% 30% 10%;
-    transform: rotate(-2deg);
-    z-index: -1;
-    opacity: 0.9;
-  }
-`;
-
-// Основной контейнер для всех секций
-const PageContainer = styled(Box)`
-  background-color: ${customColors.gray};
-  padding: 40px 20px;
-  min-height: 100vh;
-  width: 100%;
-  
-  @media (max-width: 600px) {
-    padding: 20px 10px;
-  }
-`;
-
-// Базовая секция с закругленными углами
-const BaseSection = styled(Box)`
-  background: ${customColors.white};
-  border-radius: 20px;
-  overflow: hidden;
-  padding: 40px;
-  margin-bottom: 30px;
-  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.05);
-  position: relative;
-  
-  @media (max-width: 600px) {
-    padding: 30px 20px;
-    border-radius: 15px;
-  }
-`;
-
-// Hero секция
-const HeroSection = styled(BaseSection)`
-  padding: 60px 40px;
-  background: linear-gradient(135deg, ${customColors.white} 0%, ${customColors.secondary}15 100%);
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    right: 0; 
-    width: 150px;
-    height: 150px;
-    background: ${customColors.secondary}20;
-    border-radius: 0 0 0 100%;
-    z-index: 0;
-  }
-  
-  @media (max-width: 600px) {
-    padding: 40px 20px;
-  }
-`;
-
-// Секция "Что это такое"
-const AboutSection = styled(BaseSection)`
-  background: ${customColors.white};
-  border-radius: 20px 20px 50px 20px;
-`;
-
-// Секция "Зачем это нужно"
-const WhySection = styled(BaseSection)`
-  background: linear-gradient(135deg, ${customColors.white} 0%, ${customColors.secondary}10 100%);
-  border-radius: 20px 50px 20px 20px;
-`;
-
-// Секция карты
-const MapCardSection = styled(BaseSection)`
-  background: ${customColors.white};
-  border-radius: 30px;
-  padding-bottom: 20px;
-  
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    width: 100%;
-    height: 40px;
-    background: ${customColors.secondary}15;
-    border-radius: 0 0 30px 30px;
-    z-index: 0;
-  }
-`;
-
-// Секция "Как это работает"
-const HowSection = styled(BaseSection)`
-  background: ${customColors.white};
-  border-radius: 50px 20px 20px 20px;
-`;
-
-// Секция примера
-const ExampleSection = styled(BaseSection)`
-  background: linear-gradient(135deg, ${customColors.secondary}10 0%, ${customColors.white} 100%);
-  border-radius: 20px 20px 20px 50px;
-`;
-
-// Секция условий
-const TermsSection = styled(BaseSection)`
-  background: ${customColors.white};
-  border-radius: 20px;
-`;
-
-// Секция нижнего QR-кода
-const BottomQrSection = styled(BaseSection)`
-  background: linear-gradient(0deg, ${customColors.secondary}15 0%, ${customColors.white} 100%);
-  border-radius: 40px 40px 20px 20px;
-  text-align: center;
-  
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 20px;
-    background: ${customColors.secondary}25;
-    border-radius: 40px 40px 0 0;
-    z-index: 0;
-  }
-`;
-
-// Карточка шага с уникальной фигурой для каждого элемента
-const StepCard = styled(motion.div)<{ stepNumber?: number }>`
-  padding: 24px;
-  background: white;
-  border-radius: ${(props) => {
-    switch(props.stepNumber) {
-      case 1: return '30px 15px 15px 15px'; // Скругление вверху слева
-      case 2: return '15px 30px 15px 15px'; // Скругление вверху справа
-      case 3: return '15px 15px 15px 30px'; // Скругление внизу слева
-      case 4: return '15px 15px 30px 15px'; // Скругление внизу справа
-      default: return '16px';
-    }
-  }};
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  margin-bottom: 16px;
-  display: flex;
-  align-items: flex-start;
-  gap: 16px;
-  position: relative;
-  overflow: hidden;
-  z-index: 1;
-  
-  &:before {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    right: 0;
-    z-index: 0;
-    
-    ${(props) => {
-      switch(props.stepNumber) {
-        case 1: return `
-          width: 120px;
-          height: 120px;
-          background-color: rgba(62, 154, 255, 0.05);
-          border-radius: 70% 30% 30% 70% / 60% 40% 60% 40%;
-        `;
-        case 2: return `
-          width: 140px;
-          height: 140px;
-          background-color: rgba(10, 61, 103, 0.05);
-          border-radius: 30% 70% 70% 30% / 40% 60% 40% 60%;
-        `;
-        case 3: return `
-          width: 130px;
-          height: 130px;
-          background-color: rgba(62, 154, 255, 0.08);
-          border-radius: 60% 40% 30% 70% / 60% 30% 70% 40%;
-        `;
-        default: return `
-          width: 150px;
-          height: 150px;
-          background-color: rgba(10, 61, 103, 0.08);
-          border-radius: 40% 60% 70% 30% / 40% 70% 30% 60%;
-        `;
-      }
-    }}
-  }
+const StyledSection = styled(Box)`
+  padding: 80px 0;
+  background: #fff;
+  animation: ${fadeIn} 1s ease-out;
 `;
 
 const MapSection = styled(Box)`
@@ -279,94 +61,12 @@ const UserCounter = styled(motion.div)`
   z-index: 1000;
 `;
 
-// InfoBlock с центрированным содержимым и разными фигурами
-const InfoBlock = styled(motion.div)<{ blockType?: number }>`
+const InfoBlock = styled(motion.div)`
   padding: 30px;
   background: #f8f9fa;
+  border-radius: 16px;
   margin-bottom: 20px;
   transition: transform 0.2s;
-  text-align: center;
-  position: relative;
-  overflow: hidden;
-  z-index: 1;
-  
-  /* Разные формы блоков в зависимости от типа */
-  border-radius: ${props => {
-    switch(props.blockType) {
-      case 1: return '20px 20px 50px 20px'; // Скругление внизу справа
-      case 2: return '20px 50px 20px 20px'; // Скругление вверху справа
-      case 3: return '50px 20px 20px 20px'; // Скругление вверху слева
-      case 4: return '20px 20px 20px 50px'; // Скругление внизу слева
-      case 5: return '30px 30px 10px 10px'; // Скругление сверху
-      case 6: return '10px 10px 30px 30px'; // Скругление снизу
-      default: return '20px'; // Обычное скругление
-    }
-  }};
-  
-  /* Фоновые фигуры внутри блоков */
-  &:before {
-    content: '';
-    position: absolute;
-    z-index: -1;
-    
-    ${props => {
-      switch(props.blockType) {
-        case 1: return `
-          bottom: 0;
-          right: 0;
-          width: 90px;
-          height: 90px;
-          background: ${customColors.secondary}15;
-          border-radius: 0 0 0 100%;
-        `;
-        case 2: return `
-          top: 0;
-          right: 0;
-          width: 80px;
-          height: 80px;
-          background: ${customColors.secondary}20;
-          border-radius: 0 0 0 100%;
-        `;
-        case 3: return `
-          top: 0;
-          left: 0;
-          width: 100px;
-          height: 100px;
-          background: ${customColors.secondary}15;
-          border-radius: 0 0 100% 0;
-        `;
-        case 4: return `
-          bottom: 0;
-          left: 0;
-          width: 70px;
-          height: 70px;
-          background: ${customColors.secondary}20;
-          border-radius: 0 100% 0 0;
-        `;
-        case 5: return `
-          top: -20px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 200px;
-          height: 40px;
-          background: ${customColors.secondary}15;
-          border-radius: 0 0 50% 50%;
-        `;
-        case 6: return `
-          bottom: -15px;
-          left: 50%;
-          transform: translateX(-50%);
-          width: 180px;
-          height: 30px;
-          background: ${customColors.secondary}15;
-          border-radius: 50% 50% 0 0;
-        `;
-        default: return `
-          display: none;
-        `;
-      }
-    }}
-  }
 
   &:hover {
     transform: translateY(-5px);
@@ -506,30 +206,22 @@ const LocateMe = ({ onLocate }: { onLocate: (lat: number, lng: number) => void }
   );
 };
 
-// Добавляем центрирование для типографии по умолчанию с шрифтом Alegreya
-const CenteredTypography = styled(Typography).attrs({
-  align: 'center'
-})`
-  text-align: center;
-  font-family: Alegreya, sans-serif;
-`;
-
-// Заголовок с шрифтом Garamond
-const HeadingTypography = styled(Typography).attrs({
-  align: 'center'
-})`
-  text-align: center;
-  font-family: Garamond, serif;
-  font-weight: 600;
-`;
-
-// Модифицируем InfoBlockTitle для выравнивания по центру
 const InfoBlockTitle = styled(Typography)`
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 10px;
   margin-bottom: 16px;
+`;
+
+const StepCard = styled(motion.div)`
+  padding: 24px;
+  background: white;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  margin-bottom: 16px;
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
 `;
 
 const StepNumber = styled.div`
@@ -611,92 +303,11 @@ const UserProfilePopup: React.FC<{ user: UserMarker, onNavigateToProfile: () => 
   );
 };
 
-// Стили для адаптации к мобильным устройствам
-const MobileResponsiveBox = styled(Box)(({ theme }) => ({
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(2),
-    textAlign: 'center',
-    width: '100%'
-  }
-}));
-
-const MobileResponsiveGrid = styled(Grid)(({ theme }) => ({
-  [theme.breakpoints.down('sm')]: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: theme.spacing(4),
-    padding: theme.spacing(0, 2)
-  }
-}));
-
-const MobileResponsiveTitle = styled(Typography)(({ theme }) => ({
-  fontSize: '2.5rem',
-  lineHeight: 1.2,
-  [theme.breakpoints.down('sm')]: {
-    fontSize: '2rem',
-    lineHeight: 1.1
-  }
-}));
-
-const MobileResponsiveSection = styled(Box)(({ theme }) => ({
-  padding: theme.spacing(8, 0),
-  [theme.breakpoints.down('sm')]: {
-    padding: theme.spacing(5, 0)
-  }
-}));
-
-// Унифицированные размеры круглых элементов для мобильной версии
-const CircleStep = styled(Box)(({ theme }) => ({
-  width: '50px',
-  height: '50px',
-  borderRadius: '50%',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  background: customColors.primary, // Темно-синий
-  color: customColors.white, // Белый текст
-  fontFamily: 'Garamond, serif',
-  fontWeight: 'bold',
-  fontSize: '20px',
-  boxShadow: '0 4px 8px rgba(0, 0, 0, 0.1)',
-  
-  [theme.breakpoints.down('sm')]: {
-    width: '40px', // Унифицированный размер для мобильной версии
-    height: '40px', // Унифицированный размер для мобильной версии
-    fontSize: '18px'
-  }
-}));
-
-// Стилизованная кнопка с улучшенной адаптивностью
-const StyledButton = styled(Button)`
-  background-color: ${customColors.primary};
-  color: ${customColors.white};
-  padding: 10px 24px;
-  font-weight: 500;
-  border-radius: 8px;
-  text-transform: none;
-  box-shadow: 0 2px 10px rgba(10, 61, 103, 0.2);
-  font-family: Alegreya, sans-serif;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    background-color: ${customColors.primary}e0;
-    box-shadow: 0 4px 15px rgba(10, 61, 103, 0.3);
-  }
-  
-  @media (max-width: 600px) {
-    width: 100%;
-    padding: 8px 16px;
-    margin-bottom: 8px;
-    font-size: 0.9rem;
-  }
-`;
-
 const Landing: React.FC = () => {
   const theme = useTheme();
   const navigate = useNavigate();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const [qrValue, setQrValue] = useState('https://pagememory.app/demo');
+  const [qrValue, setQrValue] = useState('https://socialqr.app/demo');
   const [isQRVisible, setIsQRVisible] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedLocation, setSelectedLocation] = useState<{lat: number, lng: number} | null>(null);
@@ -759,82 +370,55 @@ const Landing: React.FC = () => {
   };
 
   return (
-    <PageContainer>
+    <Box sx={{ overflow: 'hidden', pb: 10 }}>
+      {/* Hero Section */}
+      <StyledSection ref={heroRef}>
         <Container maxWidth="lg">
-        {/* Hero Section */}
-        <HeroSection ref={heroRef}>
-          <MobileResponsiveGrid container spacing={isMobile ? 2 : 4} alignItems="center">
+          <Grid container spacing={4} alignItems="center">
             <Grid item xs={12} md={7}>
-              <MobileResponsiveBox sx={{ mb: isMobile ? 2 : 4 }}>
+              <Box sx={{ mb: 4 }}>
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={heroInView ? { opacity: 1, y: 0 } : {}}
                   transition={{ duration: 0.6 }}
                 >
-                  <TitleWrapper>
-                    <GradientTitle variant="h1" align="center" sx={{ fontSize: isMobile ? '2rem' : '3.5rem' }}>
-                      Вспомнить все
-                    </GradientTitle>
-                  </TitleWrapper>
+                  <Typography variant="h2" component="h1" gutterBottom>
+                    Вспомнить все
+                  </Typography>
                 </motion.div>
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={heroInView ? { opacity: 1, y: 0 } : {}}
                   transition={{ duration: 0.6, delay: 0.2 }}
                 >
-                  <CenteredTypography 
-                    variant="h5" 
-                    color="textSecondary" 
-                    paragraph 
-                    sx={{ 
-                      fontSize: isMobile ? '1.1rem' : '1.25rem',
-                      lineHeight: isMobile ? 1.4 : 1.5,
-                      mb: isMobile ? 2 : 3
-                    }}
-                  >
+                  <Typography variant="h5" color="textSecondary" paragraph>
                     Сохрани память о родных и близких в цифровом пространстве. Поделитесь воспоминаниями через Qr-код.
-                  </CenteredTypography>
+                  </Typography>
                 </motion.div>
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={heroInView ? { opacity: 1, y: 0 } : {}}
                   transition={{ duration: 0.6, delay: 0.4 }}
                 >
-                  <Box 
-                    sx={{ 
-                      mt: isMobile ? 2 : 4, 
-                      display: 'flex', 
-                      gap: 2,
-                      flexWrap: isMobile ? 'nowrap' : 'wrap',
-                      justifyContent: 'center',
-                      flexDirection: isMobile ? 'column' : 'row',
-                      width: '100%'
-                    }}
-                  >
-                    <StyledButton 
+                  <Box sx={{ mt: 4, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                    <Button 
                       variant="contained" 
+                      color="primary" 
+                      size="large"
                       onClick={handleCreateProfile}
                     >
                       Создать страницу
-                    </StyledButton>
-                    <StyledButton 
-                      variant="contained"
-                      onClick={() => scrollToSection('example')}
-                      sx={{
-                        backgroundColor: 'transparent',
-                        color: customColors.primary,
-                        border: `1px solid ${customColors.primary}`,
-                        '&:hover': {
-                          backgroundColor: `${customColors.primary}10`,
-                          borderColor: customColors.primary
-                        }
-                      }}
+                    </Button>
+                    <Button 
+                      variant="outlined" 
+                      size="large"
+                      onClick={() => scrollToSection('how-it-works')}
                     >
-                      Пример
-                    </StyledButton>
+                      Узнать больше
+                    </Button>
                   </Box>
                 </motion.div>
-              </MobileResponsiveBox>
+              </Box>
             </Grid>
             <Grid item xs={12} md={5}>
               <motion.div
@@ -849,37 +433,103 @@ const Landing: React.FC = () => {
                       animate={{ opacity: 1, scale: 1 }}
                       transition={{ duration: 0.5 }}
                     >
-                      <CenteredTypography variant="subtitle1" sx={{ mb: 2 }}>
-                        Создайте мемориальную страницу близкого с историями фотографиями и видео
-                      </CenteredTypography>
-                      <QRCode 
-                        value={qrValue} 
-                        size={isMobile ? 160 : 200} 
-                        bgColor="#FFFFFF"
-                        fgColor={customColors.primary}
-                        level="M"
-                        includeMargin={false}
-                      />
-                      <CenteredTypography variant="subtitle1" sx={{ mt: 2 }}>
-                        Карта памяти
-                      </CenteredTypography>
+                      <QRCode value={qrValue} size={200} />
+                      <Typography variant="subtitle1" align="center" sx={{ mt: 2 }}>
+                        Отсканируйте, чтобы увидеть пример
+                      </Typography>
                     </AnimatedQRCode>
                   )}
                 </QRCodeContainer>
               </motion.div>
             </Grid>
-          </MobileResponsiveGrid>
-        </HeroSection>
+          </Grid>
+        </Container>
+      </StyledSection>
 
-        {/* Зачем это нужно */}
-        <WhySection id="why-us" ref={whyUsRef}>
+      {/* Что это такое */}
+      <StyledSection id="what-is" ref={whatIsRef} component="section" sx={{ background: '#f8f9fa' }}>
+        <Container maxWidth="lg">
+          <Box sx={{ mb: 6, textAlign: 'center' }}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={whatIsInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ duration: 0.6 }}
+            >
+              <Typography variant="h3" component="h2" gutterBottom>
+                Что это такое
+              </Typography>
+              <Typography variant="h6" color="textSecondary" sx={{ maxWidth: 800, mx: 'auto' }}>
+                SocialQR — цифровая платформа для сохранения и передачи памяти о близких людях
+              </Typography>
+            </motion.div>
+          </Box>
+          
+          <Grid container spacing={4}>
+            <Grid item xs={12} md={4}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={whatIsInView ? { opacity: 1, y: 0 } : {}}
+                transition={{ duration: 0.6, delay: 0.2 }}
+              >
+                <InfoBlock>
+                  <InfoBlockTitle variant="h5">
+                    <Info color="primary" /> Мемориальная страница
+                  </InfoBlockTitle>
+                  <Typography>
+                    Персональное пространство в интернете, посвященное памяти о человеке. Здесь можно собрать фотографии, истории и воспоминания.
+                  </Typography>
+                </InfoBlock>
+              </motion.div>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={whatIsInView ? { opacity: 1, y: 0 } : {}}
+                transition={{ duration: 0.6, delay: 0.3 }}
+              >
+                <InfoBlock>
+                  <InfoBlockTitle variant="h5">
+                    <QrCode color="primary" /> Доступ через QR-код
+                  </InfoBlockTitle>
+                  <Typography>
+                    Уникальный QR-код для каждой страницы, который можно разместить на памятнике или в памятных местах.
+                  </Typography>
+                </InfoBlock>
+              </motion.div>
+            </Grid>
+            <Grid item xs={12} md={4}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={whatIsInView ? { opacity: 1, y: 0 } : {}}
+                transition={{ duration: 0.6, delay: 0.4 }}
+              >
+                <InfoBlock>
+                  <InfoBlockTitle variant="h5">
+                    <Security color="primary" /> Надежное хранение
+                  </InfoBlockTitle>
+                  <Typography>
+                    Безопасное хранение всех материалов с возможностью управления доступом и конфиденциальностью.
+                  </Typography>
+                </InfoBlock>
+              </motion.div>
+            </Grid>
+          </Grid>
+        </Container>
+      </StyledSection>
+
+      {/* Зачем это нужно */}
+      <StyledSection id="why-us" ref={whyUsRef} component="section">
+        <Container maxWidth="lg">
           <Box sx={{ mb: 6, textAlign: 'center' }}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={whyUsInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6 }}
             >
-              <Typography variant="h3" align="center" gutterBottom>
+              <Typography variant="h3" component="h2" gutterBottom>
+                Зачем это нужно
+              </Typography>
+              <Typography variant="h6" color="textSecondary" sx={{ maxWidth: 800, mx: 'auto' }}>
                 Мы помогаем сохранить память о важных людях для будущих поколений
               </Typography>
             </motion.div>
@@ -892,13 +542,13 @@ const Landing: React.FC = () => {
                 animate={whyUsInView ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.6, delay: 0.2 }}
               >
-                <InfoBlock blockType={1}>
+                <InfoBlock>
                   <InfoBlockTitle variant="h5">
                     <Lightbulb color="primary" /> Сохранение истории
                   </InfoBlockTitle>
-                  <CenteredTypography>
-                    Сохраните память о тех кого любите и поделитесь воспоминаниями с друзьями и семьей с помощью цифрового архива.
-                  </CenteredTypography>
+                  <Typography>
+                    Создайте цифровой архив воспоминаний и историй, которые иначе могли бы быть забыты со временем.
+                  </Typography>
                 </InfoBlock>
               </motion.div>
             </Grid>
@@ -908,100 +558,33 @@ const Landing: React.FC = () => {
                 animate={whyUsInView ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.6, delay: 0.3 }}
               >
-                <InfoBlock blockType={2}>
+                <InfoBlock>
                   <InfoBlockTitle variant="h5">
                     <AccessTime color="primary" /> Связь поколений
                   </InfoBlockTitle>
-                  <CenteredTypography>
-                    Хорошо ли вы помните историю своей семьи? Не дайте воспоминаниям о ваших близких и родных пропасть бесследно. Сохрани историю жизни человека, и расскажи о нем будущим поколениям.
-                  </CenteredTypography>
+                  <Typography>
+                    Дайте возможность будущим поколениям узнать о своих предках, их жизни и достижениях.
+                  </Typography>
                 </InfoBlock>
               </motion.div>
             </Grid>
-            </Grid>
-        </WhySection>
-
-        {/* Что это такое */}
-        <AboutSection id="what-is" ref={whatIsRef}>
-          <Box sx={{ mb: 6, textAlign: 'center' }}>
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={whatIsInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.6 }}
-            >
-              <CenteredTypography variant="h3" gutterBottom>
-                Страница Памяти
-              </CenteredTypography>
-              <CenteredTypography variant="h6" color="textSecondary" sx={{ maxWidth: 800, mx: 'auto' }}>
-                Pagememory — цифровая платформа для сохранения и передачи памяти о близких людях
-              </CenteredTypography>
-            </motion.div>
-          </Box>
-          
-          <Grid container spacing={4}>
-            <Grid item xs={12} md={4}>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={whatIsInView ? { opacity: 1, y: 0 } : {}}
-                transition={{ duration: 0.6, delay: 0.2 }}
-              >
-                <InfoBlock blockType={3}>
-                  <InfoBlockTitle variant="h5">
-                    <Info color="primary" /> Страница памяти
-                  </InfoBlockTitle>
-                  <CenteredTypography>
-                    Персонализированное пространство в интернете, где вы можете разместить фотографии, видео, истории и воспоминания о своих близких.
-                  </CenteredTypography>
-                </InfoBlock>
-              </motion.div>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={whatIsInView ? { opacity: 1, y: 0 } : {}}
-                transition={{ duration: 0.6, delay: 0.3 }}
-              >
-                <InfoBlock blockType={4}>
-                  <InfoBlockTitle variant="h5">
-                    <QrCode color="primary" /> Доступ через QR-код
-                  </InfoBlockTitle>
-                  <CenteredTypography>
-                    Уникальный Qr-код со страницей воспоминаний о вашем близком человеке, для размещения на памятнике и местах памяти.
-                  </CenteredTypography>
-                </InfoBlock>
-              </motion.div>
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={whatIsInView ? { opacity: 1, y: 0 } : {}}
-                transition={{ duration: 0.6, delay: 0.4 }}
-              >
-                <InfoBlock blockType={5}>
-                  <InfoBlockTitle variant="h5">
-                    <Security color="primary" /> Надежное хранение
-                  </InfoBlockTitle>
-                  <CenteredTypography>
-                    Безопасное хранение всех материалов с возможностью управления доступом и конфиденциальностью.
-                  </CenteredTypography>
-                </InfoBlock>
-              </motion.div>
           </Grid>
-          </Grid>
-        </AboutSection>
+        </Container>
+      </StyledSection>
 
       {/* Интерактивная карта */}
-        <MapCardSection id="map" ref={mapRef}>
+      <StyledSection id="map" ref={mapRef} component="section" sx={{ background: '#f8f9fa' }}>
+        <Container maxWidth="lg">
           <Box sx={{ mb: 6, textAlign: 'center' }}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={mapInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6 }}
             >
-              <Typography variant="h3" align="center" gutterBottom>
-                Карта памяти
+              <Typography variant="h3" component="h2" gutterBottom>
+                Наши пользователи
               </Typography>
-              <Typography variant="h6" align="center" color="textSecondary">
+              <Typography variant="h6" color="textSecondary">
                 Присоединяйтесь к растущему сообществу по всему миру
               </Typography>
             </motion.div>
@@ -1109,25 +692,24 @@ const Landing: React.FC = () => {
               </MapContainer>
             </MapSection>
           </motion.div>
-        </MapCardSection>
+        </Container>
+      </StyledSection>
 
       {/* Как это работает */}
-        <HowSection id="how-it-works" ref={howItWorksRef}>
+      <StyledSection id="how-it-works" ref={howItWorksRef} component="section">
+        <Container maxWidth="lg">
           <Box sx={{ mb: 6, textAlign: 'center' }}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={howItWorksInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6 }}
             >
-              <HeadingTypography 
-                variant="h3" 
-                gutterBottom
-                sx={{ 
-                  fontSize: isMobile ? '1.8rem' : '2.5rem'
-                }}
-              >
-                Создай страницу памяти за несколько шагов
-              </HeadingTypography>
+              <Typography variant="h3" component="h2" gutterBottom>
+                Как это работает
+              </Typography>
+              <Typography variant="h6" color="textSecondary" sx={{ maxWidth: 800, mx: 'auto' }}>
+                Создайте мемориальную страницу всего за несколько шагов
+              </Typography>
             </motion.div>
           </Box>
           
@@ -1137,14 +719,14 @@ const Landing: React.FC = () => {
               animate={howItWorksInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: 0.2 }}
             >
-              <StepCard stepNumber={1}>
-                <CircleStep>1</CircleStep>
+              <StepCard>
+                <StepNumber>1</StepNumber>
                 <Box>
-                  <Typography variant="h6" gutterBottom sx={{ fontFamily: 'Alegreya, sans-serif' }}>
+                  <Typography variant="h6" gutterBottom>
                     Регистрация
                   </Typography>
-                  <Typography color="textSecondary" align="center" sx={{ fontFamily: 'Garamond, serif' }}>
-                    Отсканируй Qr-код из конверта, введи заранее созданные логин и пароль. По желанию смените их.
+                  <Typography color="textSecondary">
+                    Создайте аккаунт, указав базовую информацию о себе.
                   </Typography>
                 </Box>
               </StepCard>
@@ -1155,14 +737,14 @@ const Landing: React.FC = () => {
               animate={howItWorksInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: 0.3 }}
             >
-              <StepCard stepNumber={2}>
-                <CircleStep>2</CircleStep>
+              <StepCard>
+                <StepNumber>2</StepNumber>
                 <Box>
-                  <Typography variant="h6" gutterBottom sx={{ fontFamily: 'Garamond, serif' }}>
-                    Создание уникальной страницы памяти
+                  <Typography variant="h6" gutterBottom>
+                    Создание страницы
                   </Typography>
-                  <Typography color="textSecondary" align="center" sx={{ fontFamily: 'Alegreya, sans-serif' }}>
-                    С помощью визуального конструктора или заранее созданных шаблонов разместите фотографии, видео, биографию и другую информацию о близком человеке.
+                  <Typography color="textSecondary">
+                    Добавьте фото, видео, биографию и другую информацию с помощью визуального конструктора.
                   </Typography>
                 </Box>
               </StepCard>
@@ -1173,14 +755,14 @@ const Landing: React.FC = () => {
               animate={howItWorksInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: 0.4 }}
             >
-              <StepCard stepNumber={3}>
-                <CircleStep>3</CircleStep>
+              <StepCard>
+                <StepNumber>3</StepNumber>
                 <Box>
-                  <Typography variant="h6" gutterBottom sx={{ fontFamily: 'Alegreya, sans-serif' }}>
-                    Формирование семейного древа
+                  <Typography variant="h6" gutterBottom>
+                    Получение QR-кода
                   </Typography>
-                  <Typography color="textSecondary" align="center" sx={{ fontFamily: 'Garamond, serif' }}>
-                    Разместите генеалогическое древо своей семьи.
+                  <Typography color="textSecondary">
+                    Система автоматически сгенерирует уникальный QR-код для доступа к странице.
                   </Typography>
                 </Box>
               </StepCard>
@@ -1191,14 +773,14 @@ const Landing: React.FC = () => {
               animate={howItWorksInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: 0.5 }}
             >
-              <StepCard stepNumber={4}>
-                <CircleStep>4</CircleStep>
+              <StepCard>
+                <StepNumber>4</StepNumber>
                 <Box>
-                  <Typography variant="h6" gutterBottom sx={{ fontFamily: 'Garamond, serif' }}>
+                  <Typography variant="h6" gutterBottom>
                     Размещение QR-кода
                   </Typography>
-                  <Typography color="textSecondary" align="center" sx={{ fontFamily: 'Alegreya, sans-serif' }}>
-                    Разместите табличку с Qr-кодом на памятнике или в месте памяти близкого человека. Поделитесь страницей памяти с родственниками.
+                  <Typography color="textSecondary">
+                    Разместите QR-код на памятнике, в мемориальных местах или поделитесь им с близкими.
                   </Typography>
                 </Box>
               </StepCard>
@@ -1213,60 +795,56 @@ const Landing: React.FC = () => {
             >
               <Button 
                 variant="contained" 
+                color="primary" 
                 size="large"
                 onClick={handleCreateProfile}
-                sx={{ 
-                  backgroundColor: customColors.primary,
-                  color: customColors.white,
-                  '&:hover': {
-                    backgroundColor: '#0D4D7D',
-                  }
-                }}
               >
                 Создать страницу
               </Button>
             </motion.div>
           </Box>
-        </HowSection>
+        </Container>
+      </StyledSection>
 
       {/* Условия */}
-        <TermsSection id="terms" ref={termsRef}>
+      <StyledSection id="terms" ref={termsRef} component="section" sx={{ background: '#f8f9fa' }}>
+        <Container maxWidth="lg">
           <Box sx={{ mb: 6, textAlign: 'center' }}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={termsInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6 }}
             >
-              <Typography variant="h3" align="center" gutterBottom>
+              <Typography variant="h3" component="h2" gutterBottom>
                 Условия использования
               </Typography>
-              <Typography variant="h6" align="center" color="textSecondary" sx={{ maxWidth: 800, mx: 'auto' }}>
-                Важная информация о наших правилах
+              <Typography variant="h6" color="textSecondary" sx={{ maxWidth: 800, mx: 'auto' }}>
+                Важная информация о наших правилах и подписке
               </Typography>
             </motion.div>
           </Box>
           
-          <Grid container spacing={4} justifyContent="center">
-            <Grid item xs={12} md={10}>
+          <Grid container spacing={4}>
+            <Grid item xs={12} md={6}>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={termsInView ? { opacity: 1, y: 0 } : {}}
                 transition={{ duration: 0.6, delay: 0.2 }}
               >
-                <InfoBlock blockType={6}>
+                <InfoBlock>
                   <InfoBlockTitle variant="h5">
                     <GavelOutlined color="primary" /> Правила использования
                   </InfoBlockTitle>
-                  <Typography paragraph align="center">
-                    При создании и использовании страниц памяти, пожалуйста, соблюдайте следующие правила:
+                  <Typography paragraph>
+                    При создании и использовании мемориальных страниц, пожалуйста, соблюдайте следующие правила:
                   </Typography>
-                  <Typography component="ul" sx={{ pl: 2 }} align="center">
+                  <Typography component="ul" sx={{ pl: 2 }}>
                     <li>Размещайте только контент, на который имеете права</li>
                     <li>Уважайте память и достоинство людей</li>
                     <li>Не используйте платформу для распространения недостоверной информации</li>
-                    <li>Не нарушайте законодательство Российской Федерации</li>
+                    <li>Не нарушайте законодательство своей страны</li>
                   </Typography>
-                  <Box sx={{ mt: 2, textAlign: 'center' }}>
+                  <Box sx={{ mt: 2 }}>
                     <Button 
                       component={Link} 
                       to="/terms" 
@@ -1280,22 +858,57 @@ const Landing: React.FC = () => {
                 </InfoBlock>
               </motion.div>
             </Grid>
+            <Grid item xs={12} md={6}>
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={termsInView ? { opacity: 1, y: 0 } : {}}
+                transition={{ duration: 0.6, delay: 0.3 }}
+              >
+                <InfoBlock>
+                  <InfoBlockTitle variant="h5">
+                    <CheckCircle color="primary" /> Подписка и хранение
+                  </InfoBlockTitle>
+                  <Typography paragraph>
+                    Подписка на наш сервис дает вам следующие преимущества:
+                  </Typography>
+                  <Typography component="ul" sx={{ pl: 2 }}>
+                    <li>Безлимитный доступ к странице для посетителей</li>
+                    <li>Гарантированное хранение до 5 ГБ информации</li>
+                    <li>Возможность связывать профили в семейное древо</li>
+                    <li>Экспорт данных в любой момент</li>
+                    <li>Техническая поддержка</li>
+                  </Typography>
+                  <Box sx={{ mt: 2 }}>
+                    <Button 
+                      component={Link} 
+                      to="/pricing" 
+                      variant="outlined" 
+                      size="small"
+                    >
+                      Узнать о ценах
+                    </Button>
+                  </Box>
+                </InfoBlock>
+              </motion.div>
             </Grid>
-        </TermsSection>
+          </Grid>
+        </Container>
+      </StyledSection>
 
       {/* Пример */}
-        <ExampleSection id="example" ref={exampleRef}>
+      <StyledSection id="example" ref={exampleRef} component="section">
+        <Container maxWidth="lg">
           <Box sx={{ mb: 6, textAlign: 'center' }}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={exampleInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6 }}
             >
-              <Typography variant="h3" align="center" gutterBottom>
+              <Typography variant="h3" component="h2" gutterBottom>
                 Пример страницы
               </Typography>
-              <Typography variant="h6" align="center" color="textSecondary" sx={{ maxWidth: 800, mx: 'auto' }}>
-                Посмотрите, как может выглядеть страница памяти
+              <Typography variant="h6" color="textSecondary" sx={{ maxWidth: 800, mx: 'auto' }}>
+                Посмотрите, как может выглядеть мемориальная страница
               </Typography>
             </motion.div>
           </Box>
@@ -1313,13 +926,13 @@ const Landing: React.FC = () => {
                       component="img"
                       height="300"
                       image="https://source.unsplash.com/random/800x400/?memorial"
-                      alt="Пример страницы памяти"
+                      alt="Пример мемориальной страницы"
                     />
                     <CardContent>
                       <Typography variant="h5" gutterBottom>
-                        Пример страницы памяти
+                        Пример мемориальной страницы
                       </Typography>
-                      <Typography variant="body2" color="textSecondary" paragraph align="center">
+                      <Typography variant="body2" color="textSecondary" paragraph>
                         Это демонстрационная страница, показывающая возможности платформы. Вы можете оформить похожую страницу для сохранения памяти о дорогом вам человеке.
                       </Typography>
                       <Button 
@@ -1336,10 +949,12 @@ const Landing: React.FC = () => {
               </motion.div>
             </Grid>
           </Grid>
-        </ExampleSection>
+        </Container>
+      </StyledSection>
 
       {/* Нижний QR-код */}
-        <BottomQrSection id="bottom-qr" ref={bottomQrRef}>
+      <StyledSection id="bottom-qr" ref={bottomQrRef} component="section" sx={{ background: '#f8f9fa' }}>
+        <Container maxWidth="lg">
           <Box sx={{ textAlign: 'center', mb: 4 }}>
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -1350,7 +965,7 @@ const Landing: React.FC = () => {
                 Начните сейчас
               </Typography>
               <Typography variant="body1" color="textSecondary" sx={{ maxWidth: 800, mx: 'auto', mb: 4 }}>
-                Отсканируйте QR-код или нажмите кнопку, чтобы приобрести страницу памяти
+                Отсканируйте QR-код или нажмите кнопку, чтобы создать мемориальную страницу
               </Typography>
             </motion.div>
           </Box>
@@ -1364,16 +979,9 @@ const Landing: React.FC = () => {
               >
                 <QRCodeContainer>
                   <AnimatedQRCode>
-                    <QRCode 
-                      value={qrValue} 
-                      size={200}
-                      bgColor="#FFFFFF"
-                      fgColor={customColors.primary}
-                      level="M"
-                      includeMargin={false}
-                    />
+                    <QRCode value={qrValue} size={200} />
                     <Typography variant="subtitle1" align="center" sx={{ mt: 2 }}>
-                      QR-код для приобретения страницы памяти
+                      QR-код для доступа к примеру
                     </Typography>
                   </AnimatedQRCode>
                 </QRCodeContainer>
@@ -1387,33 +995,29 @@ const Landing: React.FC = () => {
               animate={bottomQrInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6, delay: 0.5 }}
             >
-              <StyledButton 
+              <Button 
                 variant="contained" 
+                color="primary" 
                 size="large"
                 onClick={handleCreateProfile}
                 sx={{ px: 4, py: 1.5 }}
               >
-                Приобрести страницу памяти
-              </StyledButton>
+                Создать свою страницу
+              </Button>
             </motion.div>
           </Box>
-        </BottomQrSection>
         </Container>
+      </StyledSection>
 
       <FloatingButton 
+        color="primary" 
         variant="contained"
         onClick={handleCreateProfile}
         aria-label="Create profile"
-        sx={{ 
-          backgroundColor: customColors.primary,
-          '&:hover': {
-            backgroundColor: '#0D4D7D',
-          }
-        }}
       >
         <Add />
       </FloatingButton>
-    </PageContainer>
+    </Box>
   );
 };
 

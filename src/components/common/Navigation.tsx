@@ -114,8 +114,10 @@ const Navigation: React.FC = () => {
   };
 
   const handleAdminClick = () => {
-    handleMenuClose();
+    setAnchorEl(null);
+    setTimeout(() => {
     navigate('/admin');
+    }, 100);
   };
 
   const handleSubscriptionClick = () => {
@@ -141,6 +143,13 @@ const Navigation: React.FC = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [scrolled]);
 
+  useEffect(() => {
+    // Сбрасываем меню пользователя при изменении статуса авторизации
+    if (!isLoggedIn) {
+      setAnchorEl(null);
+    }
+  }, [isLoggedIn]);
+
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen);
   };
@@ -158,7 +167,7 @@ const Navigation: React.FC = () => {
       >
         <Logo>
           <Typography variant="h6" component="span">
-            SocialQR
+            Pagememory
           </Typography>
         </Logo>
         <IconButton 
@@ -206,7 +215,7 @@ const Navigation: React.FC = () => {
             fontWeight="bold"
             sx={{ mb: 0.5 }}
           >
-            {user?.name || 'Пользователь'}
+            {user?.name || user?.username || 'Пользователь'}
           </Typography>
           <Typography 
             variant="body2" 
@@ -342,17 +351,14 @@ const Navigation: React.FC = () => {
         )}
       </List>
       
-      <Box 
-        sx={{ 
-          p: 2, 
-          mt: 4, 
+      <Box
+        sx={{
           textAlign: 'center',
-          color: theme.palette.text.secondary,
-          fontSize: '0.75rem'
+          p: 2,
         }}
       >
         <Typography variant="caption">
-          © 2023 SocialQR. Все права защищены.
+          © 2023 Pagememory. Все права защищены.
         </Typography>
       </Box>
     </Box>
@@ -408,7 +414,7 @@ const Navigation: React.FC = () => {
                   component="span"
                   sx={{ letterSpacing: 0.5 }}
                 >
-                  SocialQR
+                  Pagememory
                 </Typography>
               </Logo>
             </Box>
@@ -478,7 +484,7 @@ const Navigation: React.FC = () => {
                       }
                     }}
                   >
-                    {isTablet ? 'Профиль' : (user?.name || 'Профиль')}
+                    {isTablet ? 'Профиль' : (user?.name || user?.username || 'Профиль')}
                   </Button>
                 ) : (
                   <Button
@@ -503,100 +509,104 @@ const Navigation: React.FC = () => {
                   </Button>
                 )}
                 
-                <Menu
-                  id="user-menu"
-                  anchorEl={anchorEl}
-                  open={open}
-                  onClose={handleMenuClose}
-                  MenuListProps={{
-                    'aria-labelledby': 'profile-button',
-                  }}
-                  anchorOrigin={{
-                    vertical: 'bottom',
-                    horizontal: 'right',
-                  }}
-                  transformOrigin={{
-                    vertical: 'top',
-                    horizontal: 'right',
-                  }}
-                  sx={{ 
-                    mt: 1.5,
-                    '& .MuiPaper-root': {
-                      borderRadius: 2,
-                      boxShadow: '0 8px 20px rgba(0, 0, 0, 0.1)',
-                      minWidth: 180
-                    }
-                  }}
-                >
-                  <Box sx={{ py: 1, px: 2, textAlign: 'center' }}>
-                    <Avatar 
-                      sx={{ 
-                        mx: 'auto', 
-                        mb: 1, 
-                        width: 48, 
-                        height: 48,
-                        bgcolor: theme.palette.primary.main,
-                        fontSize: '1.2rem',
-                      }}
-                    >
-                      {user?.name?.charAt(0) || <Person />}
-                    </Avatar>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      {user?.name || 'Пользователь'}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {user?.username || ''}
-                    </Typography>
-                  </Box>
-                  
-                  <Divider />
-                  
-                  <MenuItem 
-                    onClick={handleProfileClick}
-                    sx={{ py: 1.25, mt: 0.5 }}
-                  >
-                    <ListItemIcon>
-                      <AccountCircle fontSize="small" sx={{ color: theme.palette.primary.main }} />
-                    </ListItemIcon>
-                    <ListItemText primary="Мой профиль" />
-                  </MenuItem>
-                  
-                  {user?.is_admin && (
-                    <MenuItem 
-                      onClick={handleAdminClick}
-                      sx={{ py: 1.25 }}
-                    >
-                      <ListItemIcon>
-                        <Settings fontSize="small" sx={{ color: theme.palette.info.main }} />
-                      </ListItemIcon>
-                      <ListItemText primary="Админ-панель" />
-                    </MenuItem>
-                  )}
-                  
-                  <Divider sx={{ my: 0.5 }} />
-                  
-                  <MenuItem 
-                    onClick={handleLogout}
+                {isLoggedIn && anchorEl && (
+                  <Menu
+                    id="user-menu"
+                    anchorEl={anchorEl}
+                    open={open}
+                    onClose={handleMenuClose}
+                    MenuListProps={{
+                      'aria-labelledby': 'profile-button',
+                    }}
+                    anchorOrigin={{
+                      vertical: 'top',
+                      horizontal: 'right',
+                    }}
+                    transformOrigin={{
+                      vertical: 'top',
+                      horizontal: 'right',
+                    }}
                     sx={{ 
-                      py: 1.25,
-                      mb: 0.5,
-                      color: theme.palette.error.main,
-                      '&:hover': {
-                        backgroundColor: `${theme.palette.error.light}15`,
+                      mt: 1.5,
+                      '& .MuiPaper-root': {
+                        borderRadius: 2,
+                        boxShadow: '0 8px 20px rgba(0, 0, 0, 0.1)',
+                        minWidth: 180
                       }
                     }}
+                    disableEnforceFocus={true}
+                    disableAutoFocusItem={true}
                   >
-                    <ListItemIcon>
-                      <ExitToApp fontSize="small" color="error" />
-                    </ListItemIcon>
-                    <ListItemText 
-                      primary="Выйти" 
-                      primaryTypographyProps={{
-                        color: theme.palette.error.main
+                    <Box sx={{ py: 1, px: 2, textAlign: 'center' }}>
+                      <Avatar 
+                        sx={{ 
+                          mx: 'auto', 
+                          mb: 1, 
+                          width: 48, 
+                          height: 48,
+                          bgcolor: theme.palette.primary.main,
+                          fontSize: '1.2rem',
+                        }}
+                      >
+                        {user?.name?.charAt(0) || <Person />}
+                      </Avatar>
+                      <Typography variant="subtitle2" fontWeight="bold">
+                        {user?.name || user?.username || 'Профиль'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {user?.username || ''}
+                      </Typography>
+                    </Box>
+                    
+                    <Divider />
+                    
+                    <MenuItem 
+                      onClick={handleProfileClick}
+                      sx={{ py: 1.25, mt: 0.5 }}
+                    >
+                      <ListItemIcon>
+                        <AccountCircle fontSize="small" sx={{ color: theme.palette.primary.main }} />
+                      </ListItemIcon>
+                      <ListItemText primary="Мой профиль" />
+                    </MenuItem>
+                    
+                    {user?.is_admin && (
+                      <MenuItem 
+                        onClick={handleAdminClick}
+                        sx={{ py: 1.25 }}
+                      >
+                        <ListItemIcon>
+                          <Settings fontSize="small" sx={{ color: theme.palette.info.main }} />
+                        </ListItemIcon>
+                        <ListItemText primary="Админ-панель" />
+                      </MenuItem>
+                    )}
+                    
+                    <Divider sx={{ my: 0.5 }} />
+                    
+                    <MenuItem 
+                      onClick={handleLogout}
+                      sx={{ 
+                        py: 1.25,
+                        mb: 0.5,
+                        color: theme.palette.error.main,
+                        '&:hover': {
+                          backgroundColor: `${theme.palette.error.light}15`,
+                        }
                       }}
-                    />
-                  </MenuItem>
-                </Menu>
+                    >
+                      <ListItemIcon>
+                        <ExitToApp fontSize="small" color="error" />
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary="Выйти" 
+                        primaryTypographyProps={{
+                          color: theme.palette.error.main
+                        }}
+                      />
+                    </MenuItem>
+                  </Menu>
+                )}
               </Box>
             )}
             
