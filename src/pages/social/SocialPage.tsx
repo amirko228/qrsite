@@ -171,6 +171,7 @@ const WidgetElement = styled(motion.div)<{
   min-height: 80px;
   transition: all 0.2s ease;
   cursor: move;
+  touch-action: none; /* Предотвращаем прокрутку страницы на тач-устройствах при перетаскивании */
   transform: ${props => props.$isDragging ? 'scale(1.02)' : 'none'};
   z-index: ${props => props.$isDragging ? 10 : 1};
   border: 1px solid rgba(0, 0, 0, 0.05);
@@ -222,6 +223,8 @@ const DragHandle = styled(motion.div)`
   cursor: grab;
   opacity: 0;
   transition: all 0.2s ease;
+  z-index: 10; /* Убедимся, что ручка всегда доступна для перетаскивания */
+  touch-action: none; /* Предотвращаем прокрутку страницы на тач-устройствах */
 
   &:hover {
     background-color: rgba(33, 150, 243, 0.3);
@@ -264,6 +267,7 @@ const DropZone = styled(motion.div)<{ $isActive?: boolean }>`
   margin: 8px 0;
   transition: all 0.2s ease;
   position: relative;
+  z-index: 5; /* Убедимся, что зона перетаскивания всегда доступна */
   
   &::before {
     content: '';
@@ -656,72 +660,122 @@ const WidgetContent: React.FC<{
       $backgroundColor={widget.backgroundColor}
       $textColor={widget.textColor}
       $isSelected={isSelected}
-        $isDragging={isDragging}
+      $isDragging={isDragging}
       onClick={(e) => {
         e.stopPropagation();
         onSelect();
       }}
-        initial={{ opacity: 0, scale: 0.96 }}
-        animate={{ 
-          opacity: 1, 
-          scale: isDragging ? 1.02 : 1,
-          y: posY,
-          transition: {
-            scale: { type: "spring", stiffness: 300, damping: 20 },
-            opacity: { duration: 0.2 }
-          }
-        }}
-        exit={{ opacity: 0, scale: 0.96 }}
-        transition={{ 
-          duration: 0.2,
-          y: { type: "spring", stiffness: 300, damping: 25 }
-        }}
-        drag="y"
-        dragConstraints={constraints}
-        dragElastic={0.02}
-        dragMomentum={false}
-        onDragStart={() => setIsDragging(true)}
-        onDrag={(e, info) => {
-          setPosY(info.offset.y);
-        }}
-        onDragEnd={(e, info) => {
-          setPosY(0);
-          setIsDragging(false);
+      initial={{ opacity: 0, scale: 0.96 }}
+      animate={{ 
+        opacity: 1, 
+        scale: isDragging ? 1.02 : 1,
+        y: posY,
+        transition: {
+          scale: { type: "spring", stiffness: 300, damping: 20 },
+          opacity: { duration: 0.2 }
+        }
+      }}
+      exit={{ opacity: 0, scale: 0.96 }}
+      transition={{ 
+        duration: 0.2,
+        y: { type: "spring", stiffness: 300, damping: 25 }
+      }}
+      drag="y"
+      dragConstraints={constraints}
+      dragElastic={0.01} // Уменьшаем эластичность для лучшего контроля
+      dragMomentum={false}
+      onDragStart={(e) => {
+        e.stopPropagation();
+        setIsDragging(true);
+      }}
+      onDrag={(e, info) => {
+        e.stopPropagation();
+        setPosY(info.offset.y);
+        
+        // Предварительный просмотр позиции
+        const draggedElement = e.target as HTMLElement;
+        const draggedRect = draggedElement.getBoundingClientRect();
+        const draggedCenter = draggedRect.top + draggedRect.height / 2;
+        
+        // Найдем все зоны перетаскивания и выделим ближайшую
+        const dropzones = document.querySelectorAll('[id^="dropzone-"]');
+        let closestZone: Element | null = null;
+        let minDistance = Infinity;
+        
+        dropzones.forEach(zone => {
+          const zoneRect = zone.getBoundingClientRect();
+          const zoneCenter = zoneRect.top + zoneRect.height / 2;
+          const distance = Math.abs(draggedCenter - zoneCenter);
           
-          // Находим ближайшую зону и перемещаем виджет туда
-          if (onPositionChange) {
-            const draggedElement = e.target as HTMLElement;
-            const draggedRect = draggedElement.getBoundingClientRect();
-            const draggedCenter = draggedRect.top + draggedRect.height / 2;
-            
-            // Найдем все зоны перетаскивания
-            const dropzones = document.querySelectorAll('[id^="dropzone-"]');
-            let closestZone = null;
-            let minDistance = Infinity;
-            let targetIndex = index;
-            
-            dropzones.forEach(zone => {
-              const zoneRect = zone.getBoundingClientRect();
-              const zoneCenter = zoneRect.top + zoneRect.height / 2;
-              const distance = Math.abs(draggedCenter - zoneCenter);
-              
-              if (distance < minDistance) {
-                minDistance = distance;
-                closestZone = zone;
-                targetIndex = parseInt(zone.getAttribute('data-index') || `${index}`, 10);
-              }
-            });
-            
-            if (closestZone && targetIndex !== index) {
-              onPositionChange(widget.id, targetIndex);
-            }
+          if (distance < minDistance) {
+            minDistance = distance;
+            closestZone = zone;
           }
+        });
+        
+        // Выделяем визуально ближайшую зону
+        dropzones.forEach(zone => {
+          if (zone === closestZone) {
+            (zone as HTMLElement).style.backgroundColor = 'rgba(33, 150, 243, 0.2)';
+            (zone as HTMLElement).style.height = '24px';
+          } else {
+            (zone as HTMLElement).style.backgroundColor = 'transparent';
+            (zone as HTMLElement).style.height = '18px';
+          }
+        });
+      }}
+      onDragEnd={(e, info) => {
+        e.stopPropagation();
+        setPosY(0);
+        setIsDragging(false);
+        
+        // Сбрасываем стили всех зон
+        const dropzones = document.querySelectorAll('[id^="dropzone-"]');
+        dropzones.forEach((zone) => {
+          (zone as HTMLElement).style.backgroundColor = 'transparent';
+          (zone as HTMLElement).style.height = '18px';
+        });
+        
+        // Находим ближайшую зону и перемещаем виджет туда
+        if (onPositionChange) {
+          const draggedElement = e.target as HTMLElement;
+          const draggedRect = draggedElement.getBoundingClientRect();
+          const draggedCenter = draggedRect.top + draggedRect.height / 2;
+          
+          // Найдем все зоны перетаскивания
+          let closestZone: Element | null = null;
+          let minDistance = Infinity;
+          let targetIndex = index;
+          
+          dropzones.forEach(zone => {
+            const zoneRect = zone.getBoundingClientRect();
+            const zoneCenter = zoneRect.top + zoneRect.height / 2;
+            const distance = Math.abs(draggedCenter - zoneCenter);
+            
+            if (distance < minDistance) {
+              minDistance = distance;
+              closestZone = zone;
+              targetIndex = parseInt(zone.getAttribute('data-index') || `${index}`, 10);
+            }
+          });
+          
+          if (closestZone && targetIndex !== index) {
+            onPositionChange(widget.id, targetIndex);
+          }
+        }
+      }}
+      // Улучшаем работу на мобильных устройствах
+      whileTap={{ scale: 1.02 }}
+      dragDirectionLock
+    >
+      <DragHandle 
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.95, backgroundColor: 'rgba(33, 150, 243, 0.6)' }}
+        style={{
+          opacity: useMediaQuery('(hover: none)') ? 0.6 : undefined,
+          width: useMediaQuery('(max-width: 480px)') ? '50px' : undefined
         }}
-      >
-        <DragHandle 
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.95 }}
-        />
+      />
       <WidgetControls className="widget-controls">
           <IconButton 
             size="small" 
