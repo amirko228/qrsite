@@ -45,15 +45,13 @@ const fadeIn = keyframes`
 
 // Стилизованный заголовок с градиентом
 const GradientTitle = styled(Typography)`
-  background: linear-gradient(135deg, ${customColors.secondary} 0%, ${customColors.primary} 100%);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
+  color: white;
   display: inline-block;
   position: relative;
   font-family: Garamond, serif;
   font-weight: 700;
   font-size: 3.5rem;
+  z-index: 2;
   
   @media (max-width: 600px) {
     font-size: 2.5rem;
@@ -67,7 +65,7 @@ const TitleWrapper = styled(Box)`
   margin-bottom: 10px;
   padding: 8px 24px;
   border-radius: 12px;
-  background: linear-gradient(135deg, ${customColors.white} 0%, ${customColors.secondary}30 100%);
+  background: linear-gradient(135deg, ${customColors.secondary} 0%, ${customColors.primary} 100%);
   
   &::after {
     content: '';
