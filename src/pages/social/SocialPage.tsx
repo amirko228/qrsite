@@ -438,13 +438,13 @@ const WidgetContent: React.FC<{
   const constraints = useRef<HTMLDivElement>(null);
   const [posY, setPosY] = useState(0);
   const [dragStartPos, setDragStartPos] = useState({ x: 0, y: 0 });
-  const [dropzones, setDropzones] = useState<Element[]>([]);
+  const [dropzones, setDropzones] = useState<HTMLElement[]>([]);
   const [dragDirection, setDragDirection] = useState<'up' | 'down' | null>(null);
   
   // Кешируем зоны перетаскивания при первом перетаскивании
   useEffect(() => {
     if (isDragging && dropzones.length === 0) {
-      const zones = Array.from(document.querySelectorAll('[id^="dropzone-"]'));
+      const zones = Array.from(document.querySelectorAll('[id^="dropzone-"]')) as HTMLElement[];
       setDropzones(zones);
     }
   }, [isDragging, dropzones.length]);
@@ -652,9 +652,9 @@ const WidgetContent: React.FC<{
 
   // Обрабатываем взаимодействие со всеми зонами перетаскивания
   const findClosestDropzone = useCallback((draggedCenter: number) => {
-    if (!dropzones.length) return { zone: null, index: -1 };
+    if (!dropzones.length) return { zone: null as HTMLElement | null, index: -1 };
     
-    let closestZone: Element | null = null;
+    let closestZone: HTMLElement | null = null;
     let minDistance = Infinity;
     let targetIndex = index;
     
@@ -763,15 +763,12 @@ const WidgetContent: React.FC<{
             
             // Сбрасываем все зоны
             dropzones.forEach(z => {
-              // Проверяем, что зона действительно является HTMLElement
-              if (z instanceof HTMLElement) {
-                z.style.backgroundColor = 'transparent';
-                z.style.height = '20px';
-              }
+              z.style.backgroundColor = 'transparent';
+              z.style.height = '20px';
             });
             
             // Выделяем текущую зону
-            if (zone instanceof HTMLElement) {
+            if (zone) {
               zone.style.backgroundColor = 'rgba(33, 150, 243, 0.25)';
               zone.style.height = '26px';
             }
@@ -788,11 +785,8 @@ const WidgetContent: React.FC<{
           
           // Сбрасываем все выделенные зоны
           dropzones.forEach(z => {
-            // Проверяем, что зона действительно является HTMLElement
-            if (z instanceof HTMLElement) {
-              z.style.backgroundColor = 'transparent';
-              z.style.height = '20px';
-            }
+            z.style.backgroundColor = 'transparent';
+            z.style.height = '20px';
           });
           
           // Находим ближайшую зону и перемещаем виджет туда

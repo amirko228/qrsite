@@ -267,7 +267,7 @@ const InfoBlock = styled(motion.div)<{ blockType?: number }>`
   border-radius: 16px;
   
   /* Удаляем фоновые фигуры внутри блоков */
-  
+
   &:hover {
     transform: translateY(-5px);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
@@ -807,7 +807,7 @@ const Landing: React.FC = () => {
   return (
     <PageContainer>
       <GlobalStyle />
-      <Container maxWidth="lg">
+        <Container maxWidth="lg">
         {/* Hero Section */}
         <HeroSection ref={heroRef}>
           <MobileResponsiveGrid container spacing={isMobile ? 3 : 4} alignItems="center">
@@ -906,14 +906,14 @@ const Landing: React.FC = () => {
                         Создайте мемориальную страницу близкого с историями фотографиями и видео
                       </CenteredTypography>
                       <QRCodeWrapper>
-                        <QRCode 
-                          value={qrValue} 
-                          size={isMobile ? 160 : 200} 
-                          bgColor="#FFFFFF"
-                          fgColor={customColors.primary}
-                          level="M"
-                          includeMargin={false}
-                        />
+                      <QRCode 
+                        value={qrValue} 
+                        size={isMobile ? 160 : 200} 
+                        bgColor="#FFFFFF"
+                        fgColor={customColors.primary}
+                        level="M"
+                        includeMargin={false}
+                      />
                       </QRCodeWrapper>
                       <CenteredTypography variant="subtitle1" sx={{ mt: 2, textAlign: 'center', width: '100%' }}>
                         Карта памяти
@@ -1153,40 +1153,40 @@ const Landing: React.FC = () => {
                     </IconButton>
                   </Box>
                   
-                  <TextField
-                    fullWidth
-                    placeholder="Поиск по имени или месту..."
-                    size="small"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
+                <TextField
+                  fullWidth
+                  placeholder="Поиск по имени или месту..."
+                  size="small"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
                           <Search fontSize="small" />
-                        </InputAdornment>
-                      ),
-                    }}
+                      </InputAdornment>
+                    ),
+                  }}
                     sx={{ mb: 1.5 }}
-                  />
-                  
-                  {isLocationLoading ? (
-                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
-                      <CircularProgress size={24} />
-                    </Box>
-                  ) : (
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <Button 
-                        variant="outlined" 
-                        size="small"
-                        startIcon={<Search />}
-                        fullWidth
-                      >
-                        Рядом со мной
-                      </Button>
-                    </Box>
-                  )}
-                  
-                  {filteredMarkers.length > 0 && (
+                />
+                
+                {isLocationLoading ? (
+                  <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                    <CircularProgress size={24} />
+                  </Box>
+                ) : (
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Button 
+                      variant="outlined" 
+                      size="small"
+                      startIcon={<Search />}
+                      fullWidth
+                    >
+                      Рядом со мной
+                    </Button>
+                  </Box>
+                )}
+                
+                {filteredMarkers.length > 0 && (
                     <Box sx={{ 
                       mt: 1.5, 
                       maxHeight: isMobile ? 150 : 200, 
@@ -1203,17 +1203,17 @@ const Landing: React.FC = () => {
                       },
                     }}>
                       <Typography variant="subtitle2" sx={{ mb: 1, fontSize: '0.75rem' }}>
-                        Результаты ({filteredMarkers.length})
-                      </Typography>
-                      {filteredMarkers.map(marker => (
-                        <UserListItem 
-                          key={marker.id}
-                          user={marker}
-                          onClick={() => handleNavigateToProfile(marker.profileUrl)}
-                        />
-                      ))}
-                    </Box>
-                  )}
+                      Результаты ({filteredMarkers.length})
+                    </Typography>
+                    {filteredMarkers.map(marker => (
+                      <UserListItem 
+                        key={marker.id}
+                        user={marker}
+                        onClick={() => handleNavigateToProfile(marker.profileUrl)}
+                      />
+                    ))}
+                  </Box>
+                )}
                 </Paper>
               </motion.div>
               
