@@ -35,43 +35,41 @@ const theme = createTheme({
   },
   typography: {
     fontFamily: [
-      'Alegreya', // Основной шрифт текста
-      'Garamond', // Шрифт заголовков
-      'Arial',
-      'sans-serif',
+      'Forum',
+      'serif',
     ].join(','),
     h1: {
-      fontFamily: 'Garamond, serif',
+      fontFamily: 'Forum, serif',
       fontWeight: 700,
     },
     h2: {
-      fontFamily: 'Garamond, serif',
+      fontFamily: 'Forum, serif',
       fontWeight: 700,
     },
     h3: {
-      fontFamily: 'Garamond, serif',
+      fontFamily: 'Forum, serif',
       fontWeight: 600,
     },
     h4: {
-      fontFamily: 'Garamond, serif',
+      fontFamily: 'Forum, serif',
       fontWeight: 600,
     },
     h5: {
-      fontFamily: 'Garamond, serif',
+      fontFamily: 'Forum, serif',
       fontWeight: 600,
     },
     h6: {
-      fontFamily: 'Garamond, serif',
+      fontFamily: 'Forum, serif',
       fontWeight: 600,
     },
     body1: {
-      fontFamily: 'Alegreya, sans-serif',
+      fontFamily: 'Forum, serif',
     },
     body2: {
-      fontFamily: 'Alegreya, sans-serif',
+      fontFamily: 'Forum, serif',
     },
     button: {
-      fontFamily: 'Alegreya, sans-serif',
+      fontFamily: 'Forum, serif',
       textTransform: 'none',
     },
   },

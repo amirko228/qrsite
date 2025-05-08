@@ -186,7 +186,7 @@ const WidgetElement = styled.div<{
   `}
   
   ${props => props.$isDragging && `
-    z-index: 10;
+  z-index: 10;
   `}
   
   @media (max-width: 768px) {
@@ -246,10 +246,10 @@ const DropIndicator = styled.div<{ isActive: boolean }>`
   transition: all 0.3s ease;
   border-radius: 4px;
 `;
-
+  
 // Контролы виджета
 const WidgetControls = styled.div`
-  position: absolute;
+    position: absolute;
   top: 8px;
   left: 8px;
   display: flex;
@@ -263,7 +263,7 @@ const WidgetControls = styled.div`
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   
   ${WidgetElement}:hover & {
-    opacity: 1;
+      opacity: 1;
   }
   
   @media (max-width: 768px) {
@@ -311,9 +311,9 @@ const WidgetContent: React.FC<{
               boxShadow: { xs: '0 2px 6px rgba(0, 0, 0, 0.06)', sm: '0 4px 10px rgba(0, 0, 0, 0.08)' },
               mb: { xs: 0.5, sm: 1 }
             }}>
-              <img 
-                src={widget.content.url} 
-                alt={widget.content.caption || 'Изображение'} 
+            <img 
+              src={widget.content.url} 
+              alt={widget.content.caption || 'Изображение'} 
                 style={{ 
                   width: '100%', 
                   height: 'auto', 
@@ -381,7 +381,7 @@ const WidgetContent: React.FC<{
               boxShadow: { xs: '0 2px 6px rgba(0, 0, 0, 0.06)', sm: '0 4px 10px rgba(0, 0, 0, 0.08)' },
               mb: { xs: 0.5, sm: 1 }
             }}>
-              <iframe 
+            <iframe 
                 style={{
                   position: 'absolute',
                   top: 0,
@@ -390,11 +390,11 @@ const WidgetContent: React.FC<{
                   height: '100%',
                   border: 'none'
                 }}
-                src={`https://www.youtube.com/embed/${widget.content.videoId}`} 
-                title="YouTube video" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                allowFullScreen
-              ></iframe>
+              src={`https://www.youtube.com/embed/${widget.content.videoId}`} 
+              title="YouTube video" 
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+              allowFullScreen
+            ></iframe>
             </Box>
             {widget.content.caption && (
               <Typography 
@@ -493,15 +493,15 @@ const WidgetContent: React.FC<{
             margin: '0 0 16px 0'
           }}
         >
-          <WidgetElement 
-            $backgroundColor={widget.backgroundColor}
-            $textColor={widget.textColor}
-            $isSelected={isSelected}
+    <WidgetElement
+      $backgroundColor={widget.backgroundColor}
+      $textColor={widget.textColor}
+      $isSelected={isSelected}
             $isDragging={snapshot.isDragging}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect();
-            }}
+      onClick={(e) => {
+        e.stopPropagation();
+        onSelect();
+      }}
           >
             <div {...provided.dragHandleProps}>
               <DragHandle>
@@ -509,38 +509,38 @@ const WidgetContent: React.FC<{
               </DragHandle>
             </div>
             <WidgetControls>
-              <IconButton 
-                size="small" 
-                onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                sx={{ 
-                  backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-                  '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
-                  padding: { xs: '2px', sm: '4px' },
-                  '& .MuiSvgIcon-root': { 
-                    fontSize: { xs: '0.9rem', sm: '1.25rem' } 
-                  }
-                }}
-              >
-                <Edit fontSize="small" />
-              </IconButton>
-              <IconButton 
-                size="small" 
-                onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                sx={{ 
-                  backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-                  '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
-                  padding: { xs: '2px', sm: '4px' },
-                  '& .MuiSvgIcon-root': { 
-                    fontSize: { xs: '0.9rem', sm: '1.25rem' } 
-                  }
-                }}
-              >
-                <Delete fontSize="small" />
-              </IconButton>
-            </WidgetControls>
-            
-            {renderWidgetContent()}
-          </WidgetElement>
+          <IconButton 
+            size="small" 
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            sx={{ 
+              backgroundColor: 'rgba(255, 255, 255, 0.8)', 
+              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
+              padding: { xs: '2px', sm: '4px' },
+              '& .MuiSvgIcon-root': { 
+                fontSize: { xs: '0.9rem', sm: '1.25rem' } 
+              }
+            }}
+          >
+          <Edit fontSize="small" />
+        </IconButton>
+          <IconButton 
+            size="small" 
+            onClick={(e) => { e.stopPropagation(); onDelete(); }}
+            sx={{ 
+              backgroundColor: 'rgba(255, 255, 255, 0.8)', 
+              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
+              padding: { xs: '2px', sm: '4px' },
+              '& .MuiSvgIcon-root': { 
+                fontSize: { xs: '0.9rem', sm: '1.25rem' } 
+              }
+            }}
+          >
+          <Delete fontSize="small" />
+        </IconButton>
+      </WidgetControls>
+      
+      {renderWidgetContent()}
+    </WidgetElement>
         </div>
       )}
     </Draggable>
@@ -1371,7 +1371,7 @@ const SocialPage: React.FC = () => {
     name: '',
     bio: '',
     avatar: '',
-    theme: 'light'
+      theme: 'light'
   });
   
   const isOwner = !id && isLoggedIn;
@@ -1959,15 +1959,15 @@ const SocialPage: React.FC = () => {
             <ProfileContainer>
               <Box sx={{ 
                 display: 'flex', 
-                justifyContent: 'space-between', 
+              justifyContent: 'space-between', 
                 alignItems: 'center', 
                 mb: 4,
                 flexDirection: { xs: 'column', sm: 'row' },
                 gap: { xs: 2, sm: 0 }
-              }}>
+            }}>
                 <Typography variant="h4" sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}>
-                  Мой профиль
-                </Typography>
+                    Мой профиль
+                  </Typography>
                 
                 <Box sx={{ 
                   display: 'flex', 
@@ -1978,7 +1978,7 @@ const SocialPage: React.FC = () => {
                 }}>
                   <Button
                     variant="contained"
-                    color="primary"
+                            color="primary"
                     onClick={toggleSidebar}
                     startIcon={<Add />}
                     size="medium"
@@ -1992,12 +1992,12 @@ const SocialPage: React.FC = () => {
                   </Button>
                   
                   {isOwner && (
-                    <Button
+                      <Button
                       variant="contained"
                       color="success"
-                      onClick={handleSaveProfile}
-                      startIcon={isSaving ? <CircularProgress size={16} /> : <Save />}
-                      disabled={isSaving}
+                        onClick={handleSaveProfile}
+                        startIcon={isSaving ? <CircularProgress size={16} /> : <Save />}
+                        disabled={isSaving}
                       size="medium"
                       sx={{ 
                         fontSize: { xs: '0.8rem', sm: '0.875rem' },
@@ -2006,7 +2006,7 @@ const SocialPage: React.FC = () => {
                       }}
                     >
                       {isSaving ? 'Сохранение...' : 'Сохранить профиль'}
-                    </Button>
+                      </Button>
                   )}
                   
                   <IconButton 
@@ -2017,30 +2017,30 @@ const SocialPage: React.FC = () => {
                     }}
                   >
                     <QrCode sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }} />
-                  </IconButton>
-                </Box>
-              </Box>
+                      </IconButton>
+                    </Box>
+                  </Box>
 
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
                 {renderEditableWidgets()}
-              </Box>
-            </ProfileContainer>
-          )}
-          {id && (
-            <ProfileContainer>
-              <Box sx={{ mb: 4 }}>
-                <Typography variant="h4" gutterBottom>
-                  {profile.name}
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  {profile.bio}
-                </Typography>
-              </Box>
-              
+          </Box>
+        </ProfileContainer>
+      )}
+      {id && (
+        <ProfileContainer>
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="h4" gutterBottom>
+                {profile.name}
+              </Typography>
+            <Typography variant="body1" color="text.secondary">
+              {profile.bio}
+            </Typography>
+          </Box>
+          
               {renderViewWidgets()}
-            </ProfileContainer>
-          )}
-        </>
+        </ProfileContainer>
+      )}
+      </>
       )}
 
       {selectedWidgetId && (

@@ -16,21 +16,7 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
 // Импортируем шрифты через файл стилей
 const GlobalStyle = createGlobalStyle`
-  @font-face {
-    font-family: 'Vetrino';
-    src: url('/fonts/Vetrino.woff2') format('woff2');
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
-  }
-  
-  @font-face {
-    font-family: 'Tilda Sans';
-    src: url('/fonts/TildaSans.woff2') format('woff2');
-    font-weight: normal;
-    font-style: normal;
-    font-display: swap;
-  }
+  @import url('https://fonts.googleapis.com/css2?family=Forum&display=swap');
 
   /* Глобальные стили для улучшения адаптивности */
   * {
@@ -45,11 +31,11 @@ const GlobalStyle = createGlobalStyle`
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Vetrino', sans-serif;
+    font-family: 'Forum', serif !important;
   }
 
   p, span, div, button, a {
-    font-family: 'Tilda Sans', sans-serif;
+    font-family: 'Forum', serif !important;
   }
 `;
 
@@ -184,22 +170,24 @@ const CircleStep = styled(Box)<{ active?: boolean }>`
 // Заголовок с градиентным фоном - исправленный адаптив
 const GradientTitle = styled(Typography)`
   color: white;
-  font-family: 'Vetrino', sans-serif;
+  font-family: 'Forum', serif;
   font-weight: 700;
   position: relative;
   z-index: 2;
   width: 100%;
   text-align: center;
-  font-size: 3.5rem;
+  font-size: 4.5rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
   padding: 12px 30px;
   
   @media (max-width: 768px) {
-    font-size: 2.5rem;
+    font-size: 3.5rem;
     padding: 10px 20px;
   }
   
   @media (max-width: 480px) {
-    font-size: 2rem;
+    font-size: 2.5rem;
     padding: 8px 16px;
   }
 `;
@@ -459,7 +447,7 @@ const LocateMe = ({ onLocate }: { onLocate: (lat: number, lng: number) => void }
 // Основной текст с правильным шрифтом и улучшенным адаптивом
 const CenteredTypography = styled(Typography)`
   text-align: center;
-  font-family: 'Tilda Sans', sans-serif;
+  font-family: 'Forum', serif;
   line-height: 1.5;
   margin: 0 auto;
   max-width: 800px;
@@ -472,7 +460,7 @@ const CenteredTypography = styled(Typography)`
 // Заголовок с правильным шрифтом
 const HeadingTypography = styled(Typography)`
   text-align: center;
-  font-family: 'Vetrino', sans-serif;
+  font-family: 'Forum', serif;
   font-weight: 700;
   line-height: 1.2;
   
@@ -491,7 +479,7 @@ const InfoBlockTitle = styled(Typography)`
   align-items: center;
   gap: 8px;
   margin-bottom: 16px;
-  font-family: 'Vetrino', sans-serif;
+  font-family: 'Forum', serif;
   font-weight: 600;
   font-size: 1.25rem;
   
@@ -806,8 +794,9 @@ const Landing: React.FC = () => {
   }, []);
 
   return (
-    <PageContainer>
-      <GlobalStyle />
+    <ThemeProvider theme={theme}>
+      <PageContainer>
+        <GlobalStyle />
         <Container maxWidth="lg">
         {/* Hero Section */}
         <HeroSection ref={heroRef}>
@@ -1599,7 +1588,8 @@ const Landing: React.FC = () => {
         <Add />
       </FloatingButton>
     </PageContainer>
-  );
+  </ThemeProvider>
+);
 };
 
 export default Landing; 

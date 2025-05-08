@@ -4,6 +4,12 @@ import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 
+// Добавляем импорт шрифтов в главный файл
+const link = document.createElement('link');
+link.rel = 'stylesheet';
+link.href = 'https://fonts.googleapis.com/css2?family=Forum&display=swap';
+document.head.appendChild(link);
+
 const root = ReactDOM.createRoot(
   document.getElementById('root') as HTMLElement
 );
