@@ -16,7 +16,23 @@ import iconShadow from 'leaflet/dist/images/marker-shadow.png';
 
 // Импортируем шрифты через файл стилей
 const GlobalStyle = createGlobalStyle`
-  @import url('https://fonts.googleapis.com/css2?family=Forum&display=swap');
+  @font-face {
+    font-family: 'Vetrino';
+    src: url('/fonts/Vetrino.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+  
+  @font-face {
+    font-family: 'Tilda Sans';
+    src: url('/fonts/TildaSans.07Web/TildaSans-Regular/TildaSans-Regular.woff2') format('woff2'),
+         url('/fonts/TildaSans.07Web/TildaSans-Regular/TildaSans-Regular.woff') format('woff'),
+         url('/fonts/TildaSans.07Web/TildaSans-Regular/TildaSans-Regular.eot') format('embedded-opentype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
 
   /* Глобальные стили для улучшения адаптивности */
   * {
@@ -31,11 +47,11 @@ const GlobalStyle = createGlobalStyle`
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Forum', serif !important;
+    font-family: 'Vetrino', serif !important;
   }
 
   p, span, div, button, a {
-    font-family: 'Forum', serif !important;
+    font-family: 'Tilda Sans', sans-serif !important;
   }
 `;
 
@@ -170,7 +186,7 @@ const CircleStep = styled(Box)<{ active?: boolean }>`
 // Заголовок с градиентным фоном - исправленный адаптив
 const GradientTitle = styled(Typography)`
   color: white;
-  font-family: 'Forum', serif;
+  font-family: 'Vetrino', serif;
   font-weight: 700;
   position: relative;
   z-index: 2;
@@ -447,7 +463,7 @@ const LocateMe = ({ onLocate }: { onLocate: (lat: number, lng: number) => void }
 // Основной текст с правильным шрифтом и улучшенным адаптивом
 const CenteredTypography = styled(Typography)`
   text-align: center;
-  font-family: 'Forum', serif;
+  font-family: 'Tilda Sans', sans-serif;
   line-height: 1.5;
   margin: 0 auto;
   max-width: 800px;
@@ -460,7 +476,7 @@ const CenteredTypography = styled(Typography)`
 // Заголовок с правильным шрифтом
 const HeadingTypography = styled(Typography)`
   text-align: center;
-  font-family: 'Forum', serif;
+  font-family: 'Vetrino', serif;
   font-weight: 700;
   line-height: 1.2;
   
@@ -479,7 +495,7 @@ const InfoBlockTitle = styled(Typography)`
   align-items: center;
   gap: 8px;
   margin-bottom: 16px;
-  font-family: 'Forum', serif;
+  font-family: 'Vetrino', serif;
   font-weight: 600;
   font-size: 1.25rem;
   

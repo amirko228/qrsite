@@ -35,41 +35,43 @@ const theme = createTheme({
   },
   typography: {
     fontFamily: [
-      'Forum',
+      'Tilda Sans',
+      'Vetrino',
+      'sans-serif',
       'serif',
     ].join(','),
     h1: {
-      fontFamily: 'Forum, serif',
+      fontFamily: 'Vetrino, serif',
       fontWeight: 700,
     },
     h2: {
-      fontFamily: 'Forum, serif',
+      fontFamily: 'Vetrino, serif',
       fontWeight: 700,
     },
     h3: {
-      fontFamily: 'Forum, serif',
+      fontFamily: 'Vetrino, serif',
       fontWeight: 600,
     },
     h4: {
-      fontFamily: 'Forum, serif',
+      fontFamily: 'Vetrino, serif',
       fontWeight: 600,
     },
     h5: {
-      fontFamily: 'Forum, serif',
+      fontFamily: 'Vetrino, serif',
       fontWeight: 600,
     },
     h6: {
-      fontFamily: 'Forum, serif',
+      fontFamily: 'Vetrino, serif',
       fontWeight: 600,
     },
     body1: {
-      fontFamily: 'Forum, serif',
+      fontFamily: 'Tilda Sans, sans-serif',
     },
     body2: {
-      fontFamily: 'Forum, serif',
+      fontFamily: 'Tilda Sans, sans-serif',
     },
     button: {
-      fontFamily: 'Forum, serif',
+      fontFamily: 'Tilda Sans, sans-serif',
       textTransform: 'none',
     },
   },
