@@ -2,9 +2,64 @@ import React, { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { ThemeProvider, CircularProgress, Box } from '@mui/material';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
-import { ThemeProvider as StyledThemeProvider } from 'styled-components';
+import { ThemeProvider as StyledThemeProvider, createGlobalStyle } from 'styled-components';
 import CssBaseline from '@mui/material/CssBaseline';
 import customTheme from './theme/theme';
+
+// Глобальные стили для всего приложения
+const GlobalStyle = createGlobalStyle`
+  @font-face {
+    font-family: 'Vetrino';
+    src: url('/fonts/Vetrino.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+  
+  @font-face {
+    font-family: 'Tilda Sans';
+    src: url('/fonts/TildaSans.07Web/TildaSans-Regular/TildaSans-Regular.woff2') format('woff2'),
+         url('/fonts/TildaSans.07Web/TildaSans-Regular/TildaSans-Regular.woff') format('woff'),
+         url('/fonts/TildaSans.07Web/TildaSans-Regular/TildaSans-Regular.eot') format('embedded-opentype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+  }
+
+  /* Глобальные стили для улучшения адаптивности */
+  * {
+    box-sizing: border-box;
+  }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    overflow-x: hidden;
+    font-family: 'Tilda Sans', sans-serif !important;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Vetrino', serif !important;
+  }
+
+  p, span, div, button, a, li, input, textarea, label {
+    font-family: 'Tilda Sans', sans-serif !important;
+  }
+  
+  /* Переопределяем для всех упоминаний "Pagememory" */
+  h1:contains('Pagememory'),
+  h2:contains('Pagememory'),
+  h3:contains('Pagememory'),
+  h4:contains('Pagememory'),
+  h5:contains('Pagememory'),
+  h6:contains('Pagememory'),
+  span:contains('Pagememory'),
+  p:contains('Pagememory'),
+  div:contains('Pagememory') {
+    font-family: 'Vetrino', serif !important;
+  }
+`;
 
 // Ленивая загрузка компонентов для оптимизации
 const Landing = lazy(() => import('./pages/landing/Landing'));
@@ -141,6 +196,7 @@ const App: React.FC = () => {
     <ThemeProvider theme={customTheme}>
       <CssBaseline />
       <StyledThemeProvider theme={customTheme}>
+        <GlobalStyle />
       <Router>
         <AuthProvider>
             <Routes>

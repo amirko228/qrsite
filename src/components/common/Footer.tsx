@@ -13,6 +13,12 @@ const VKIcon = () => (
   </svg>
 );
 
+// Компонент для логотипа, который будет использоваться в разных местах
+const LogoText = styled('span')({
+  fontFamily: 'Vetrino, serif !important',
+  fontWeight: 'bold',
+});
+
 const FooterContainer = styled(Box)(({ theme }) => ({
   backgroundColor: '#f9f9f9',
   padding: theme.spacing(6, 0),
@@ -48,7 +54,7 @@ const Footer: React.FC = () => {
         <Grid container spacing={4}>
           <Grid item xs={12} sm={6} md={3}>
             <Typography variant="h6" color="text.primary" gutterBottom>
-              Pagememory
+              <LogoText>Pagememory</LogoText>
             </Typography>
             <Typography variant="body2" color="text.secondary">
               Приобретите Qr-код и соберите в одном месте воспоминания о близком человеке.
@@ -56,9 +62,6 @@ const Footer: React.FC = () => {
             <Box sx={{ mt: 3 }}>
               <SocialIcon size="small" aria-label="Telegram">
                 <TelegramIcon fontSize="small" />
-              </SocialIcon>
-              <SocialIcon size="small" aria-label="VK">
-                <VKIcon />
               </SocialIcon>
               <SocialIcon size="small" aria-label="YouTube">
                 <YouTube fontSize="small" />
@@ -128,7 +131,7 @@ const Footer: React.FC = () => {
         
         <Box sx={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap' }}>
           <Typography variant="body2" color="text.secondary">
-            © {currentYear} Pagememory. Все права защищены.
+            © {currentYear} <LogoText>Pagememory</LogoText>. Все права защищены.
           </Typography>
           <Box>
             <MuiLink 
