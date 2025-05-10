@@ -14,6 +14,7 @@ const API_BASE_URL = isProduction
 // Константы для оптимизации
 const TOKEN_KEY = 'accessToken';
 const USERS_STORAGE_KEY = 'adminPanelData'; // Ключ для хранения пользователей
+const USERS_LOGIN_KEY = 'users'; // Дополнительный ключ для хранения пользователей для авторизации
 const PROFILE_PREFIX = 'profile_';
 const WIDGETS_PREFIX = 'widgets_';
 const SETTINGS_PREFIX = 'settings_';
@@ -49,14 +50,96 @@ interface MockUser extends BaseUser {
 const MOCK_USERS: MockUser[] = [
   { id: 1, username: 'admin', password: 'admin', name: 'Администратор', is_admin: true },
   { id: 2, username: 'user', password: 'user', name: 'Пользователь', is_admin: false },
+  { id: 3, username: 'test', password: 'test', name: 'Тестовый пользователь', is_admin: false },
   // Можно добавить больше пользователей если нужно
 ];
+
+// Функция для инициализации пользовательских данных для тестирования
+const initializeTestUsers = () => {
+  try {
+    // Проверяем, существуют ли пользователи в adminPanelData
+    const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+    const users = storedUsers ? JSON.parse(storedUsers) : [];
+    
+    // Добавляем тестового пользователя в adminPanelData, если нужно
+    let needsUpdate = false;
+    if (users.length === 0 || !users.some((u: any) => u.username === 'test')) {
+      const testUser = { 
+        id: 3, 
+        username: 'test', 
+        password: 'test', 
+        name: 'Тестовый пользователь',
+        subscription: null 
+      };
+      
+      // Добавляем пользователя, только если его еще нет
+      if (!users.some((u: any) => u.username === 'test')) {
+        users.push(testUser);
+        needsUpdate = true;
+      }
+    }
+    
+    // Сохраняем обновленные данные, если были изменения
+    if (needsUpdate) {
+      localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
+      console.log('Обновлен список пользователей в adminPanelData');
+    }
+    
+    // Также создаем/обновляем хранилище 'users' для совместимости
+    const loginUsers = localStorage.getItem(USERS_LOGIN_KEY);
+    const loginUsersList = loginUsers ? JSON.parse(loginUsers) : [];
+    
+    // Синхронизируем с основным хранилищем
+    if (!loginUsers || loginUsersList.length === 0 || !loginUsersList.some((u: any) => u.username === 'test')) {
+      // Копируем пользователей из adminPanelData в users
+      localStorage.setItem(USERS_LOGIN_KEY, JSON.stringify(users));
+      console.log('Синхронизировано хранилище users с adminPanelData');
+    }
+    
+    // Создаем тестовый профиль, если его нет
+    const profileKey = `${PROFILE_PREFIX}3`;
+    const widgetsKey = `${WIDGETS_PREFIX}3`;
+    const settingsKey = `${SETTINGS_PREFIX}3`;
+    
+    if (!localStorage.getItem(profileKey)) {
+      localStorage.setItem(profileKey, JSON.stringify({
+        id: '3',
+        name: 'Тестовый пользователь',
+        bio: 'Это тестовый профиль для демонстрации',
+        avatar: '',
+        theme: 'light',
+        isPublic: true
+      }));
+      
+      localStorage.setItem(widgetsKey, JSON.stringify([]));
+      localStorage.setItem(settingsKey, JSON.stringify({
+        theme: 'light',
+        notifications: true,
+        privacy: 'public'
+      }));
+      
+      console.log('Инициализирован тестовый профиль');
+    }
+  } catch (e) {
+    console.error('Ошибка при инициализации тестовых пользователей:', e);
+  }
+};
 
 // Функция для загрузки пользователей из localStorage
 const loadUsersFromStorage = (): any[] => {
   try {
-    const savedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-    return savedUsers ? JSON.parse(savedUsers) : [];
+    // Проверяем оба хранилища
+    const adminUsers = localStorage.getItem(USERS_STORAGE_KEY);
+    const loginUsers = localStorage.getItem(USERS_LOGIN_KEY);
+    
+    // Предпочитаем основное хранилище, если оно существует
+    if (adminUsers) {
+      return JSON.parse(adminUsers);
+    } else if (loginUsers) {
+      return JSON.parse(loginUsers);
+    }
+    
+    return [];
   } catch (e) {
     console.error('Ошибка при загрузке пользователей из localStorage:', e);
     return [];
@@ -89,6 +172,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const lastAuthCheckRef = useRef<number>(0);
   const authCheckPromiseRef = useRef<Promise<boolean> | null>(null);
 
+  // Инициализируем тестовых пользователей при загрузке провайдера
+  useEffect(() => {
+    initializeTestUsers();
+  }, []);
+
   // Мок-функция имитирующая запрос аутентификации
   const mockLogin = async (username: string, password: string): Promise<{
     success: boolean;
@@ -106,6 +194,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!mockUser) {
       // Загружаем пользователей из localStorage
       const storageUsers = loadUsersFromStorage();
+      
+      console.log('Поиск пользователя для авторизации:', {
+        username,
+        usersFound: storageUsers.length,
+        searchingIn: 'localStorage'
+      });
       
       // Ищем пользователя по имени пользователя И паролю
       const storageUser = storageUsers.find(u => u.username === username && u.password === password);
@@ -125,6 +219,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           is_admin: mockUser.is_admin,
           source: 'localStorage'
         });
+      } else {
+        console.log('Пользователь не найден в localStorage');
       }
     } else {
       console.log('Успешная авторизация пользователя из MOCK_USERS:', {

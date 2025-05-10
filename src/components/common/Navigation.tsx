@@ -21,9 +21,11 @@ import {
   Divider,
   ListItemIcon,
   Tooltip,
-  Theme
+  Theme,
+  Link as MuiLink,
+  Badge
 } from '@mui/material';
-import { Menu as MenuIcon, Close as CloseIcon, AccountCircle, KeyboardArrowDown, Settings, ExitToApp, Person, Home, Info } from '@mui/icons-material';
+import { Menu as MenuIcon, Close as CloseIcon, AccountCircle, KeyboardArrowDown, Settings, ExitToApp, Person, Home, Info, AdminPanelSettings } from '@mui/icons-material';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
@@ -560,15 +562,21 @@ const Navigation: React.FC = () => {
                     
                     <Divider />
                     
-                    <MenuItem 
-                      onClick={handleProfileClick}
-                      sx={{ py: 1.25, mt: 0.5 }}
-                    >
+                    <MenuItem onClick={() => navigate('/social')}>
                       <ListItemIcon>
-                        <AccountCircle fontSize="small" sx={{ color: theme.palette.primary.main }} />
+                        <Person fontSize="small" />
                       </ListItemIcon>
                       <ListItemText primary="Мой профиль" />
                     </MenuItem>
+                    
+                    <MenuItem onClick={() => navigate('/settings')}>
+                      <ListItemIcon>
+                        <Settings fontSize="small" />
+                      </ListItemIcon>
+                      <ListItemText primary="Настройки" />
+                    </MenuItem>
+                    
+                    <Divider />
                     
                     {user?.is_admin && (
                       <MenuItem 
@@ -576,7 +584,7 @@ const Navigation: React.FC = () => {
                         sx={{ py: 1.25 }}
                       >
                         <ListItemIcon>
-                          <Settings fontSize="small" sx={{ color: theme.palette.info.main }} />
+                          <AdminPanelSettings fontSize="small" sx={{ color: theme.palette.info.main }} />
                         </ListItemIcon>
                         <ListItemText primary="Админ-панель" />
                       </MenuItem>
@@ -629,7 +637,7 @@ const Navigation: React.FC = () => {
                       color="info"
                       sx={{ mr: 1 }}
                     >
-                      <Settings />
+                      <AdminPanelSettings />
                     </IconButton>
                   </Tooltip>
                 )}

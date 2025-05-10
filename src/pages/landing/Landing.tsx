@@ -829,7 +829,7 @@ const Landing: React.FC = () => {
             <Grid item xs={12} md={5} sx={{ display: 'flex', justifyContent: 'center' }}>
               <Box 
                 component={Button}
-                onClick={() => navigate('/example-profile')}
+                onClick={() => navigate('/social/ivan')}
                 sx={{ 
                   bgcolor: 'white',
                   p: 3,

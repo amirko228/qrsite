@@ -74,6 +74,8 @@ const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
 const Editor = lazy(() => import('./pages/editor/Editor'));
 const AdminPanel = lazy(() => import('./pages/admin/AdminPanel'));
+const FAQ = lazy(() => import('./pages/FAQ'));
+const ProfileSettings = lazy(() => import('./pages/profile/ProfileSettings'));
 
 // Компонент загрузки для обеспечения лучшего UX во время загрузки страниц
 const LoadingScreen = () => (
@@ -181,10 +183,19 @@ const AppLayout = () => {
             </ProtectedRoute>
           } 
         />
+        <Route 
+          path="/settings" 
+          element={
+            <ProtectedRoute>
+              <ProfileSettings />
+            </ProtectedRoute>
+          } 
+        />
         <Route path="/subscription" element={<Subscription />} />
         <Route path="/terms" element={<TermsPage />} />
         <Route path="/privacy" element={<PrivacyPage />} />
         <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/faq" element={<FAQ />} />
       </Routes>
       <Footer />
     </Suspense>

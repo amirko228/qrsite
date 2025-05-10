@@ -81,40 +81,16 @@ const Subscription: React.FC = () => {
 
   const plans: PlanOption[] = [
     {
-      id: 'monthly',
-      name: 'Ежемесячно',
-      price: 500,
-      description: 'Базовый план с ежемесячной оплатой',
-      features: [
-        '5 ГБ хранилища',
-        'Основные функции',
-        'Базовая техподдержка',
-      ]
-    },
-    {
       id: 'yearly',
-      name: 'Ежегодно',
+      name: 'Подписка на год',
       price: 4000,
       description: 'Выгоднее на 33%',
       features: [
         '5 ГБ хранилища',
-        'Все функции',
-        'Приоритетная техподдержка',
-        'Скидка 33% от месячной стоимости'
+        'Все функции включая будущие',
+        'Техническая поддержка'
       ],
       isPopular: true
-    },
-    {
-      id: 'lifetime',
-      name: 'Пожизненно',
-      price: 10000,
-      description: 'Единоразовая оплата',
-      features: [
-        '10 ГБ хранилища',
-        'Все функции включая будущие',
-        'Премиум поддержка',
-        'Нет повторных платежей'
-      ]
     }
   ];
 
@@ -179,9 +155,9 @@ const Subscription: React.FC = () => {
 
       {/* Первая вкладка - выбор тарифа */}
       {selectedTab === 0 && (
-        <Grid container spacing={3}>
+        <Grid container spacing={3} justifyContent="center">
           {plans.map((plan) => (
-            <Grid item xs={12} md={4} key={plan.id}>
+            <Grid item xs={12} md={6} key={plan.id}>
               <motion.div
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}

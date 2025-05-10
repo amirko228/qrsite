@@ -44,8 +44,7 @@ import {
 } from '@mui/icons-material';
 import styled from 'styled-components';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { DragDropContext, Droppable, Draggable, DropResult } from 'react-beautiful-dnd';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import FamilyTreeWidget from '../../components/widgets/FamilyTreeWidget';
 import QRCode from 'react-qr-code';
 import { useAuth } from '../../contexts/AuthContext';
@@ -103,6 +102,7 @@ const ProfileContainer = styled.div`
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden; /* Предотвращаем выход содержимого за края */
   
   @media (max-width: 768px) {
     padding: 16px;
@@ -110,13 +110,20 @@ const ProfileContainer = styled.div`
   }
 `;
 
-// Контейнер для виджета с поддержкой перетаскивания
+// Обновленный контейнер для виджета с поддержкой перетаскивания
 const WidgetContainer = styled(motion.div)`
   position: relative;
   width: 100%;
   margin-bottom: clamp(12px, 2vw, 24px);
-  align-self: flex-start; /* Выравнивание по левому краю */
-  max-width: 100%; /* Максимальная ширина контейнера */
+  align-self: flex-start;
+  max-width: 100%;
+  box-sizing: border-box; /* Учитываем padding в размере */
+  overflow: visible; /* Позволяем тени выходить за края контейнера */
+  
+  &:active {
+    cursor: grabbing;
+    z-index: 10;
+  }
   
   @media (max-width: 480px) {
     margin-bottom: 10px;
@@ -136,9 +143,9 @@ const widgetContainerVariants = {
     scale: 1,
     transition: {
       type: "spring",
-      stiffness: 100,
-      damping: 15,
-      mass: 1
+      stiffness: 80,
+      damping: 20,
+      mass: 0.8
     }
   },
   exit: {
@@ -146,7 +153,7 @@ const widgetContainerVariants = {
     y: -20,
     scale: 0.96,
     transition: {
-      duration: 0.2
+      duration: 0.3
     }
   }
 };
@@ -163,7 +170,7 @@ const WidgetElement = styled.div<{
   background-color: ${props => props.$backgroundColor || 'white'};
   color: ${props => props.$textColor || 'inherit'};
   position: relative;
-  transition: box-shadow 0.3s ease, transform 0.3s ease;
+  transition: box-shadow 0.4s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.4s cubic-bezier(0.25, 0.8, 0.25, 1);
   box-shadow: ${props => 
     props.$isDragging 
       ? '0 15px 35px rgba(0, 0, 0, 0.25)' 
@@ -174,6 +181,11 @@ const WidgetElement = styled.div<{
   transform: ${props => props.$isDragging ? 'scale(1.03)' : 'scale(1)'};
   touch-action: none;
   padding: 16px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  word-break: break-word;
+  will-change: transform, box-shadow;
   
   &:hover {
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
@@ -207,7 +219,7 @@ const DragHandle = styled.div`
   top: 16px;
   cursor: grab;
   opacity: 0.7;
-  transition: all 0.25s ease;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   z-index: 10;
   -webkit-tap-highlight-color: transparent;
   display: flex;
@@ -216,6 +228,7 @@ const DragHandle = styled.div`
 
   &:hover {
     opacity: 1;
+    transform: scale(1.1);
   }
 
   ${WidgetElement}:hover & {
@@ -224,6 +237,7 @@ const DragHandle = styled.div`
 
   &:active {
     cursor: grabbing;
+    transform: scale(1.05);
   }
   
   @media (max-width: 768px) {
@@ -255,7 +269,7 @@ const WidgetControls = styled.div`
   display: flex;
   gap: 4px;
   opacity: 0;
-  transition: opacity 0.2s;
+  transition: opacity 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
   z-index: 10;
   background-color: rgba(255, 255, 255, 0.9);
   border-radius: 4px;
@@ -264,288 +278,14 @@ const WidgetControls = styled.div`
   
   ${WidgetElement}:hover & {
       opacity: 1;
+      transform: translateY(0);
   }
   
   @media (max-width: 768px) {
     opacity: 1;
+    transform: translateY(0);
   }
 `;
-
-// Компонент для рендеринга содержимого виджета
-const WidgetContent: React.FC<{
-  widget: Widget;
-  index: number;
-  isSelected: boolean;
-  onSelect: () => void;
-  onDelete: () => void;
-  onEdit: () => void;
-}> = ({ widget, index, isSelected, onSelect, onDelete, onEdit }) => {
-  
-  // Функция для рендера контента виджета в зависимости от его типа
-  const renderWidgetContent = () => {
-    switch (widget.type) {
-      case WIDGET_TYPES.TEXT:
-        return (
-          <Typography variant="body1" sx={{ 
-            wordBreak: 'break-word',
-            fontSize: { xs: '0.8rem', sm: '0.95rem', md: '1.05rem' },
-            lineHeight: 1.4
-          }}>
-            {widget.content.text}
-          </Typography>
-        );
-      
-      case WIDGET_TYPES.IMAGE:
-        return (
-          <Box sx={{ 
-            height: '100%', 
-            display: 'flex', 
-            flexDirection: 'column',
-            alignItems: 'center'
-          }}>
-            <Box sx={{
-              width: '100%',
-              height: 'auto',
-              borderRadius: { xs: '6px', sm: '10px', md: '12px' },
-              overflow: 'hidden',
-              boxShadow: { xs: '0 2px 6px rgba(0, 0, 0, 0.06)', sm: '0 4px 10px rgba(0, 0, 0, 0.08)' },
-              mb: { xs: 0.5, sm: 1 }
-            }}>
-            <img 
-              src={widget.content.url} 
-              alt={widget.content.caption || 'Изображение'} 
-                style={{ 
-                  width: '100%', 
-                  height: 'auto', 
-                  objectFit: 'cover',
-                  display: 'block'
-                }}
-              />
-            </Box>
-            {widget.content.caption && (
-              <Typography 
-                variant="caption" 
-                align="center" 
-                sx={{ 
-                  mt: { xs: 0.25, sm: 0.5 },
-                  fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.85rem' },
-                  opacity: 0.9
-                }}
-              >
-                {widget.content.caption}
-              </Typography>
-            )}
-          </Box>
-        );
-      
-      case WIDGET_TYPES.SOCIAL:
-        const SocialIcon = () => {
-          switch (widget.content.type) {
-            case 'instagram': return <Instagram sx={{ fontSize: { xs: '0.9rem', sm: '1.5rem' } }} />;
-            case 'facebook': return <Facebook sx={{ fontSize: { xs: '0.9rem', sm: '1.5rem' } }} />;
-            case 'twitter': return <Twitter sx={{ fontSize: { xs: '0.9rem', sm: '1.5rem' } }} />;
-            default: return <LinkIcon sx={{ fontSize: { xs: '0.9rem', sm: '1.5rem' } }} />;
-          }
-        };
-        
-        return (
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: { xs: 0.5, sm: 1.5 },
-            flexWrap: 'wrap'
-          }}>
-            <SocialIcon />
-            <Typography sx={{ 
-              fontSize: { xs: '0.75rem', sm: '1rem' },
-              wordBreak: 'break-all'
-            }}>
-              {widget.content.username || widget.content.url}
-            </Typography>
-          </Box>
-        );
-      
-      case WIDGET_TYPES.YOUTUBE:
-        return (
-          <Box sx={{ 
-            height: '100%', 
-            display: 'flex', 
-            flexDirection: 'column'
-          }}>
-            <Box sx={{
-              position: 'relative',
-              paddingBottom: '56.25%', // соотношение сторон 16:9
-              height: 0,
-              overflow: 'hidden',
-              borderRadius: { xs: '6px', sm: '10px', md: '12px' },
-              boxShadow: { xs: '0 2px 6px rgba(0, 0, 0, 0.06)', sm: '0 4px 10px rgba(0, 0, 0, 0.08)' },
-              mb: { xs: 0.5, sm: 1 }
-            }}>
-            <iframe 
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  border: 'none'
-                }}
-              src={`https://www.youtube.com/embed/${widget.content.videoId}`} 
-              title="YouTube video" 
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-              allowFullScreen
-            ></iframe>
-            </Box>
-            {widget.content.caption && (
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  mt: { xs: 0.25, sm: 0.5 },
-                  fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.85rem' },
-                  opacity: 0.9
-                }}
-              >
-                {widget.content.caption}
-              </Typography>
-            )}
-          </Box>
-        );
-      
-      case WIDGET_TYPES.PROFILE_INFO:
-        return (
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: { xs: 0.25, sm: 1 }
-          }}>
-            <Typography 
-              variant="h6" 
-              sx={{ 
-                fontSize: { xs: '0.9rem', sm: '1.25rem' },
-                fontWeight: 600,
-                mb: { xs: 0.25, sm: 0.5 }
-              }}
-            >
-              {widget.content.title}
-            </Typography>
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                fontSize: { xs: '0.75rem', sm: '0.95rem' },
-                opacity: 0.9,
-                lineHeight: { xs: 1.3, sm: 1.4 }
-              }}
-            >
-              {widget.content.description}
-            </Typography>
-          </Box>
-        );
-      
-      case WIDGET_TYPES.FAMILY_TREE:
-        return (
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            height: '100%', 
-            overflow: 'auto'
-          }}>
-            <Typography 
-              variant="h6" 
-              gutterBottom
-              sx={{
-                fontSize: { xs: '0.9rem', sm: '1.25rem' },
-                fontWeight: 600,
-                mb: { xs: 0.25, sm: 0.5 }
-              }}
-            >
-              {widget.content.title || 'Семейное древо'}
-            </Typography>
-            <Box sx={{ 
-              flexGrow: 1,
-              '& svg': {
-                maxWidth: '100%',
-                height: 'auto'
-              }
-            }}>
-              <FamilyTreeWidget 
-                initialMembers={widget.content.members || []}
-                currentUserId={widget.content.userId || ''}
-                onSave={() => {}}
-                readOnly={true}
-              />
-            </Box>
-          </Box>
-        );
-      
-      default:
-        return <Typography>Неизвестный тип виджета</Typography>;
-    }
-  };
-
-  return (
-    <Draggable draggableId={widget.id} index={index}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          style={{
-            ...provided.draggableProps.style,
-            margin: '0 0 16px 0'
-          }}
-        >
-    <WidgetElement
-      $backgroundColor={widget.backgroundColor}
-      $textColor={widget.textColor}
-      $isSelected={isSelected}
-            $isDragging={snapshot.isDragging}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect();
-      }}
-          >
-            <div {...provided.dragHandleProps}>
-              <DragHandle>
-                <DragIndicator color="action" />
-              </DragHandle>
-            </div>
-            <WidgetControls>
-          <IconButton 
-            size="small" 
-            onClick={(e) => { e.stopPropagation(); onEdit(); }}
-            sx={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
-              padding: { xs: '2px', sm: '4px' },
-              '& .MuiSvgIcon-root': { 
-                fontSize: { xs: '0.9rem', sm: '1.25rem' } 
-              }
-            }}
-          >
-          <Edit fontSize="small" />
-        </IconButton>
-          <IconButton 
-            size="small" 
-            onClick={(e) => { e.stopPropagation(); onDelete(); }}
-            sx={{ 
-              backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-              '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.9)' },
-              padding: { xs: '2px', sm: '4px' },
-              '& .MuiSvgIcon-root': { 
-                fontSize: { xs: '0.9rem', sm: '1.25rem' } 
-              }
-            }}
-          >
-          <Delete fontSize="small" />
-        </IconButton>
-      </WidgetControls>
-      
-      {renderWidgetContent()}
-    </WidgetElement>
-        </div>
-      )}
-    </Draggable>
-  );
-};
 
 // Компонент для редактирования виджета
 const WidgetEditor: React.FC<{
@@ -1501,7 +1241,7 @@ const SocialPage: React.FC = () => {
     
     // Используем вибрацию для обратной связи
     if (window.navigator && window.navigator.vibrate) {
-      window.navigator.vibrate([30, 50, 30]);
+      window.navigator.vibrate([20, 30, 20]); // Более короткая и плавная вибрация
     }
   }, [widgets.length]);
 
@@ -1741,7 +1481,7 @@ const SocialPage: React.FC = () => {
           }}>
             <Box sx={{
               position: 'relative',
-              paddingBottom: '56.25%', // соотношение сторон 16:9
+              paddingBottom: '56.25%',
               height: 0,
               overflow: 'hidden',
               borderRadius: { xs: '6px', sm: '10px', md: '12px' },
@@ -1849,71 +1589,118 @@ const SocialPage: React.FC = () => {
     }
   };
 
-  // Функция для обработки окончания перетаскивания
-  const handleDragEnd = (result: DropResult) => {
-    const { destination, source } = result;
-    
-    // Если нет места назначения или место не изменилось - ничего не делаем
-    if (!destination || (destination.index === source.index)) {
-      return;
-    }
-    
-    // Перемещаем виджет в массиве
-    setWidgets(prevWidgets => {
-      const newWidgets = Array.from(prevWidgets);
-      const [removed] = newWidgets.splice(source.index, 1);
-      newWidgets.splice(destination.index, 0, removed);
-      return newWidgets;
-    });
-    
-    // Обратная связь через вибрацию
-    if (window.navigator && window.navigator.vibrate) {
-      window.navigator.vibrate(50);
-    }
-  };
-
-  // Рендер виджетов на странице (в режиме редактирования)
-  const renderEditableWidgets = () => {
+  // Компонент для редактируемых виджетов - максимально простая реализация
+  const DraggableWidgets = () => {
     return (
-      <DragDropContext onDragEnd={handleDragEnd}>
-        <Droppable droppableId="widgets-list">
-          {(provided) => (
-            <div
-              {...provided.droppableProps}
-              ref={provided.innerRef}
-              style={{ width: '100%' }}
+      <Reorder.Group 
+        axis="y" 
+        values={widgets} 
+        onReorder={setWidgets}
+        as="div"
+        style={{ 
+          width: '100%',
+          maxWidth: '100%',
+        }}
             >
-              {widgets.map((widget, index) => (
-                <WidgetContent
+        {widgets.map((widget) => (
+          <Reorder.Item 
                   key={widget.id}
-                  widget={widget}
-                  index={index}
-                  isSelected={widget.id === selectedWidgetId}
-                  onSelect={() => handleWidgetSelect(widget.id)}
-                  onDelete={() => handleDeleteWidget(widget.id)}
-                  onEdit={() => handleEditWidget(widget.id)}
-                />
-              ))}
-              {provided.placeholder}
-              
-              {widgets.length === 0 && (
-                <Box sx={{ 
-                  textAlign: 'center', 
-                  py: 8,
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: 2,
-                  border: '2px dashed #dee2e6'
-                }}>
-                  <Add sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary">
-                    Нажмите "Добавить блок" чтобы начать создание профиля
-                  </Typography>
-                </Box>
-              )}
+            value={widget}
+            style={{ 
+              width: '100%',
+              boxSizing: 'border-box',
+              marginBottom: '16px',
+            }}
+            whileDrag={{ 
+              scale: 1.02,
+              zIndex: 50,
+              boxShadow: "0 15px 35px rgba(0, 0, 0, 0.25)"
+            }}
+            animate={{ opacity: 1, y: 0 }}
+            initial={{ opacity: 0, y: 10 }}
+            exit={{ opacity: 0, y: -10 }}
+            layout
+            transition={{
+              duration: 0.3,
+              ease: [0.25, 0.8, 0.25, 1]
+            }}
+          >
+            <div 
+              style={{ 
+                background: widget.backgroundColor,
+                color: widget.textColor,
+                borderRadius: '12px',
+                padding: '16px',
+                boxShadow: widget.id === selectedWidgetId 
+                  ? '0 5px 15px rgba(33, 150, 243, 0.35)' 
+                  : '0 2px 10px rgba(0, 0, 0, 0.08)',
+                border: widget.id === selectedWidgetId ? '3px solid #2196f3' : 'none',
+                width: '100%',
+                boxSizing: 'border-box',
+                position: 'relative',
+                transition: 'box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                willChange: 'transform, box-shadow'
+              }}
+              onClick={(e) => {
+                e.stopPropagation();
+                handleWidgetSelect(widget.id);
+              }}
+            >
+              <div style={{ 
+                position: 'absolute',
+                right: '16px',
+                top: '16px',
+                cursor: 'grab',
+                transition: 'transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1)'
+              }}>
+                <DragIndicator color="action" />
             </div>
-          )}
-        </Droppable>
-      </DragDropContext>
+              <div style={{ 
+                position: 'absolute',
+                top: '8px',
+                left: '8px',
+                display: 'flex',
+                gap: '4px',
+                zIndex: 10,
+                transition: 'opacity 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
+              }}>
+                <IconButton 
+                  size="small" 
+                  onClick={(e) => { e.stopPropagation(); handleEditWidget(widget.id); }}
+                  sx={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)', 
+                    '&:hover': { 
+                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                      transform: 'scale(1.1)' 
+                    },
+                    padding: '4px',
+                    transition: 'transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.2s cubic-bezier(0.25, 0.8, 0.25, 1)'
+                  }}
+                >
+                  <Edit fontSize="small" />
+                </IconButton>
+                <IconButton 
+                  size="small" 
+                  onClick={(e) => { e.stopPropagation(); handleDeleteWidget(widget.id); }}
+                  sx={{ 
+                    backgroundColor: 'rgba(255, 255, 255, 0.8)', 
+                    '&:hover': { 
+                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                      transform: 'scale(1.1)' 
+                    },
+                    padding: '4px',
+                    transition: 'transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.2s cubic-bezier(0.25, 0.8, 0.25, 1)'
+                  }}
+                >
+                  <Delete fontSize="small" />
+                </IconButton>
+              </div>
+              
+              {renderWidgetContent(widget)}
+            </div>
+          </Reorder.Item>
+        ))}
+      </Reorder.Group>
     );
   };
   
@@ -1921,7 +1708,7 @@ const SocialPage: React.FC = () => {
   const renderViewWidgets = () => {
     return (
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {widgets.map((widget) => (
+        {widgets.map((widget, index) => (
           <Box
             key={widget.id}
             sx={{
@@ -1954,7 +1741,11 @@ const SocialPage: React.FC = () => {
           </Box>
         </ProfileContainer>
       ) : (
-        <>
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ duration: 0.5, ease: "easeInOut" }}
+        >
           {!id && (
             <ProfileContainer>
               <Box sx={{ 
@@ -1985,7 +1776,8 @@ const SocialPage: React.FC = () => {
                     sx={{ 
                       fontSize: { xs: '0.8rem', sm: '0.875rem' },
                       flex: { xs: '1 1 auto', sm: '0 0 auto' },
-                      maxWidth: { xs: '100%', sm: 'none' }
+                      maxWidth: { xs: '100%', sm: 'none' },
+                      transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
                     }}
                   >
                     Добавить блок
@@ -2002,7 +1794,8 @@ const SocialPage: React.FC = () => {
                       sx={{ 
                         fontSize: { xs: '0.8rem', sm: '0.875rem' },
                         flex: { xs: '1 1 auto', sm: '0 0 auto' },
-                        maxWidth: { xs: '100%', sm: 'none' }
+                        maxWidth: { xs: '100%', sm: 'none' },
+                        transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
                       }}
                     >
                       {isSaving ? 'Сохранение...' : 'Сохранить профиль'}
@@ -2013,7 +1806,11 @@ const SocialPage: React.FC = () => {
                     onClick={handleOpenQRCodeDialog}
                     sx={{ 
                       width: { xs: '40px', sm: '48px' },
-                      height: { xs: '40px', sm: '48px' }
+                      height: { xs: '40px', sm: '48px' },
+                      transition: 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
+                      '&:hover': {
+                        transform: 'scale(1.1)'
+                      }
                     }}
                   >
                     <QrCode sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }} />
@@ -2021,9 +1818,18 @@ const SocialPage: React.FC = () => {
                     </Box>
                   </Box>
 
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {renderEditableWidgets()}
-          </Box>
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ 
+                  duration: 0.5, 
+                  staggerChildren: 0.1 
+                }}
+              >
+                <AnimatePresence>
+                  <DraggableWidgets />
+                </AnimatePresence>
+              </motion.div>
         </ProfileContainer>
       )}
       {id && (
@@ -2037,10 +1843,20 @@ const SocialPage: React.FC = () => {
             </Typography>
           </Box>
           
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ 
+                  duration: 0.5, 
+                  ease: [0.25, 0.8, 0.25, 1],
+                  staggerChildren: 0.1
+                }}
+              >
               {renderViewWidgets()}
+              </motion.div>
         </ProfileContainer>
       )}
-      </>
+        </motion.div>
       )}
 
       {selectedWidgetId && (

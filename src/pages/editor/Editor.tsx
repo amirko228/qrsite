@@ -20,11 +20,12 @@ import ModeEditIcon from '@mui/icons-material/ModeEdit';
 import PhoneIphoneIcon from '@mui/icons-material/PhoneIphone';
 import TabletIcon from '@mui/icons-material/Tablet';
 import DesktopWindowsIcon from '@mui/icons-material/DesktopWindows';
-import { Add, VisibilityOff } from '@mui/icons-material';
+import { Add, VisibilityOff, Settings } from '@mui/icons-material';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { debounce } from 'lodash';
 import WidgetPalettePanel from '../../components/WidgetPalettePanel';
+import WidgetEditor from '../../components/WidgetEditor';
 
 // Импорт компонентов виджетов
 import TextWidget from '../../components/widgets/TextWidget';
@@ -250,6 +251,20 @@ interface Widget {
   size: { width: number; height: number };
   anchor: string;
   zIndex: number;
+  // Добавим информацию о layout для react-grid-layout
+  layout?: {
+    i: string; // id для GridLayout
+    x: number; // позиция по x
+    y: number; // позиция по y
+    w: number; // ширина в колонках сетки
+    h: number; // высота в строках сетки
+    minW?: number; // минимальная ширина
+    maxW?: number; // максимальная ширина
+    minH?: number; // минимальная высота
+    maxH?: number; // максимальная высота
+    isDraggable?: boolean; // можно ли перетаскивать
+    isResizable?: boolean; // можно ли менять размер
+  };
 }
 
 // Интерфейсы для props компонентов виджетов
@@ -279,7 +294,8 @@ interface LinksWidgetProps {
 
 interface ProfileInfoWidgetProps {
   content: any;
-  onContentChange: (content: any) => void;
+  onUpdate: (content: any) => void;
+  isEditing?: boolean;
   readOnly?: boolean;
 }
 
@@ -344,6 +360,71 @@ const mockSaveWidgets = async (widgets: any[]) => {
   
   // Просто возвращаем успех
   return { success: true };
+};
+
+// Функция для преобразования наших виджетов к формату для компонента WidgetEditor
+const transformWidgetsForEditor = (widgets: Widget[]) => {
+  return widgets.map(widget => {
+    // Базовый трансформированный виджет
+    const transformedWidget = {
+      id: widget.id,
+      type: widget.type as any, // Преобразуем тип для соответствия WidgetEditor
+      content: widget.content,
+    };
+    
+    // Добавляем информацию о layout, если её нет
+    if (!widget.layout) {
+      // Создаем layout на основе position и size
+      const layout = {
+        i: widget.id,
+        x: Math.floor(widget.position.x / 30), // Преобразуем пиксели в колонки
+        y: Math.floor(widget.position.y / 30), // Преобразуем пиксели в строки
+        w: Math.max(3, Math.floor(widget.size.width / 30)), // Минимальная ширина 3 колонки
+        h: Math.max(3, Math.floor(widget.size.height / 30)), // Минимальная высота 3 строки
+        minW: 3,
+        minH: 3,
+        isDraggable: true,
+        isResizable: true
+      };
+      
+      return { ...transformedWidget, layout };
+    }
+    
+    // Если layout уже есть, используем его
+    return { ...transformedWidget, layout: widget.layout };
+  });
+};
+
+// Функция для преобразования виджетов от WidgetEditor обратно к нашему формату
+const transformWidgetsFromEditor = (editorWidgets: any[]) => {
+  return editorWidgets.map(widget => {
+    // Если у виджета есть layout, используем его для обновления position и size
+    if (widget.layout) {
+      const position = {
+        x: widget.layout.x * 30, // Преобразуем колонки в пиксели
+        y: widget.layout.y * 30  // Преобразуем строки в пиксели
+      };
+      
+      const size = {
+        width: widget.layout.w * 30, // Преобразуем колонки в пиксели
+        height: widget.layout.h * 30 // Преобразуем строки в пиксели
+      };
+      
+      return {
+        id: widget.id,
+        type: widget.type,
+        content: widget.content,
+        position,
+        size,
+        anchor: 'center', // Используем center по умолчанию
+        zIndex: 1, // Используем 1 по умолчанию
+        layout: widget.layout // Сохраняем layout для будущего использования
+      };
+    }
+    
+    // Если layout нет, используем существующие position и size
+    return widget;
+  });
 };
 
 // Компонент редактора
@@ -610,7 +691,7 @@ const Editor: React.FC = () => {
   };
 
   // Сохранение всех виджетов с оптимизацией
-  const saveWidgets = async () => {
+  const handleSaveEditor = async () => {
     try {
       setSaving(true);
       const token = localStorage.getItem('accessToken');
@@ -794,7 +875,7 @@ const Editor: React.FC = () => {
                 {widget.type === 'profile' && (
                   <ProfileInfoWidget 
                     content={widget.content} 
-                    onContentChange={(content) => updateWidgetContent(widget.id, content)} 
+                    onUpdate={(content: any) => updateWidgetContent(widget.id, content)} 
                   />
                 )}
                 {widget.type === 'social' && (
@@ -861,8 +942,8 @@ const Editor: React.FC = () => {
             {widget.type === 'profile' && (
               <ProfileInfoWidget 
                 content={widget.content}
-                onContentChange={() => {}} 
-                readOnly
+                onUpdate={() => {}} 
+                isEditing={false}
               />
             )}
             {widget.type === 'social' && (
@@ -888,6 +969,22 @@ const Editor: React.FC = () => {
     setWidgetPanelOpen(!widgetPanelOpen);
   };
 
+  // Добавим функцию для открытия настроек виджета
+  const handleOpenWidgetSettings = () => {
+    // Если есть активный виджет, открываем его настройки
+    if (activeWidget) {
+      // Получаем ссылку на WidgetEditor
+      const widgetEditor = document.querySelector('#widget-editor');
+      if (widgetEditor) {
+        // Программно вызываем открытие настроек для активного виджета
+        // В реальном приложении можно использовать ref или события
+        alert('Используйте меню виджета (три точки) для доступа к настройкам');
+      }
+    } else {
+      alert('Выберите виджет для редактирования');
+    }
+  };
+
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -899,6 +996,32 @@ const Editor: React.FC = () => {
   return (
     <EditorContainer>
       <Toolbar>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Button 
+            startIcon={<Add />} 
+            variant="contained" 
+            color="primary"
+            onClick={() => setWidgetPanelOpen(true)}
+            sx={{ display: { xs: 'none', sm: 'flex' } }}
+          >
+            Добавить виджет
+          </Button>
+          
+          <IconButton 
+            color="primary" 
+            onClick={() => setWidgetPanelOpen(true)}
+            sx={{ display: { xs: 'flex', sm: 'none' } }}
+          >
+            <Add />
+          </IconButton>
+          
+          <Tooltip title="Настройки виджетов">
+            <IconButton color="primary" onClick={() => handleOpenWidgetSettings()}>
+              <Settings />
+            </IconButton>
+          </Tooltip>
+        </Box>
+        
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="h6" component="div" sx={{ mr: 2, display: { xs: 'none', md: 'block' } }}>
             Редактор профиля
@@ -944,7 +1067,7 @@ const Editor: React.FC = () => {
           <Button 
             variant="contained"
             startIcon={<SaveIcon />} 
-            onClick={saveWidgets}
+            onClick={handleSaveEditor}
             disabled={saving}
             sx={{ display: { xs: 'none', sm: 'flex' } }}
           >
@@ -962,7 +1085,7 @@ const Editor: React.FC = () => {
           
           <IconButton 
             color="primary" 
-            onClick={saveWidgets}
+            onClick={handleSaveEditor}
             sx={{ display: { xs: 'flex', sm: 'none' } }}
           >
             <SaveIcon />
@@ -980,15 +1103,31 @@ const Editor: React.FC = () => {
         />
         
         <WorkArea>
-          <Canvas ref={canvasRef} viewMode={viewMode}>
-          {editorMode === 'edit' ? (
-              widgets.map((widget) => renderEditableWidget(widget))
-          ) : (
-            <PreviewCanvas>
-                {widgets.map((widget) => renderPreviewWidget(widget))}
-            </PreviewCanvas>
-          )}
-          </Canvas>
+          <Box 
+            ref={canvasRef}
+            sx={{
+              flex: 1,
+              position: 'relative',
+              overflow: 'auto',
+              padding: 2,
+              backgroundColor: viewMode === 'preview' ? 'transparent' : 'rgba(0, 0, 0, 0.02)',
+              transition: 'background-color 0.3s ease',
+              height: '100%'
+            }}
+          >
+            {/* Используем WidgetEditor с трансформацией виджетов */}
+            <WidgetEditor 
+              widgets={transformWidgetsForEditor(widgets)} 
+              onUpdateWidgets={(updatedWidgets) => {
+                // Трансформируем обратно и обновляем состояние
+                const transformedWidgets = transformWidgetsFromEditor(updatedWidgets);
+                setWidgets(transformedWidgets);
+                // Сохраняем изменения
+                handleSaveEditor();
+              }}
+              isEditing={editorMode === 'edit'} 
+            />
+          </Box>
         </WorkArea>
       </EditorMainContent>
       

@@ -75,10 +75,7 @@ const Footer: React.FC = () => {
             </Typography>
             <Box component="ul" sx={{ listStyle: 'none', p: 0, m: 0 }}>
               <LinkItem component="li">
-                <MuiLink component={Link} to="/about" sx={{ textDecoration: 'none' }}>О нас</MuiLink>
-              </LinkItem>
-              <LinkItem component="li">
-                <MuiLink component={Link} to="/pricing" sx={{ textDecoration: 'none' }}>Тарифы</MuiLink>
+                <MuiLink component={Link} to="/about" sx={{ textDecoration: 'none' }}>О проекте</MuiLink>
               </LinkItem>
               <LinkItem component="li">
                 <MuiLink component={Link} to="/faq" sx={{ textDecoration: 'none' }}>Частые вопросы</MuiLink>

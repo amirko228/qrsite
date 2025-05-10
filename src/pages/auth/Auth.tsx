@@ -110,7 +110,27 @@ const Auth: React.FC = () => {
     }
 
     try {
+      console.log(`Попытка входа с логином: "${username}"`);
+      
+      // Проверка наличия пользователя test в локальном хранилище
+      if (username === 'test') {
+        const adminPanelData = localStorage.getItem('adminPanelData');
+        const users = adminPanelData ? JSON.parse(adminPanelData) : [];
+        const testUser = users.find((u: any) => u.username === 'test');
+        
+        console.log('Проверка пользователя test в хранилище:', {
+          found: !!testUser,
+          totalUsers: users.length,
+          storage: !!adminPanelData
+        });
+      }
+      
       const result = await login(username, password);
+      
+      console.log('Результат авторизации:', {
+        success: result.success,
+        error: result.error || 'нет ошибок'
+      });
       
       if (result.success) {
         setSuccess(true);
@@ -118,6 +138,9 @@ const Auth: React.FC = () => {
       } else {
         setError(result.error || 'Ошибка при входе');
       }
+    } catch (error: any) {
+      console.error('Ошибка при авторизации:', error);
+      setError(error.message || 'Произошла неизвестная ошибка при авторизации');
     } finally {
       setIsLoading(false);
     }

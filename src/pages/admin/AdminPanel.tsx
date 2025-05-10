@@ -130,6 +130,7 @@ interface User {
   id: number;
   username: string;
   name: string;
+  password?: string;
   subscription: {
     activation_date: string | null;
     expiration_date: string | null;
@@ -769,11 +770,21 @@ const AdminPanel: React.FC = () => {
 
     try {
       // Обновляем данные пользователя
-      const updatedUsers = state.users.map(user => 
-        user.id === selectedUser.id 
-          ? { ...user, name: userForm.name }
-          : user
-      );
+      const updatedUsers = state.users.map(user => {
+        if (user.id === selectedUser.id) {
+          // Создаем копию пользователя с обновленным именем
+          const updatedUser = { ...user, name: userForm.name };
+          
+          // Если введен новый пароль, обновляем его
+          if (userForm.password) {
+            // Используем приведение типов для обхода проверки TypeScript
+            (updatedUser as any).password = userForm.password;
+          }
+          
+          return updatedUser;
+        }
+        return user;
+      });
 
       // Обновляем профиль пользователя
       const userProfile = getUserProfile(selectedUser.id.toString());
@@ -790,13 +801,16 @@ const AdminPanel: React.FC = () => {
 
       setSnackbar({
         open: true,
-        message: 'Пользователь успешно обновлен',
+        message: userForm.password 
+          ? 'Пользователь и пароль обновлены' 
+          : 'Пользователь успешно обновлен',
         severity: 'success'
       });
 
       console.log("Обновлен пользователь:", {
         id: selectedUser.id,
         name: userForm.name,
+        passwordChanged: !!userForm.password,
         profile: userProfile
       });
     } catch (error) {
@@ -809,7 +823,7 @@ const AdminPanel: React.FC = () => {
     } finally {
       dispatch({ type: 'SET_ACTION_LOADING', payload: false });
     }
-  }, [selectedUser, userForm.name, state.users, handleCloseEditDialog, updateStats]);
+  }, [selectedUser, userForm.name, userForm.password, state.users, handleCloseEditDialog, updateStats]);
   
   // Обработчик удаления пользователя
   const handleDeleteUser = useCallback(async () => {
@@ -1491,6 +1505,21 @@ const AdminPanel: React.FC = () => {
                 onChange={handleUserFormChange('password')}
               size={isMobile ? "small" : "medium"}
               />
+            )}
+            {selectedUser && (
+              <Box sx={{ mt: 2 }}>
+                <TextField
+                  fullWidth
+                  label="Новый пароль"
+                  type="password"
+                  margin="normal"
+                  value={userForm.password}
+                  onChange={handleUserFormChange('password')}
+                  size={isMobile ? "small" : "medium"}
+                  placeholder="Оставьте пустым, чтобы не менять"
+                  helperText="Введите новый пароль для пользователя или оставьте поле пустым, чтобы сохранить текущий пароль"
+                />
+              </Box>
             )}
           </Box>
         </DialogContent>
