@@ -6,7 +6,10 @@ const isProduction = window.location.hostname !== 'localhost' && window.location
 
 // Используем соответствующий API URL в зависимости от среды
 // В продакшн используем мок-режим (MOCK_API = true) или реальный API-сервер
-const MOCK_API = true; // Всегда включаем мок-режим для всех сред
+const MOCK_API = true; // Временно включаем мок-режим для всех сред, чтобы исправить ошибку
+const API_BASE_URL = isProduction 
+  ? 'https://socialqr-backend.onrender.com' // URL для продакшн (замените на ваш реальный API URL)
+  : 'http://localhost:8000'; // URL для разработки
 
 // Константы для оптимизации
 const TOKEN_KEY = 'accessToken';
@@ -54,76 +57,26 @@ const MOCK_USERS: MockUser[] = [
 // Функция для инициализации пользовательских данных для тестирования
 const initializeTestUsers = () => {
   try {
-    console.log('Инициализация тестовых пользователей...');
-
-    // Очищаем предыдущие сессии авторизации, если они есть
-    // Это помогает избежать проблем с неправильными токенами
-    localStorage.removeItem(TOKEN_KEY);
-
     // Проверяем, существуют ли пользователи в adminPanelData
     const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-    console.log('Данные пользователей из хранилища:', storedUsers ? 'найдены' : 'отсутствуют');
-
-    // Обязательно создаем массив пользователей
-    let users = [];
-    try {
-      // Пробуем распарсить существующих пользователей
-      if (storedUsers) {
-        users = JSON.parse(storedUsers);
-        
-        // Проверяем, что users действительно массив
-        if (!Array.isArray(users)) {
-          console.warn('Данные пользователей повреждены, сбрасываем');
-          users = [];
-        }
-      }
-    } catch (e) {
-      console.error('Ошибка при разборе данных пользователей:', e);
-      users = []; // При ошибке создаем пустой массив
-    }
+    const users = storedUsers ? JSON.parse(storedUsers) : [];
     
     // Добавляем тестового пользователя в adminPanelData, если нужно
     let needsUpdate = false;
-    
-    // Проверяем существование всех стандартных пользователей    
-    // Обязательно добавляем стандартных пользователей
-    if (!users.some((u) => u?.username === 'admin')) {
-      users.push({ 
-        id: 1, 
-        username: 'admin', 
-        password: 'admin', 
-        name: 'Администратор',
-        is_admin: true,
-        subscription: null 
-      });
-      needsUpdate = true;
-      console.log('Добавлен пользователь admin');
-    }
-    
-    if (!users.some((u) => u?.username === 'user')) {
-      users.push({ 
-        id: 2, 
-        username: 'user', 
-        password: 'user', 
-        name: 'Пользователь',
-        is_admin: false,
-        subscription: null 
-      });
-      needsUpdate = true;
-      console.log('Добавлен пользователь user');
-    }
-
-    if (!users.some((u) => u?.username === 'test')) {
-      users.push({ 
+    if (users.length === 0 || !users.some((u: any) => u.username === 'test')) {
+      const testUser = { 
         id: 3, 
         username: 'test', 
         password: 'test', 
         name: 'Тестовый пользователь',
-        is_admin: false,
         subscription: null 
-      });
-      needsUpdate = true;
-      console.log('Добавлен пользователь test');
+      };
+      
+      // Добавляем пользователя, только если его еще нет
+      if (!users.some((u: any) => u.username === 'test')) {
+        users.push(testUser);
+        needsUpdate = true;
+      }
     }
     
     // Сохраняем обновленные данные, если были изменения
@@ -132,10 +85,16 @@ const initializeTestUsers = () => {
       console.log('Обновлен список пользователей в adminPanelData');
     }
     
-    // Также создаем/обновляем хранилище 'users' для совместимости 
-    // Всегда обновляем loginUsers для надежности
-    localStorage.setItem(USERS_LOGIN_KEY, JSON.stringify(users));
-    console.log('Синхронизировано хранилище users с adminPanelData');
+    // Также создаем/обновляем хранилище 'users' для совместимости
+    const loginUsers = localStorage.getItem(USERS_LOGIN_KEY);
+    const loginUsersList = loginUsers ? JSON.parse(loginUsers) : [];
+    
+    // Синхронизируем с основным хранилищем
+    if (!loginUsers || loginUsersList.length === 0 || !loginUsersList.some((u: any) => u.username === 'test')) {
+      // Копируем пользователей из adminPanelData в users
+      localStorage.setItem(USERS_LOGIN_KEY, JSON.stringify(users));
+      console.log('Синхронизировано хранилище users с adminPanelData');
+    }
     
     // Создаем тестовый профиль, если его нет
     const profileKey = `${PROFILE_PREFIX}3`;
@@ -161,121 +120,29 @@ const initializeTestUsers = () => {
       
       console.log('Инициализирован тестовый профиль');
     }
-    
-    // Проверка корректности данных
-    console.log('Проверка данных после инициализации:');
-    const finalUsers = localStorage.getItem(USERS_STORAGE_KEY);
-    const finalLoginUsers = localStorage.getItem(USERS_LOGIN_KEY);
-    console.log(`USERS_STORAGE_KEY (${USERS_STORAGE_KEY}): ${finalUsers ? 'данные есть' : 'данных нет'}`);
-    console.log(`USERS_LOGIN_KEY (${USERS_LOGIN_KEY}): ${finalLoginUsers ? 'данные есть' : 'данных нет'}`);
-
-    // Выводим пользователей для отладки
-    try {
-      const parsedUsers = finalUsers ? JSON.parse(finalUsers) : [];
-      console.log('Доступные пользователи:', parsedUsers.map((u: any) => ({ 
-        id: u.id, 
-        username: u.username, 
-        password: u.password 
-      })));
-    } catch (e) {
-      console.error('Ошибка при выводе пользователей для отладки:', e);
-    }
-    
-    return true;
   } catch (e) {
     console.error('Ошибка при инициализации тестовых пользователей:', e);
-    return false;
   }
 };
-
-// Сразу инициализируем тестовых пользователей при загрузке модуля
-// Помогает обеспечить доступность пользователей до рендера компонентов
-try {
-  console.log('🚀 Автоматическая инициализация пользователей при старте приложения');
-  initializeTestUsers();
-} catch (e) {
-  console.error('Ошибка при предварительной инициализации пользователей:', e);
-}
-
-// Используем соответствующий API URL в зависимости от среды
-// В продакшн используем мок-режим (MOCK_API = true) или реальный API-сервер
-const API_BASE_URL = isProduction 
-  ? 'https://socialqr-backend.onrender.com' // URL для продакшн (замените на ваш реальный API URL)
-  : 'http://localhost:8000'; // URL для разработки
 
 // Функция для загрузки пользователей из localStorage
 const loadUsersFromStorage = (): any[] => {
   try {
-    console.log('Попытка загрузки пользователей из локального хранилища...');
-    
     // Проверяем оба хранилища
     const adminUsers = localStorage.getItem(USERS_STORAGE_KEY);
     const loginUsers = localStorage.getItem(USERS_LOGIN_KEY);
     
-    console.log('Загрузка пользователей из хранилища:', {
-      adminUsersExists: !!adminUsers,
-      adminUsersLength: adminUsers ? JSON.parse(adminUsers).length : 0,
-      loginUsersExists: !!loginUsers,
-      loginUsersLength: loginUsers ? JSON.parse(loginUsers).length : 0,
-    });
-    
-    // Предпочитаем основное хранилище, если оно существует и содержит хотя бы одного пользователя
+    // Предпочитаем основное хранилище, если оно существует
     if (adminUsers) {
-      try {
-        const parsedUsers = JSON.parse(adminUsers);
-        if (Array.isArray(parsedUsers) && parsedUsers.length > 0) {
-          console.log(`Загружено ${parsedUsers.length} пользователей из ${USERS_STORAGE_KEY}`);
-          return parsedUsers;
-        }
-      } catch (parseError) {
-        console.error(`Ошибка при разборе данных из ${USERS_STORAGE_KEY}:`, parseError);
-      }
+      return JSON.parse(adminUsers);
+    } else if (loginUsers) {
+      return JSON.parse(loginUsers);
     }
     
-    // Если основное хранилище пусто или повреждено, проверяем дополнительное
-    if (loginUsers) {
-      try {
-        const parsedUsers = JSON.parse(loginUsers);
-        if (Array.isArray(parsedUsers) && parsedUsers.length > 0) {
-          console.log(`Загружено ${parsedUsers.length} пользователей из ${USERS_LOGIN_KEY}`);
-          return parsedUsers;
-        }
-      } catch (parseError) {
-        console.error(`Ошибка при разборе данных из ${USERS_LOGIN_KEY}:`, parseError);
-      }
-    }
-    
-    // Если оба хранилища пусты или повреждены - создаем новых пользователей и сохраняем
-    console.log('Локальные хранилища пусты или повреждены. Создаем стандартных пользователей.');
-    
-    // Создаем стандартных пользователей
-    const standardUsers = MOCK_USERS.map(user => ({
-      id: user.id,
-      username: user.username,
-      password: user.password,
-      name: user.name,
-      is_admin: user.is_admin,
-      subscription: null
-    }));
-    
-    // Сохраняем в оба хранилища для надежности
-    localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(standardUsers));
-    localStorage.setItem(USERS_LOGIN_KEY, JSON.stringify(standardUsers));
-    
-    console.log(`Созданы и сохранены ${standardUsers.length} стандартных пользователя`);
-    return standardUsers;
-    
+    return [];
   } catch (e) {
-    console.error('Критическая ошибка при загрузке пользователей из localStorage:', e);
-    // При ошибке возвращаем стандартных пользователей для работы в памяти
-    return MOCK_USERS.map(user => ({
-      id: user.id,
-      username: user.username,
-      password: user.password,
-      name: user.name,
-      is_admin: user.is_admin,
-      subscription: null
-    }));
+    console.error('Ошибка при загрузке пользователей из localStorage:', e);
+    return [];
   }
 };
 
@@ -320,91 +187,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Имитируем задержку сети
     await new Promise(resolve => setTimeout(resolve, 300));
     
-    console.log(`Авторизация: попытка входа пользователя "${username}" (пароль: ${password.length > 0 ? '***' : 'пустой'})`);
+    // Поиск пользователя в мок-данных
+    let mockUser: MockUser | undefined = MOCK_USERS.find(u => u.username === username && u.password === password);
     
-    try {
-      // Специальное условие для отладки - выводим содержимое хранилища
-      if (username === 'debug' && password === 'debug') {
-        console.log('🛠️ РЕЖИМ ОТЛАДКИ: вывод информации о хранилище');
-        const storageKeys = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          storageKeys.push(key);
-        }
-        
-        console.log('Все ключи в localStorage:', storageKeys);
-        console.log('Тестовые пользователи из MOCK_USERS:', MOCK_USERS);
-        
-        const adminUsers = localStorage.getItem(USERS_STORAGE_KEY);
-        console.log(`Пользователи в ${USERS_STORAGE_KEY}:`, adminUsers);
-        
-        const loginUsers = localStorage.getItem(USERS_LOGIN_KEY);
-        console.log(`Пользователи в ${USERS_LOGIN_KEY}:`, loginUsers);
-        
-        // Принудительно инициализируем тестовых пользователей
-        initializeTestUsers();
-        
-        return {
-          success: false,
-          error: 'Режим отладки: информация выведена в консоль. Используйте стандартный логин/пароль для входа.'
-        };
-      }
-    
-      // Проверка на специальные кейсы для разработки - авторизуем всегда
-      if (username === 'admin' && password === 'admin') {
-        console.log('Специальный случай: входим как админ');
-        const adminUser = MOCK_USERS[0]; // Первый пользователь в списке - админ
-        const token = `mock-token-${adminUser.id}-admin-${Date.now()}`;
-        
-        return {
-          success: true,
-          token,
-          user: {
-            id: adminUser.id,
-            username: adminUser.username,
-            name: adminUser.name,
-            is_admin: true
-          }
-        };
-      }
-        
-      if (username === 'user' && password === 'user') {
-        console.log('Специальный случай: входим как обычный пользователь');
-        const regularUser = MOCK_USERS[1]; // Второй пользователь - обычный
-        const token = `mock-token-${regularUser.id}-user-${Date.now()}`;
-        
-        return {
-          success: true,
-          token,
-          user: {
-            id: regularUser.id,
-            username: regularUser.username,
-            name: regularUser.name,
-            is_admin: false
-          }
-        };
-      }
-        
-      if (username === 'test' && password === 'test') {
-        console.log('Специальный случай: входим как тестовый пользователь');
-        const testUser = MOCK_USERS[2]; // Третий пользователь - тестовый
-        const token = `mock-token-${testUser.id}-user-${Date.now()}`;
-        
-        return {
-          success: true,
-          token,
-          user: {
-            id: testUser.id,
-            username: testUser.username,
-            name: testUser.name,
-            is_admin: false
-          }
-        };
-      }
-      
-      // Если стандартные учетные записи не сработали, пробуем найти в хранилище
-      console.log('Стандартные учетные записи не подошли, ищем пользователя в хранилище...');
-      
+    // Если не нашли в предустановленных, ищем в localStorage
+    if (!mockUser) {
       // Загружаем пользователей из localStorage
       const storageUsers = loadUsersFromStorage();
       
@@ -414,17 +201,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         searchingIn: 'localStorage'
       });
       
-      // Логируем список пользователей для отладки
-      console.log('Список всех пользователей для отладки:', 
-        storageUsers.map((u: any) => ({ id: u.id, username: u.username }))
-      );
-      
       // Ищем пользователя по имени пользователя И паролю
-      const storageUser = storageUsers.find((u: any) => u.username === username && u.password === password);
+      const storageUser = storageUsers.find(u => u.username === username && u.password === password);
       
       // Если пользователь найден
       if (storageUser) {
-        const mockUser = {
+        mockUser = {
           id: storageUser.id,
           username: storageUser.username,
           password: storageUser.password,
@@ -437,44 +219,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           is_admin: mockUser.is_admin,
           source: 'localStorage'
         });
-          
-        // Генерируем фейковый токен с информацией о типе пользователя
-        const token = `mock-token-${mockUser.id}-${mockUser.is_admin ? 'admin' : 'user'}-${Date.now()}`;
-        
-        // Преобразуем MockUser в User
-        const user: User = {
-          id: mockUser.id,
-          username: mockUser.username,
-          name: mockUser.name,
-          is_admin: mockUser.is_admin
-        };
-        
-        console.log('Авторизация завершена, возвращаем пользователя:', user);
-        
-        return {
-          success: true,
-          token,
-          user
-        };
+      } else {
+        console.log('Пользователь не найден в localStorage');
       }
+    } else {
+      console.log('Успешная авторизация пользователя из MOCK_USERS:', {
+        username: mockUser.username,
+        is_admin: mockUser.is_admin,
+        source: 'MOCK_USERS'
+      });
+    }
+    
+    if (mockUser) {
+      // Генерируем фейковый токен с информацией о типе пользователя
+      const token = `mock-token-${mockUser.id}-${mockUser.is_admin ? 'admin' : 'user'}-${Date.now()}`;
       
-      // При неудаче - принудительно инициализируем пользователей для следующего входа
-      console.log('Пользователь не найден, пробуем переинициализировать базу пользователей');
-      initializeTestUsers();
-      
-      // Если мы дошли до этого момента - пользователь не найден
-      console.log('Неверный логин или пароль для:', username);
-      return {
-        success: false,
-        error: 'Неверный логин или пароль. Используйте: admin/admin, user/user или test/test'
+      // Преобразуем MockUser в User
+      const user: User = {
+        id: mockUser.id,
+        username: mockUser.username,
+        name: mockUser.name,
+        is_admin: mockUser.is_admin
       };
-    } catch (e) {
-      console.error('Ошибка при авторизации:', e);
+      
+      console.log('Авторизация завершена, возвращаем пользователя:', user);
+      
       return {
-        success: false,
-        error: 'Произошла ошибка при обработке авторизации'
+        success: true,
+        token,
+        user
       };
     }
+    
+    return {
+      success: false,
+      error: 'Неверный логин или пароль'
+    };
   };
   
   // Мок-функция для получения данных пользователя по токену

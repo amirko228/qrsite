@@ -254,7 +254,7 @@ const BlockSelector: React.FC<BlockSelectorProps> = ({ open, onClose, onSelect }
             sx={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}
           />
           <Tab 
-            label="Страница памяти" 
+            label="Профиль" 
             icon={<AccountBoxIcon />} 
             iconPosition="start"
             sx={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}

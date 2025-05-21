@@ -516,8 +516,8 @@ const BlockSettingsDialog: React.FC<BlockSettingsDialogProps> = ({
     );
   };
 
-  // Функция для рендеринга редактора блока страницы памяти
-  const renderProfileEditor = () => {
+  // Функция для рендеринга редактора блока профиля
+  const renderProfileBlockEditor = () => {
     return (
       <Box sx={{ mt: 2 }}>
         <Grid container spacing={2}>
@@ -717,7 +717,7 @@ const BlockSettingsDialog: React.FC<BlockSettingsDialogProps> = ({
           </FormControl>
           <TextField
             fullWidth
-            label="Ссылка на страницу"
+            label="Ссылка на профиль"
             variant="outlined"
             value={localBlock.content.socialUrl || ''}
             onChange={(e) => handleContentChange({ socialUrl: e.target.value })}
@@ -765,7 +765,7 @@ const BlockSettingsDialog: React.FC<BlockSettingsDialogProps> = ({
       case BlockType.TEXT:
         return renderTextBlockEditor();
       case BlockType.PROFILE:
-        return renderProfileEditor();
+        return renderProfileBlockEditor();
       case BlockType.SOCIAL:
         return renderSocialBlockEditor();
       case BlockType.FAMILY_TREE:
