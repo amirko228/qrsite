@@ -37,7 +37,10 @@ import {
   Edit as EditIcon,
   PushPin as PushPinIcon,
   ArrowBack as ArrowBackIcon,
-  Settings as SettingsIcon
+  Settings as SettingsIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
+  Image as ImageIcon
 } from '@mui/icons-material';
 import Draggable from 'react-draggable';
 import BlockSelector from './components/BlockSelector';
@@ -337,6 +340,210 @@ interface ConstructorProps {
   };
   userId?: string; // ID текущего пользователя
 }
+
+// Отдельный компонент для фотогалереи
+const PhotoGalleryBlock: React.FC<{ 
+  block: Block; 
+  handleAddPhoto: (blockId: string) => void;
+  isPreviewMode: boolean;
+}> = ({ block, handleAddPhoto, isPreviewMode }) => {
+  // Состояние для хранения текущей выбранной фотографии
+  const [selectedPhotoIndex, setSelectedPhotoIndex] = useState(0);
+  
+  // Обработчик выбора фотографии
+  const handleSelectPhoto = (index: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedPhotoIndex(index);
+  };
+  
+  const mediaItems = block.content.mediaItems || [];
+  
+  return (
+    <Box 
+      sx={{ 
+        width: '100%', 
+        height: '100%', 
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative',
+        overflow: 'hidden'
+      }}
+    >
+      {mediaItems.length > 0 ? (
+        <>
+          {/* Большая фотография сверху */}
+          <Box
+            sx={{
+              width: '100%',
+              height: '70%', // Большая фотография занимает 70% высоты
+              position: 'relative',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              overflow: 'hidden',
+              backgroundColor: '#f0f0f0'
+            }}
+          >
+            <img
+              src={mediaItems[selectedPhotoIndex].url}
+              alt={mediaItems[selectedPhotoIndex].title || `Фото ${selectedPhotoIndex + 1}`}
+              style={{
+                maxWidth: '100%',
+                maxHeight: '100%',
+                objectFit: 'contain'
+              }}
+            />
+            
+            {mediaItems[selectedPhotoIndex].title && (
+              <Typography
+                variant="caption"
+                sx={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  padding: '4px 8px',
+                  backgroundColor: 'rgba(0,0,0,0.5)',
+                  color: 'white',
+                  textAlign: 'center',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
+                {mediaItems[selectedPhotoIndex].title}
+              </Typography>
+            )}
+          </Box>
+          
+          {/* Сетка миниатюр внизу */}
+          <Box
+            sx={{
+              width: '100%',
+              height: '30%', // Миниатюры занимают 30% высоты
+              display: 'flex',
+              flexWrap: 'wrap',
+              padding: '4px',
+              gap: '2px',
+              overflowY: 'auto',
+              '&::-webkit-scrollbar': {
+                width: '6px',
+                height: '6px'
+              },
+              '&::-webkit-scrollbar-thumb': {
+                backgroundColor: 'rgba(0,0,0,0.2)',
+                borderRadius: '3px'
+              }
+            }}
+          >
+            {mediaItems.map((item, index) => (
+              <Box
+                key={item.id || index}
+                onClick={(e) => handleSelectPhoto(index, e)}
+                sx={{
+                  width: 'calc(25% - 2px)', // 4 миниатюры в ряд с учетом отступов
+                  height: '80px',
+                  overflow: 'hidden',
+                  cursor: 'pointer',
+                  position: 'relative',
+                  border: index === selectedPhotoIndex ? '2px solid #4a76a8' : '2px solid transparent',
+                  boxSizing: 'border-box',
+                  borderRadius: '2px',
+                  '&:hover': {
+                    opacity: 0.9
+                  }
+                }}
+              >
+                <img
+                  src={item.url}
+                  alt={item.title || `Миниатюра ${index + 1}`}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover'
+                  }}
+                />
+              </Box>
+            ))}
+            
+            {/* Кнопка добавления фото */}
+            {!isPreviewMode && (
+              <Box
+                sx={{
+                  width: 'calc(25% - 2px)', // Такой же размер как у миниатюры
+                  height: '80px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px dashed rgba(0,0,0,0.2)',
+                  borderRadius: '2px',
+                  cursor: 'pointer',
+                  backgroundColor: 'rgba(0,0,0,0.03)',
+                  '&:hover': {
+                    backgroundColor: 'rgba(0,0,0,0.05)'
+                  }
+                }}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleAddPhoto(block.id);
+                }}
+              >
+                <AddIcon sx={{ fontSize: '32px', opacity: 0.6 }} />
+              </Box>
+            )}
+          </Box>
+        </>
+      ) : (
+        <Box 
+          sx={{ 
+            width: '100%', 
+            height: '100%', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center',
+            flexDirection: 'column',
+            backgroundColor: '#f5f5f5',
+            cursor: 'pointer'
+          }}
+          onClick={() => handleAddPhoto(block.id)}
+        >
+          <Box sx={{ textAlign: 'center' }}>
+            <ImageIcon sx={{ fontSize: 60, color: 'primary.main', opacity: 0.7, mb: 2 }} />
+            <Typography variant="body1" color="textSecondary" sx={{ fontWeight: 'medium' }}>
+              Добавьте фотографии в галерею
+            </Typography>
+            <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mt: 1 }}>
+              Вы можете добавить сразу несколько фотографий
+            </Typography>
+          </Box>
+        </Box>
+      )}
+      
+      {/* Плавающая кнопка добавления при непустой галерее */}
+      {mediaItems.length > 0 && !isPreviewMode && (
+        <IconButton
+          onClick={(e) => {
+            e.stopPropagation();
+            handleAddPhoto(block.id);
+          }}
+          sx={{
+            position: 'absolute',
+            right: '10px',
+            bottom: '10px',
+            backgroundColor: 'rgba(255,255,255,0.8)',
+            '&:hover': {
+              backgroundColor: 'rgba(255,255,255,0.95)'
+            },
+            boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
+            zIndex: 10
+          }}
+        >
+          <AddIcon />
+        </IconButton>
+      )}
+    </Box>
+  );
+};
 
 const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId }) => {
   const [blocks, setBlocks] = useState<Block[]>([]);
@@ -1181,114 +1388,7 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
   const renderPhotoBlockContent = (block: Block) => {
     // Если это галерея фотографий
     if (block.template === 'gallery') {
-      return (
-        <Box 
-          sx={{ 
-            width: '100%', 
-            height: '100%', 
-            display: 'flex',
-            flexDirection: 'column'
-          }}
-        >
-          {block.content.mediaItems && block.content.mediaItems.length > 0 ? (
-            <Box
-              sx={{
-                width: '100%',
-                height: '100%',
-                display: 'flex',
-                overflowX: 'auto',
-                gap: 1,
-                p: 1,
-                '&::-webkit-scrollbar': {
-                  height: '8px'
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  backgroundColor: 'rgba(0,0,0,0.2)',
-                  borderRadius: '4px'
-                },
-                '&::-webkit-scrollbar-track': {
-                  backgroundColor: 'rgba(0,0,0,0.05)',
-                  borderRadius: '4px'
-                }
-              }}
-            >
-              {block.content.mediaItems.map((item, index) => (
-                <Box
-                  key={item.id || index}
-                  sx={{
-                    minWidth: '200px',
-                    height: '100%',
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    flexShrink: 0,
-                    position: 'relative',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                    transition: 'transform 0.2s ease',
-                    '&:hover': {
-                      transform: 'scale(1.02)',
-                      boxShadow: '0 4px 8px rgba(0,0,0,0.15)'
-                    }
-                  }}
-                >
-                  <img
-                    src={item.url}
-                    alt={item.title || `Фото ${index + 1}`}
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      objectFit: 'cover'
-                    }}
-                  />
-                  {item.title && (
-                    <Typography
-                      variant="caption"
-                      sx={{
-                        position: 'absolute',
-                        bottom: 0,
-                        left: 0,
-                        right: 0,
-                        padding: '4px 8px',
-                        backgroundColor: 'rgba(0,0,0,0.5)',
-                        color: 'white',
-                        textAlign: 'center',
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}
-                    >
-                      {item.title}
-                    </Typography>
-                  )}
-                </Box>
-              ))}
-            </Box>
-          ) : (
-            <Box 
-              sx={{ 
-                width: '100%', 
-                height: '100%', 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                flexDirection: 'column',
-                backgroundColor: '#f5f5f5',
-                cursor: 'pointer'
-              }}
-              onClick={() => handleAddPhoto(block.id)}
-            >
-              <IconButton 
-                color="primary"
-                sx={{ mb: 1, opacity: 0.7 }}
-              >
-                <AddIcon fontSize="large" />
-              </IconButton>
-              <Typography variant="body2" color="textSecondary">
-                Добавьте фотографии в галерею
-              </Typography>
-            </Box>
-          )}
-        </Box>
-      );
+      return <PhotoGalleryBlock block={block} handleAddPhoto={handleAddPhoto} isPreviewMode={isPreviewMode} />;
     }
     
     // Если это баннер на всю ширину
