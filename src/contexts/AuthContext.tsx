@@ -58,6 +58,15 @@ const MOCK_USERS: MockUser[] = [
 const initializeTestUsers = () => {
   try {
     console.log('Начало инициализации тестовых пользователей...');
+    
+    // Проверяем наличие флага, указывающего на то, что данные уже были изменены администратором
+    const adminEditedData = localStorage.getItem('admin_edited_users');
+    
+    // Если администратор уже редактировал данные, не перезаписываем их
+    if (adminEditedData === 'true') {
+      console.log('Обнаружены пользовательские данные, измененные администратором. Пропускаем инициализацию.');
+      return;
+    }
 
     // Проверяем, существуют ли пользователи в adminPanelData
     const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
@@ -599,28 +608,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const logout = useCallback(() => {
     // Сохраняем данные пользователей для админ-панели и профилей
     const adminPanelData = localStorage.getItem(USERS_STORAGE_KEY);
+    const usersData = localStorage.getItem(USERS_LOGIN_KEY);
+    const adminEditedFlag = localStorage.getItem('admin_edited_users');
     
     // Сохраняем все ключи профилей и виджетов перед очисткой
     const keysToPreserve: Record<string, string> = {};
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && (
-          key.startsWith(PROFILE_PREFIX) || 
-          key.startsWith(WIDGETS_PREFIX) || 
-          key.startsWith(SETTINGS_PREFIX) || 
-          key === USERS_STORAGE_KEY
-        )) {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (
+        key.startsWith(PROFILE_PREFIX) || 
+        key.startsWith(WIDGETS_PREFIX) || 
+        key.startsWith(SETTINGS_PREFIX) || 
+        key === USERS_STORAGE_KEY ||
+        key === USERS_LOGIN_KEY ||
+        key === 'admin_edited_users'
+      )) {
         keysToPreserve[key] = localStorage.getItem(key) || '';
       }
     }
     
     console.log('Выход пользователя: очистка данных аутентификации');
+    console.log('Сохраняем редактирования администратора:', !!adminEditedFlag);
     
     // Удаляем только ключи, связанные с аутентификацией
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem('current_user_id');
     localStorage.removeItem('current_user_name');
     localStorage.removeItem('current_user_is_admin');
+    localStorage.removeItem('current_user_username');
     
     // Восстанавливаем сохраненные данные (профили и пр.)
     Object.entries(keysToPreserve).forEach(([key, value]) => {
@@ -643,40 +658,51 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Первоначальная проверка аутентификации
     checkAuth();
     
+    // Синхронизация хранилищ пользователей 
+    const adminEditedFlag = localStorage.getItem('admin_edited_users');
+    if (adminEditedFlag === 'true') {
+      // Если администратор редактировал данные, синхронизируем хранилища
+      const adminPanelData = localStorage.getItem(USERS_STORAGE_KEY);
+      if (adminPanelData) {
+        localStorage.setItem(USERS_LOGIN_KEY, adminPanelData);
+        console.log('Синхронизированы хранилища пользователей при запуске (adminPanelData -> users)');
+      }
+    }
+    
     // Настраиваем глобальный перехватчик для всех запросов axios только если не используем моки
     if (!MOCK_API) {
-    // Настраиваем глобальный перехватчик для всех запросов axios
-    const requestInterceptor = axios.interceptors.request.use(
-      (config) => {
-          const token = localStorage.getItem(TOKEN_KEY);
-        if (token && config.headers) {
-          config.headers['Authorization'] = `Bearer ${token}`;
-        }
-        return config;
-      },
-      (error) => Promise.reject(error)
-    );
+      // Настраиваем глобальный перехватчик для всех запросов axios
+      const requestInterceptor = axios.interceptors.request.use(
+        (config) => {
+            const token = localStorage.getItem(TOKEN_KEY);
+          if (token && config.headers) {
+            config.headers['Authorization'] = `Bearer ${token}`;
+          }
+          return config;
+        },
+        (error) => Promise.reject(error)
+      );
 
       // Настраиваем глобальный перехватчик для ответов с оптимизацией обработки 401
-    const responseInterceptor = axios.interceptors.response.use(
-      (response) => response,
-      async (error) => {
-          // Проверяем только на 401 статус один раз
-        if (error.response && error.response.status === 401) {
-            // Выходим только если до этого пользователь был авторизован
-            if (isLoggedIn) {
-          logout();
-            }
+      const responseInterceptor = axios.interceptors.response.use(
+        (response) => response,
+        async (error) => {
+            // Проверяем только на 401 статус один раз
+          if (error.response && error.response.status === 401) {
+              // Выходим только если до этого пользователь был авторизован
+              if (isLoggedIn) {
+            logout();
+              }
+          }
+          return Promise.reject(error);
         }
-        return Promise.reject(error);
-      }
-    );
+      );
 
-    // Очищаем перехватчики при размонтировании
-    return () => {
-      axios.interceptors.request.eject(requestInterceptor);
-      axios.interceptors.response.eject(responseInterceptor);
-    };
+      // Очищаем перехватчики при размонтировании
+      return () => {
+        axios.interceptors.request.eject(requestInterceptor);
+        axios.interceptors.response.eject(responseInterceptor);
+      };
     }
   }, [checkAuth, isLoggedIn, logout]);
 

@@ -85,6 +85,12 @@ const loadPersistentData = (): User[] | null => {
 const savePersistentData = (data: User[]) => {
   try {
     localStorage.setItem('adminPanelData', JSON.stringify(data));
+    localStorage.setItem('users', JSON.stringify(data)); // Синхронизируем оба хранилища
+    
+    // Устанавливаем флаг, который указывает, что данные были изменены администратором
+    localStorage.setItem('admin_edited_users', 'true');
+    
+    console.log('Данные пользователей сохранены в хранилище и помечены как отредактированные администратором');
   } catch (e) {
     console.error('Ошибка при сохранении данных:', e);
   }
@@ -949,7 +955,14 @@ const AdminPanel: React.FC = () => {
     try {
       // Очищаем всех пользователей
       persistentMockData = [];
+      
+      // Сохраняем пустой массив и устанавливаем флаг редактирования
       savePersistentData(persistentMockData);
+      
+      // Синхронизируем оба хранилища
+      localStorage.setItem('adminPanelData', JSON.stringify([]));
+      localStorage.setItem('users', JSON.stringify([]));
+      localStorage.setItem('admin_edited_users', 'true');
       
       // Очищаем кеш и обновляем UI
       apiCache.clear();
@@ -961,17 +974,20 @@ const AdminPanel: React.FC = () => {
       // Обновляем статистику
       updateStats();
 
-        setSnackbar({
-          open: true,
+      setSnackbar({
+        open: true,
         message: 'Все пользователи успешно удалены',
         severity: 'success'
       });
       
-      console.log("Выполнена полная очистка хранилища");
+      console.log("Выполнена полная очистка хранилища и установлен флаг редактирования");
+      
+      // Закрываем диалог
+      setOpenClearAllDialog(false);
     } catch (error) {
       console.error('Ошибка при очистке данных:', error);
-        setSnackbar({
-          open: true,
+      setSnackbar({
+        open: true,
         message: 'Ошибка при очистке данных',
         severity: 'error'
       });
