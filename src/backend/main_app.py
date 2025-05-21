@@ -332,7 +332,7 @@ async def auth_status(user: User = Depends(get_current_user_optional)):
     
     # Базовая навигация для всех пользователей
     nav_items = [
-        {"id": "profile", "title": "Мой профиль", "url": "/profile", "icon": "user", "order": 1},
+        {"id": "profile", "title": "Страница памяти", "url": "/profile", "icon": "user", "order": 1},
         {"id": "qrcodes", "title": "Мои QR-коды", "url": "/my-qrcodes", "icon": "qrcode", "order": 2}
     ]
     

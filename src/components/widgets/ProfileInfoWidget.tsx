@@ -244,8 +244,8 @@ const EditView = memo(({
 
 const ProfileInfoWidget: React.FC<ProfileInfoWidgetProps> = memo(({ content, onUpdate, isEditing = false, onDelete }) => {
   const [localEditing, setLocalEditing] = useState(false);
-  const [name, setName] = useState(() => content.name || 'Имя Фамилия');
-  const [bio, setBio] = useState(() => content.bio || 'Краткая информация о себе');
+  const [name, setName] = useState(() => content.name || 'Введите ФИО человека');
+  const [bio, setBio] = useState(() => content.bio || 'Введите краткую информацию');
   const [avatar, setAvatar] = useState(() => content.avatar || '');
   const [tags, setTags] = useState(() => content.tags || []);
   const [location, setLocation] = useState(() => content.location || '');

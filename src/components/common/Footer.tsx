@@ -101,7 +101,7 @@ const Footer: React.FC = () => {
                 <MuiLink component={Link} to="/subscription" sx={{ textDecoration: 'none' }}>Подписка</MuiLink>
               </LinkItem>
               <LinkItem component="li">
-                <MuiLink component={Link} to="/social" sx={{ textDecoration: 'none' }}>Мой профиль</MuiLink>
+                <MuiLink component={Link} to="/social" sx={{ textDecoration: 'none' }}>Страница памяти</MuiLink>
               </LinkItem>
             </Box>
           </Grid>

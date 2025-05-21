@@ -25,7 +25,7 @@ import {
   Link as MuiLink,
   Badge
 } from '@mui/material';
-import { Menu as MenuIcon, Close as CloseIcon, AccountCircle, KeyboardArrowDown, Settings, ExitToApp, Person, Home, Info, AdminPanelSettings } from '@mui/icons-material';
+import { Menu as MenuIcon, Close as CloseIcon, AccountCircle, KeyboardArrowDown, Settings, ExitToApp, Person, Home, Info, AdminPanelSettings, ViewQuilt } from '@mui/icons-material';
 import { Link as RouterLink, useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { useAuth } from '../../contexts/AuthContext';
@@ -248,7 +248,7 @@ const Navigation: React.FC = () => {
               transition: 'all 0.2s ease'
             }}
           >
-            Мой профиль
+            Страница памяти
           </Button>
         </Box>
       )}
@@ -566,7 +566,7 @@ const Navigation: React.FC = () => {
                       <ListItemIcon>
                         <Person fontSize="small" />
                       </ListItemIcon>
-                      <ListItemText primary="Мой профиль" />
+                      <ListItemText primary="Страница памяти" />
                     </MenuItem>
                     
                     <MenuItem onClick={() => navigate('/settings')}>

@@ -61,8 +61,8 @@ cd src/backend
 # Установка Python-зависимостей
 pip install -r requirements.txt
 
-# Запуск сервера разработки
 uvicorn main:app --reload
+# Запуск сервера разработки
 ```
 
 ## Структура проекта

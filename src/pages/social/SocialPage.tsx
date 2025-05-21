@@ -37,10 +37,10 @@ import {
   Twitter, 
   AccountBox, 
   QrCode, 
-  Share, 
-  Save,
+  Share,
   FamilyRestroom,
-  DragIndicator
+  DragIndicator,
+  AccountCircle
 } from '@mui/icons-material';
 import styled from 'styled-components';
 import { useParams, useNavigate } from 'react-router-dom';
@@ -48,7 +48,8 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import FamilyTreeWidget from '../../components/widgets/FamilyTreeWidget';
 import QRCode from 'react-qr-code';
 import { useAuth } from '../../contexts/AuthContext';
-import WidgetPalettePanel from '../../components/WidgetPalettePanel';
+import { Block as ConstructorBlock } from '../constructor/types';
+import Constructor from '../constructor/Constructor';
 
 // Типы виджетов
 const WIDGET_TYPES = {
@@ -80,6 +81,8 @@ interface Widget {
   backgroundColor: string;
   textColor: string;
   zIndex: number;
+  borderRadius?: number;
+  template?: string;
 }
 
 // Интерфейс профиля
@@ -96,13 +99,22 @@ interface Profile {
 // Обновляем стили для основного контейнера профиля
 const ProfileContainer = styled.div`
   width: 100%;
-  max-width: 1200px;
+  max-width: 100%; /* Изменено с 1200px, чтобы контейнер мог быть шире */
   margin: 0 auto;
   padding: 32px;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  overflow: hidden; /* Предотвращаем выход содержимого за края */
+  overflow: auto; /* Позволяем прокручивать содержимое */
+  min-height: 600px;
+  position: relative; /* Добавлено для позиционирования */
+  list-style: none; /* Убираем стиль списка */
+  
+  & ul, & ol, & li {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
   
   @media (max-width: 768px) {
     padding: 16px;
@@ -287,294 +299,6 @@ const WidgetControls = styled.div`
   }
 `;
 
-// Компонент для редактирования виджета
-const WidgetEditor: React.FC<{
-  widget: Widget | null;
-  open: boolean;
-  onClose: () => void;
-  onSave: (widget: Widget) => void;
-  storageLimit: number;
-  storageUsed: number;
-}> = ({ widget, open, onClose, onSave, storageLimit, storageUsed }) => {
-  const [editedWidget, setEditedWidget] = useState<Widget | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [fileSizeWarning, setFileSizeWarning] = useState<string | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const theme = useTheme();
-  
-  useEffect(() => {
-    if (widget) {
-      setEditedWidget({ ...widget });
-    }
-  }, [widget]);
-  
-  if (!editedWidget) return null;
-  
-  const handleContentChange = (field: string, value: any) => {
-    setEditedWidget({
-      ...editedWidget,
-      content: { ...editedWidget.content, [field]: value }
-    });
-  };
-  
-  const handleChange = (field: string, value: any) => {
-    setEditedWidget({
-      ...editedWidget,
-      [field]: value
-    });
-  };
-  
-  const handleSave = () => {
-    onSave(editedWidget);
-    onClose();
-  };
-  
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      // Проверка на оставшееся доступное хранилище
-      const fileSizeMB = file.size / (1024 * 1024);
-      const remainingStorage = storageLimit - storageUsed;
-      
-      if (fileSizeMB > remainingStorage) {
-        setFileSizeWarning(`Файл слишком большой (${fileSizeMB.toFixed(2)} МБ). Оставшееся место: ${remainingStorage.toFixed(2)} МБ`);
-        return;
-      }
-      
-      setFileSizeWarning(null);
-      
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (editedWidget) {
-          const content = { ...editedWidget.content, url: reader.result as string };
-          setEditedWidget({ ...editedWidget, content });
-        }
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-  
-  // Определение полей редактирования в зависимости от типа виджета
-  const renderContentEditor = () => {
-    switch (editedWidget.type) {
-      case WIDGET_TYPES.TEXT:
-        return (
-          <TextField
-            fullWidth
-            label="Текст"
-            multiline
-            rows={4}
-            value={editedWidget.content.text || ''}
-            onChange={(e) => handleContentChange('text', e.target.value)}
-            margin="normal"
-            variant="outlined"
-            sx={{ "& .MuiOutlinedInput-root": { borderRadius: '10px' } }}
-          />
-        );
-      
-      case WIDGET_TYPES.IMAGE:
-        return (
-          <>
-            <TextField
-              fullWidth
-              label="URL изображения"
-              value={editedWidget.content.url || ''}
-              onChange={(e) => handleContentChange('url', e.target.value)}
-              margin="normal"
-              variant="outlined"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: '10px' } }}
-            />
-            <TextField
-              fullWidth
-              label="Подпись"
-              value={editedWidget.content.caption || ''}
-              onChange={(e) => handleContentChange('caption', e.target.value)}
-              margin="normal"
-              variant="outlined"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: '10px' } }}
-            />
-          </>
-        );
-      
-      case WIDGET_TYPES.SOCIAL:
-        return (
-          <>
-            <TextField
-              select
-              fullWidth
-              label="Тип социальной сети"
-              value={editedWidget.content.type || 'custom'}
-              onChange={(e) => handleContentChange('type', e.target.value)}
-              margin="normal"
-              variant="outlined"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: '10px' } }}
-            >
-              <MenuItem value="instagram">Instagram</MenuItem>
-              <MenuItem value="facebook">Facebook</MenuItem>
-              <MenuItem value="twitter">Twitter</MenuItem>
-              <MenuItem value="custom">Другое</MenuItem>
-            </TextField>
-            <TextField
-              fullWidth
-              label="Имя пользователя"
-              value={editedWidget.content.username || ''}
-              onChange={(e) => handleContentChange('username', e.target.value)}
-              margin="normal"
-              variant="outlined"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: '10px' } }}
-            />
-            <TextField
-              fullWidth
-              label="URL"
-              value={editedWidget.content.url || ''}
-              onChange={(e) => handleContentChange('url', e.target.value)}
-              margin="normal"
-              variant="outlined"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: '10px' } }}
-            />
-          </>
-        );
-      
-      case WIDGET_TYPES.YOUTUBE:
-        return (
-          <>
-            <TextField
-              fullWidth
-              label="ID видео YouTube"
-              value={editedWidget.content.videoId || ''}
-              onChange={(e) => handleContentChange('videoId', e.target.value)}
-              margin="normal"
-              variant="outlined"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: '10px' } }}
-              helperText="Например, dQw4w9WgXcQ из URL https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-            />
-            <TextField
-              fullWidth
-              label="Подпись"
-              value={editedWidget.content.caption || ''}
-              onChange={(e) => handleContentChange('caption', e.target.value)}
-              margin="normal"
-              variant="outlined"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: '10px' } }}
-            />
-          </>
-        );
-      
-      case WIDGET_TYPES.PROFILE_INFO:
-        return (
-          <>
-            <TextField
-              fullWidth
-              label="Заголовок"
-              value={editedWidget.content.title || ''}
-              onChange={(e) => handleContentChange('title', e.target.value)}
-              margin="normal"
-              variant="outlined"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: '10px' } }}
-            />
-            <TextField
-              fullWidth
-              label="Описание"
-              multiline
-              rows={3}
-              value={editedWidget.content.description || ''}
-              onChange={(e) => handleContentChange('description', e.target.value)}
-              margin="normal"
-              variant="outlined"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: '10px' } }}
-            />
-          </>
-        );
-      
-      default:
-        return <Typography>Неизвестный тип виджета</Typography>;
-    }
-  };
-  
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-      <DialogTitle>
-        {editedWidget.type === WIDGET_TYPES.TEXT && 'Текстовый блок'}
-        {editedWidget.type === WIDGET_TYPES.IMAGE && 'Изображение'}
-        {editedWidget.type === WIDGET_TYPES.SOCIAL && 'Социальная сеть'}
-        {editedWidget.type === WIDGET_TYPES.YOUTUBE && 'YouTube видео'}
-        {editedWidget.type === WIDGET_TYPES.PROFILE_INFO && 'Информация профиля'}
-        {editedWidget.type === WIDGET_TYPES.FAMILY_TREE && 'Семейное древо'}
-      </DialogTitle>
-      <DialogContent dividers>
-        <Grid container spacing={2}>
-          <Grid item xs={12} md={8}>
-        {renderContentEditor()}
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Typography variant="subtitle2" gutterBottom>Внешний вид</Typography>
-            <TextField
-              fullWidth
-              label="Ширина (px)"
-              type="number"
-              value={editedWidget.width}
-              onChange={(e) => handleChange('width', parseInt(e.target.value) || 0)}
-              margin="dense"
-              variant="outlined"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: '10px' } }}
-            />
-            <TextField
-              fullWidth
-              label="Высота (px)"
-              type="number"
-              value={editedWidget.height}
-              onChange={(e) => handleChange('height', parseInt(e.target.value) || 0)}
-              margin="dense"
-              variant="outlined"
-              sx={{ "& .MuiOutlinedInput-root": { borderRadius: '10px' } }}
-            />
-            
-            <Typography variant="subtitle2" gutterBottom sx={{ mt: 2 }}>Цвета</Typography>
-            <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-              <Typography variant="body2">Фон:</Typography>
-              <Box 
-                component="input" 
-                type="color" 
-                value={editedWidget.backgroundColor}
-                onChange={(e) => handleChange('backgroundColor', e.target.value)}
-                sx={{ width: 40, height: 40, borderRadius: 1, border: 'none', cursor: 'pointer' }}
-              />
-              
-              <Typography variant="body2" sx={{ ml: 2 }}>Текст:</Typography>
-              <Box 
-                component="input" 
-                type="color" 
-                value={editedWidget.textColor}
-                onChange={(e) => handleChange('textColor', e.target.value)}
-                sx={{ width: 40, height: 40, borderRadius: 1, border: 'none', cursor: 'pointer' }}
-                />
-            </Box>
-            
-            {editedWidget.type === WIDGET_TYPES.IMAGE && (
-              <Box sx={{ mt: 2 }}>
-                <Alert severity="info" sx={{ mb: 1 }}>
-                  <AlertTitle>Использование хранилища</AlertTitle>
-                  {Math.round(storageUsed / 1024 / 1024)}MB из {Math.round(storageLimit / 1024 / 1024)}MB
-                </Alert>
-                <LinearProgress 
-                  variant="determinate" 
-                  value={(storageUsed / storageLimit) * 100} 
-                  color={storageUsed > storageLimit * 0.8 ? "warning" : "primary"}
-                />
-              </Box>
-            )}
-          </Grid>
-        </Grid>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onClose}>Отмена</Button>
-        <Button onClick={handleSave} variant="contained" color="primary">Сохранить</Button>
-      </DialogActions>
-    </Dialog>
-  );
-};
-
 // Создание нового виджета
 const createWidget = (type: string): Widget => {
   let content = {};
@@ -642,7 +366,8 @@ const createWidget = (type: string): Widget => {
     height, // Минимальная высота
     backgroundColor, // Используем улучшенные цвета фона
     textColor, // Улучшенные цвета текста для контраста
-    zIndex: 1
+    zIndex: 1,
+    borderRadius: 2
   };
 };
 
@@ -733,7 +458,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
         height: 150,
         backgroundColor: '#e3f2fd',
         textColor: '#0d47a1',
-        zIndex: 1
+        zIndex: 1,
+        borderRadius: 2
       },
       {
         id: '2',
@@ -748,7 +474,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
         height: 240,
         backgroundColor: '#fff',
         textColor: '#212529',
-        zIndex: 1
+        zIndex: 1,
+        borderRadius: 2
       },
       {
         id: '3',
@@ -764,7 +491,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
         height: 300,
         backgroundColor: '#f5f5f5',
         textColor: '#333',
-        zIndex: 1
+        zIndex: 1,
+        borderRadius: 2
       }
     ],
     'anna': [
@@ -781,7 +509,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
         height: 150,
         backgroundColor: '#fff3e0',
         textColor: '#e65100',
-        zIndex: 1
+        zIndex: 1,
+        borderRadius: 2
       },
       {
         id: '2',
@@ -796,7 +525,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
         height: 240,
         backgroundColor: '#fff',
         textColor: '#212529',
-        zIndex: 1
+        zIndex: 1,
+        borderRadius: 2
       },
       {
         id: '3',
@@ -812,7 +542,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
         height: 80,
         backgroundColor: '#fce4ec',
         textColor: '#c2185b',
-        zIndex: 1
+        zIndex: 1,
+        borderRadius: 2
       }
     ],
     'mikhail': [
@@ -829,7 +560,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
         height: 150,
         backgroundColor: '#e8f5e9',
         textColor: '#2e7d32',
-        zIndex: 1
+        zIndex: 1,
+        borderRadius: 2
       },
       {
         id: '2',
@@ -844,7 +576,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
         height: 240,
         backgroundColor: '#fff',
         textColor: '#212529',
-        zIndex: 1
+        zIndex: 1,
+        borderRadius: 2
       },
       {
         id: '3',
@@ -859,7 +592,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
         height: 300,
         backgroundColor: '#f5f5f5',
         textColor: '#333',
-        zIndex: 1
+        zIndex: 1,
+        borderRadius: 2
       }
     ],
     'elena': [
@@ -876,7 +610,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
         height: 150,
         backgroundColor: '#e0f7fa',
         textColor: '#006064',
-        zIndex: 1
+        zIndex: 1,
+        borderRadius: 2
       },
       {
         id: '2',
@@ -891,7 +626,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
         height: 240,
         backgroundColor: '#fff',
         textColor: '#212529',
-        zIndex: 1
+        zIndex: 1,
+        borderRadius: 2
       },
       {
         id: '3',
@@ -905,7 +641,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
         height: 200,
         backgroundColor: '#f5f5f5',
         textColor: '#333',
-        zIndex: 1
+        zIndex: 1,
+        borderRadius: 2
       }
     ]
   };
@@ -922,7 +659,7 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
       type: WIDGET_TYPES.PROFILE_INFO,
       content: { 
         title: 'Привет, я ' + profileName, 
-        description: profileBio || 'Добро пожаловать в мой профиль! Здесь вы можете узнать больше обо мне.'
+        description: profileBio || 'Добро пожаловать на страницу памяти! Здесь вы можете узнать больше о человеке.'
       },
       x: 50,
       y: 50,
@@ -930,7 +667,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
       height: 150,
       backgroundColor: '#e3f2fd',
       textColor: '#0d47a1',
-      zIndex: 1
+      zIndex: 1,
+      borderRadius: 2
     },
     {
       id: '2',
@@ -945,7 +683,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
       height: 240,
       backgroundColor: '#fff',
       textColor: '#212529',
-      zIndex: 1
+      zIndex: 1,
+      borderRadius: 2
     },
     {
       id: '3',
@@ -959,7 +698,8 @@ const getDemoWidgets = (profileId: string, profileName: string, profileBio: stri
       height: 200,
       backgroundColor: '#f5f5f5',
       textColor: '#333',
-      zIndex: 1
+      zIndex: 1,
+      borderRadius: 2
     }
   ];
 };
@@ -1087,67 +827,29 @@ const SocialPage: React.FC = () => {
   const { user, isLoggedIn } = useAuth();
   const theme = useTheme();
   
-  // Основные состояния
-  const [widgets, setWidgets] = useState<Widget[]>([]);
-  const [selectedWidgetId, setSelectedWidgetId] = useState<string | null>(null);
-  const [lastSaved, setLastSaved] = useState<Date | null>(null);
-
   // Состояния для UI
-  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
-  const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
-  const [isQRCodeDialogOpen, setIsQRCodeDialogOpen] = useState<boolean>(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-
-  // Состояния для хранилища
-  const [storageLimit] = useState<number>(100); // MB
-  const [storageUsed, setStorageUsed] = useState<number>(0);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isQRCodeDialogOpen, setIsQRCodeDialogOpen] = useState<boolean>(false);
   
+  // Состояния для профиля
   const [profile, setProfile] = useState<Profile>({
     id: '',
     name: '',
     bio: '',
     avatar: '',
-      theme: 'light'
+    theme: 'light'
   });
+  
+  // Состояния для данных из конструктора
+  const [constructorBackgroundColor, setConstructorBackgroundColor] = useState<string>('#ffffff');
+  const [constructorBlocks, setConstructorBlocks] = useState<ConstructorBlock[]>([]);
+  const [showOnMap, setShowOnMap] = useState<boolean>(true);
   
   const isOwner = !id && isLoggedIn;
   const viewingId = id || (user?.username || '');
 
-  // Определение типов виджетов
-  const widgetTypes = [
-    { type: WIDGET_TYPES.TEXT, label: 'Текст', icon: <TextFields /> },
-    { type: WIDGET_TYPES.IMAGE, label: 'Изображение', icon: <Image /> },
-    { type: WIDGET_TYPES.SOCIAL, label: 'Социальная сеть', icon: <Instagram /> },
-    { type: WIDGET_TYPES.YOUTUBE, label: 'YouTube видео', icon: <YouTube /> },
-    { type: WIDGET_TYPES.PROFILE_INFO, label: 'Информация профиля', icon: <AccountBox /> },
-    { type: WIDGET_TYPES.FAMILY_TREE, label: 'Семейное древо', icon: <FamilyRestroom /> }
-  ];
-
-  // Обработчики
-  const handlePaySubscription = useCallback(() => {
-    navigate('/subscription');
-  }, [navigate]);
-
-  const formatLastSaved = useCallback(() => {
-    if (!lastSaved) return '';
-    
-    const now = new Date();
-    const diffMinutes = Math.floor((now.getTime() - lastSaved.getTime()) / (1000 * 60));
-    
-    if (diffMinutes < 1) return 'только что';
-    if (diffMinutes < 60) return `${diffMinutes} мин. назад`;
-    
-    const diffHours = Math.floor(diffMinutes / 60);
-    if (diffHours < 24) return `${diffHours} ч. назад`;
-    
-    const diffDays = Math.floor(diffHours / 24);
-    return `${diffDays} дн. назад`;
-  }, [lastSaved]);
-
+  // Базовые функции для работы со страницей
   const getProfileUrl = useCallback(() => {
     const baseUrl = window.location.origin;
     return `${baseUrl}/social/${id || user?.username}`;
@@ -1165,158 +867,52 @@ const SocialPage: React.FC = () => {
     setIsQRCodeDialogOpen(false);
   }, []);
 
-  const handleExportData = useCallback(() => {
-    // TODO: Implement data export
-    alert('Данные будут экспортированы в ZIP архив. Эта функция находится в разработке.');
-  }, []);
-
-  const toggleSidebar = useCallback(() => {
-    setSidebarOpen(prev => !prev);
-  }, []);
-
-  // Перемещаем объявление calculateStorageUsed перед его использованием
-  const calculateStorageUsed = useCallback((currentWidgets: Widget[]): number => {
-    let totalSize = 0;
-    
-    currentWidgets.forEach(widget => {
-      if (widget.type === WIDGET_TYPES.IMAGE) {
-        totalSize += 2; // примерно 2 МБ на изображение
-      } else if (widget.type === WIDGET_TYPES.YOUTUBE) {
-        totalSize += 0.1; // метаданные занимают мало места
-      }
-    });
-    
-    return totalSize;
-  }, []);
-
-  const handleAddWidget = useCallback((type: string) => {
-    const newWidget = createWidget(type);
-    setWidgets(prev => [...prev, newWidget]);
-    setSelectedWidgetId(newWidget.id);
-    setAnchorEl(null);
-    setIsEditorOpen(true);
-    
-    const updatedWidgets = [...widgets, newWidget];
-    setStorageUsed(calculateStorageUsed(updatedWidgets));
-  }, [widgets, calculateStorageUsed]);
-
-  const handleWidgetSelect = useCallback((widgetId: string) => {
-    setSelectedWidgetId(widgetId);
-  }, []);
-
-  const handleDeleteWidget = useCallback((widgetId: string) => {
-    setWidgets(prev => {
-      const remainingWidgets = prev.filter(w => w.id !== widgetId);
-      setStorageUsed(calculateStorageUsed(remainingWidgets));
-      return remainingWidgets;
-    });
-    
-    if (selectedWidgetId === widgetId) {
-      setSelectedWidgetId(null);
-    }
-  }, [selectedWidgetId, calculateStorageUsed]);
-
-  const handleEditWidget = useCallback((widgetId: string) => {
-    setSelectedWidgetId(widgetId);
-    setIsEditorOpen(true);
-  }, []);
-
-  const handleWidgetPositionChange = useCallback((widgetId: string, targetIndex: number) => {
-    if (targetIndex < 0 || targetIndex >= widgets.length) return;
-    
-    setWidgets(prev => {
-      const updatedWidgets = [...prev];
-      const currentIndex = updatedWidgets.findIndex(w => w.id === widgetId);
-      
-      if (currentIndex === -1) return prev;
-      
-      // Извлекаем перемещаемый виджет
-      const [movedWidget] = updatedWidgets.splice(currentIndex, 1);
-      
-      // Вставляем виджет в новую позицию
-      updatedWidgets.splice(targetIndex, 0, movedWidget);
-      
-      return updatedWidgets;
-    });
-    
-    // Используем вибрацию для обратной связи
-    if (window.navigator && window.navigator.vibrate) {
-      window.navigator.vibrate([20, 30, 20]); // Более короткая и плавная вибрация
-    }
-  }, [widgets.length]);
-
-  const handleAddWidgetClose = useCallback(() => {
-    setAnchorEl(null);
-  }, []);
-
-  const handleSaveWidget = useCallback((updatedWidget: Widget) => {
-    setWidgets(prev => prev.map(w => w.id === updatedWidget.id ? updatedWidget : w));
-    setIsEditorOpen(false);
-  }, []);
-
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error';
-  }>({
-    open: false,
-    message: '',
-    severity: 'success'
-  });
-  
-  // Получаем ключи хранилища для текущего пользователя
-  const getStorageKeys = (userId: string) => ({
-    profile: `profile_${userId}`,
-    widgets: `widgets_${userId}`,
-    settings: `settings_${userId}`
-  });
-  
-  // Загрузка профиля пользователя
-  const loadUserProfile = useCallback(async (userId: string) => {
-    const { profile: profileKey } = getStorageKeys(userId);
-    try {
-      const savedProfile = localStorage.getItem(profileKey);
-      return savedProfile ? JSON.parse(savedProfile) : null;
-      } catch (e) {
-      console.error('Ошибка при загрузке профиля:', e);
-      return null;
-    }
-  }, []);
-  
-  // Сохранение профиля пользователя
-  const saveUserProfile = useCallback((userId: string, profile: Profile) => {
-    const { profile: profileKey } = getStorageKeys(userId);
-    try {
-      localStorage.setItem(profileKey, JSON.stringify(profile));
-      } catch (e) {
-      console.error('Ошибка при сохранении профиля:', e);
-    }
-  }, []);
-  
-  // Эффект для загрузки профиля
+  // Загрузка данных конструктора при первом рендеринге
   useEffect(() => {
-    if (!user && !id) return; // Ждём появления user после входа
+    const userId = id || (user?.username || '');
+    const storageKey = userId ? `pageMemoryData_${userId}` : 'pageMemoryData';
+    const savedData = localStorage.getItem(storageKey);
+    
+    if (savedData) {
+      try {
+        const parsedData = JSON.parse(savedData);
+        setConstructorBlocks(parsedData.blocks || []);
+        setConstructorBackgroundColor(parsedData.backgroundColor || '#ffffff');
+        setShowOnMap(parsedData.showOnMap !== undefined ? parsedData.showOnMap : true);
+      } catch (e) {
+        console.error(`Ошибка при загрузке сохраненных данных конструктора для пользователя ${userId}:`, e);
+      }
+    }
+  }, [id, user]);
+
+  // Загрузка профиля пользователя
+  useEffect(() => {
+    if (!user && !id) return;
     const fetchUserProfile = async () => {
       try {
         setLoading(true);
         // Для демо-профилей
-        if (!isOwner && id && demoProfiles[id]) {
+        if (id && demoProfiles[id]) {
           setProfile(demoProfiles[id]);
-          setWidgets(getDemoWidgets(id, demoProfiles[id].name, demoProfiles[id].bio));
           setLoading(false);
           return;
         }
+        
         const userId = id || (user?.username || '');
+        const loadUserProfile = async (userId: string) => {
+          const profileKey = `profile_${userId}`;
+          try {
+            const savedProfile = localStorage.getItem(profileKey);
+            return savedProfile ? JSON.parse(savedProfile) : null;
+          } catch (e) {
+            console.error('Ошибка при загрузке профиля:', e);
+            return null;
+          }
+        };
+        
         const userProfile = await loadUserProfile(userId);
         if (userProfile) {
-          if (!userProfile.name && user?.name) {
-            userProfile.name = user.name;
-            saveUserProfile(userId, userProfile);
-          }
           setProfile(userProfile);
-          const { widgets: widgetsKey } = getStorageKeys(userId);
-          const savedWidgets = localStorage.getItem(widgetsKey);
-          setWidgets(savedWidgets ? JSON.parse(savedWidgets) : []);
         } else {
           const newProfile: Profile = {
             id: userId,
@@ -1325,9 +921,7 @@ const SocialPage: React.FC = () => {
             avatar: '',
             theme: 'light'
           };
-          saveUserProfile(userId, newProfile);
           setProfile(newProfile);
-          setWidgets([]);
         }
         setLoading(false);
       } catch (error) {
@@ -1337,551 +931,44 @@ const SocialPage: React.FC = () => {
       }
     };
     fetchUserProfile();
-  }, [id, isOwner, user, isLoggedIn, loadUserProfile, saveUserProfile]);
-  
-  // Исправляем типы для обработчиков событий
-  const handleSaveProfile = useCallback(async () => {
-    try {
-      if (!isOwner || !user?.username) return;
-      
-      setIsSaving(true);
-      
-      const userId = user.username;
-      const finalProfile = {
-        ...profile,
-        id: userId,
-        name: profile.name || user.name
-      };
-      
-      saveUserProfile(userId, finalProfile);
-      setProfile(finalProfile);
-      
-      // Сохраняем виджеты
-      const { widgets: widgetsKey } = getStorageKeys(userId);
-      localStorage.setItem(widgetsKey, JSON.stringify(widgets));
-      
-      const saveTime = new Date();
-      setLastSaved(saveTime);
-      
-      setIsSaving(false);
-    } catch (error) {
-      console.error('Ошибка при сохранении профиля:', error);
-      setIsSaving(false);
-    }
-  }, [isOwner, user, widgets, saveUserProfile, profile]);
-  
-  // Автосохранение при изменении виджетов
-  useEffect(() => {
-    let saveTimer: NodeJS.Timeout;
-    
-    if (isOwner && widgets.length > 0 && !isSaving) {
-      saveTimer = setTimeout(() => {
-        handleSaveProfile();
-      }, 30000); // Автосохранение через 30 секунд после последнего изменения
-    }
-      
-    return () => {
-      if (saveTimer) clearTimeout(saveTimer);
-    };
-  }, [widgets, isOwner, handleSaveProfile, isSaving, profile]);
-  
-  // Функция рендера содержимого виджета
-  const renderWidgetContent = (widget: Widget) => {
-    switch (widget.type) {
-      case WIDGET_TYPES.TEXT:
-  return (
-          <Typography 
-            variant="body1" 
-            sx={{ 
-              wordBreak: 'break-word',
-              fontSize: { xs: '0.8rem', sm: '0.95rem', md: '1.05rem' },
-              lineHeight: 1.4
-            }}
-          >
-            {widget.content.text}
-          </Typography>
-        );
-      
-      case WIDGET_TYPES.IMAGE:
-        return (
-          <Box sx={{ 
-            height: '100%', 
-            display: 'flex', 
-            flexDirection: 'column',
-            alignItems: 'center'
-          }}>
-            <Box sx={{
-              width: '100%',
-              height: 'auto',
-              borderRadius: { xs: '6px', sm: '10px', md: '12px' },
-              overflow: 'hidden',
-              boxShadow: { xs: '0 2px 6px rgba(0, 0, 0, 0.06)', sm: '0 4px 10px rgba(0, 0, 0, 0.08)' },
-              mb: { xs: 0.5, sm: 1 }
-            }}>
-              <img 
-                src={widget.content.url} 
-                alt={widget.content.caption || 'Изображение'} 
-                style={{ 
-                  width: '100%', 
-                  height: 'auto', 
-                  objectFit: 'cover',
-                  display: 'block'
-                }}
-              />
-            </Box>
-            {widget.content.caption && (
-              <Typography 
-                variant="caption" 
-                align="center" 
-                sx={{ 
-                  mt: { xs: 0.25, sm: 0.5 },
-                  fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.85rem' },
-                  opacity: 0.9
-                }}
-              >
-                {widget.content.caption}
-              </Typography>
-            )}
-          </Box>
-        );
-      
-      case WIDGET_TYPES.SOCIAL:
-        const SocialIcon = () => {
-          switch (widget.content.type) {
-            case 'instagram': return <Instagram sx={{ fontSize: { xs: '0.9rem', sm: '1.5rem' } }} />;
-            case 'facebook': return <Facebook sx={{ fontSize: { xs: '0.9rem', sm: '1.5rem' } }} />;
-            case 'twitter': return <Twitter sx={{ fontSize: { xs: '0.9rem', sm: '1.5rem' } }} />;
-            default: return <LinkIcon sx={{ fontSize: { xs: '0.9rem', sm: '1.5rem' } }} />;
-          }
-        };
-        
-        return (
-          <Box sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: { xs: 0.5, sm: 1.5 },
-            flexWrap: 'wrap'
-          }}>
-            <SocialIcon />
-            <Typography sx={{ 
-              fontSize: { xs: '0.75rem', sm: '1rem' },
-              wordBreak: 'break-all'
-            }}>
-              {widget.content.username || widget.content.url}
-            </Typography>
-          </Box>
-        );
-      
-      case WIDGET_TYPES.YOUTUBE:
-        return (
-          <Box sx={{ 
-            height: '100%', 
-            display: 'flex', 
-            flexDirection: 'column'
-          }}>
-            <Box sx={{
-              position: 'relative',
-              paddingBottom: '56.25%',
-              height: 0,
-              overflow: 'hidden',
-              borderRadius: { xs: '6px', sm: '10px', md: '12px' },
-              boxShadow: { xs: '0 2px 6px rgba(0, 0, 0, 0.06)', sm: '0 4px 10px rgba(0, 0, 0, 0.08)' },
-              mb: { xs: 0.5, sm: 1 }
-            }}>
-              <iframe 
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  height: '100%',
-                  border: 'none'
-                }}
-                src={`https://www.youtube.com/embed/${widget.content.videoId}`} 
-                title="YouTube video" 
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-                allowFullScreen
-              ></iframe>
-            </Box>
-            {widget.content.caption && (
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  mt: { xs: 0.25, sm: 0.5 },
-                  fontSize: { xs: '0.65rem', sm: '0.75rem', md: '0.85rem' },
-                  opacity: 0.9
-                }}
-              >
-                {widget.content.caption}
-              </Typography>
-            )}
-          </Box>
-        );
-      
-      case WIDGET_TYPES.PROFILE_INFO:
-        return (
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            gap: { xs: 0.25, sm: 1 }
-          }}>
-            <Typography 
-              variant="h6" 
-              sx={{ 
-                fontSize: { xs: '0.9rem', sm: '1.25rem' },
-                fontWeight: 600,
-                mb: { xs: 0.25, sm: 0.5 }
-              }}
-            >
-              {widget.content.title}
-            </Typography>
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                fontSize: { xs: '0.75rem', sm: '0.95rem' },
-                opacity: 0.9,
-                lineHeight: { xs: 1.3, sm: 1.4 }
-              }}
-            >
-              {widget.content.description}
-            </Typography>
-          </Box>
-        );
-      
-      case WIDGET_TYPES.FAMILY_TREE:
-        return (
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            height: '100%', 
-            overflow: 'auto'
-          }}>
-            <Typography 
-              variant="h6" 
-              gutterBottom
-              sx={{
-                fontSize: { xs: '0.9rem', sm: '1.25rem' },
-                fontWeight: 600,
-                mb: { xs: 0.25, sm: 0.5 }
-              }}
-            >
-              {widget.content.title || 'Семейное древо'}
-            </Typography>
-            <Box sx={{ 
-              flexGrow: 1,
-              '& svg': {
-                maxWidth: '100%',
-                height: 'auto'
-              }
-            }}>
-              <FamilyTreeWidget 
-                initialMembers={widget.content.members || []}
-                currentUserId={widget.content.userId || ''}
-                onSave={() => {}}
-                readOnly={true}
-              />
-            </Box>
-          </Box>
-        );
-      
-      default:
-        return <Typography>Неизвестный тип виджета</Typography>;
-    }
-  };
+  }, [id, user]);
 
-  // Компонент для редактируемых виджетов - максимально простая реализация
-  const DraggableWidgets = () => {
-    return (
-      <Reorder.Group 
-        axis="y" 
-        values={widgets} 
-        onReorder={setWidgets}
-        as="div"
-        style={{ 
-          width: '100%',
-          maxWidth: '100%',
-        }}
-            >
-        {widgets.map((widget) => (
-          <Reorder.Item 
-                  key={widget.id}
-            value={widget}
-            style={{ 
-              width: '100%',
-              boxSizing: 'border-box',
-              marginBottom: '16px',
-            }}
-            whileDrag={{ 
-              scale: 1.02,
-              zIndex: 50,
-              boxShadow: "0 15px 35px rgba(0, 0, 0, 0.25)"
-            }}
-            animate={{ opacity: 1, y: 0 }}
-            initial={{ opacity: 0, y: 10 }}
-            exit={{ opacity: 0, y: -10 }}
-            layout
-            transition={{
-              duration: 0.3,
-              ease: [0.25, 0.8, 0.25, 1]
-            }}
-          >
-            <div 
-              style={{ 
-                background: widget.backgroundColor,
-                color: widget.textColor,
-                borderRadius: '12px',
-                padding: '16px',
-                boxShadow: widget.id === selectedWidgetId 
-                  ? '0 5px 15px rgba(33, 150, 243, 0.35)' 
-                  : '0 2px 10px rgba(0, 0, 0, 0.08)',
-                border: widget.id === selectedWidgetId ? '3px solid #2196f3' : 'none',
-                width: '100%',
-                boxSizing: 'border-box',
-                position: 'relative',
-                transition: 'box-shadow 0.3s cubic-bezier(0.25, 0.8, 0.25, 1), border 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
-                willChange: 'transform, box-shadow'
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                handleWidgetSelect(widget.id);
-              }}
-            >
-              <div style={{ 
-                position: 'absolute',
-                right: '16px',
-                top: '16px',
-                cursor: 'grab',
-                transition: 'transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1)'
-              }}>
-                <DragIndicator color="action" />
-            </div>
-              <div style={{ 
-                position: 'absolute',
-                top: '8px',
-                left: '8px',
-                display: 'flex',
-                gap: '4px',
-                zIndex: 10,
-                transition: 'opacity 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
-              }}>
-                <IconButton 
-                  size="small" 
-                  onClick={(e) => { e.stopPropagation(); handleEditWidget(widget.id); }}
-                  sx={{ 
-                    backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-                    '&:hover': { 
-                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                      transform: 'scale(1.1)' 
-                    },
-                    padding: '4px',
-                    transition: 'transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.2s cubic-bezier(0.25, 0.8, 0.25, 1)'
-                  }}
-                >
-                  <Edit fontSize="small" />
-                </IconButton>
-                <IconButton 
-                  size="small" 
-                  onClick={(e) => { e.stopPropagation(); handleDeleteWidget(widget.id); }}
-                  sx={{ 
-                    backgroundColor: 'rgba(255, 255, 255, 0.8)', 
-                    '&:hover': { 
-                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                      transform: 'scale(1.1)' 
-                    },
-                    padding: '4px',
-                    transition: 'transform 0.2s cubic-bezier(0.25, 0.8, 0.25, 1), background-color 0.2s cubic-bezier(0.25, 0.8, 0.25, 1)'
-                  }}
-                >
-                  <Delete fontSize="small" />
-                </IconButton>
-              </div>
-              
-              {renderWidgetContent(widget)}
-            </div>
-          </Reorder.Item>
-        ))}
-      </Reorder.Group>
-    );
-  };
-  
-  // Рендер виджетов на странице (в режиме просмотра)
-  const renderViewWidgets = () => {
-    return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        {widgets.map((widget, index) => (
-          <Box
-            key={widget.id}
-            sx={{
-              backgroundColor: widget.backgroundColor,
-              color: widget.textColor,
-              borderRadius: 2,
-              p: 3,
-              boxShadow: '0 1px 3px rgba(0,0,0,0.12)'
-            }}
-          >
-            {renderWidgetContent(widget)}
-          </Box>
-        ))}
+  return (
+    <Container maxWidth="lg" sx={{ my: 4, px: { xs: 1, sm: 2, md: 3 } }}>
+      <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+        <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
+          {profile.name || 'Страница памяти'}
+        </Typography>
         
-        {widgets.length === 0 && (
-          <Typography variant="body1" color="text.secondary" sx={{ textAlign: 'center', py: 4 }}>
-            У пользователя пока нет содержимого на странице
-          </Typography>
+        {isOwner && (
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="outlined"
+              startIcon={<QrCode />}
+              onClick={handleOpenQRCodeDialog}
+            >
+              QR-код
+            </Button>
+          </Box>
         )}
       </Box>
-    );
-  };
-
-  return (
-    <Container maxWidth={false} sx={{ py: 4, px: { xs: 1, sm: 2, md: 3 } }}>
-      {loading ? (
-        <ProfileContainer>
-          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 200 }}>
-            <CircularProgress />
-          </Box>
-        </ProfileContainer>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5, ease: "easeInOut" }}
-        >
-          {!id && (
-            <ProfileContainer>
-              <Box sx={{ 
-                display: 'flex', 
-              justifyContent: 'space-between', 
-                alignItems: 'center', 
-                mb: 4,
-                flexDirection: { xs: 'column', sm: 'row' },
-                gap: { xs: 2, sm: 0 }
-            }}>
-                <Typography variant="h4" sx={{ fontSize: { xs: '1.5rem', sm: '2rem' } }}>
-                    Мой профиль
-                  </Typography>
-                
-                <Box sx={{ 
-                  display: 'flex', 
-                  gap: { xs: 1, sm: 2 },
-                  flexWrap: { xs: 'wrap', sm: 'nowrap' },
-                  justifyContent: { xs: 'center', sm: 'flex-end' },
-                  width: { xs: '100%', sm: 'auto' }
-                }}>
-                  <Button
-                    variant="contained"
-                            color="primary"
-                    onClick={toggleSidebar}
-                    startIcon={<Add />}
-                    size="medium"
-                    sx={{ 
-                      fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                      flex: { xs: '1 1 auto', sm: '0 0 auto' },
-                      maxWidth: { xs: '100%', sm: 'none' },
-                      transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
-                    }}
-                  >
-                    Добавить блок
-                  </Button>
-                  
-                  {isOwner && (
-                      <Button
-                      variant="contained"
-                      color="success"
-                        onClick={handleSaveProfile}
-                        startIcon={isSaving ? <CircularProgress size={16} /> : <Save />}
-                        disabled={isSaving}
-                      size="medium"
-                      sx={{ 
-                        fontSize: { xs: '0.8rem', sm: '0.875rem' },
-                        flex: { xs: '1 1 auto', sm: '0 0 auto' },
-                        maxWidth: { xs: '100%', sm: 'none' },
-                        transition: 'all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)'
-                      }}
-                    >
-                      {isSaving ? 'Сохранение...' : 'Сохранить профиль'}
-                      </Button>
-                  )}
-                  
-                  <IconButton 
-                    onClick={handleOpenQRCodeDialog}
-                    sx={{ 
-                      width: { xs: '40px', sm: '48px' },
-                      height: { xs: '40px', sm: '48px' },
-                      transition: 'transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1)',
-                      '&:hover': {
-                        transform: 'scale(1.1)'
-                      }
-                    }}
-                  >
-                    <QrCode sx={{ fontSize: { xs: '1.2rem', sm: '1.5rem' } }} />
-                      </IconButton>
-                    </Box>
-                  </Box>
-
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ 
-                  duration: 0.5, 
-                  staggerChildren: 0.1 
-                }}
-              >
-                <AnimatePresence>
-                  <DraggableWidgets />
-                </AnimatePresence>
-              </motion.div>
-        </ProfileContainer>
-      )}
-      {id && (
-        <ProfileContainer>
-          <Box sx={{ mb: 4 }}>
-            <Typography variant="h4" gutterBottom>
-                {profile.name}
-              </Typography>
-            <Typography variant="body1" color="text.secondary">
-              {profile.bio}
-            </Typography>
-          </Box>
-          
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ 
-                  duration: 0.5, 
-                  ease: [0.25, 0.8, 0.25, 1],
-                  staggerChildren: 0.1
-                }}
-              >
-              {renderViewWidgets()}
-              </motion.div>
-        </ProfileContainer>
-      )}
-        </motion.div>
-      )}
-
-      {selectedWidgetId && (
-        <WidgetEditor 
-          widget={widgets.find(w => w.id === selectedWidgetId) || null} 
-          open={isEditorOpen} 
-          onClose={() => setIsEditorOpen(false)} 
-          onSave={handleSaveWidget}
-          storageLimit={storageLimit}
-          storageUsed={storageUsed}
-        />
-      )}
       
+      {/* Интегрируем конструктор прямо на страницу */}
+      <Constructor 
+        savedData={{
+          blocks: constructorBlocks,
+          backgroundColor: constructorBackgroundColor,
+          showOnMap
+        }}
+        userId={viewingId}
+      />
+      
+      {/* QR код диалог */}
       <QRCodeDialog
-        open={isQRCodeDialogOpen} 
+        open={isQRCodeDialogOpen}
         onClose={handleCloseQRCodeDialog}
         profileUrl={getProfileUrl()}
         onCopyLink={handleCopyProfileLink}
-      />
-
-      <WidgetPalettePanel 
-        isOpen={sidebarOpen}
-        onClose={toggleSidebar}
-        onAddWidget={handleAddWidget}
-        widgetTypes={widgetTypes}
       />
     </Container>
   );

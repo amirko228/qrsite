@@ -483,9 +483,9 @@ const Subscription: React.FC = () => {
                     variant="contained" 
                     color="primary" 
                     sx={{ mt: 4 }}
-                    href="/social"
+                    href="/memory"
                   >
-                    Перейти в мой профиль
+                    Перейти на страницу памяти
                   </Button>
                 </Box>
               )}

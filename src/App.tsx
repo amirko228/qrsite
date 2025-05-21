@@ -72,7 +72,6 @@ const Subscription = lazy(() => import('./pages/subscription/Subscription'));
 const TermsPage = lazy(() => import('./pages/legal/TermsPage'));
 const PrivacyPage = lazy(() => import('./pages/legal/PrivacyPage'));
 const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
-const Editor = lazy(() => import('./pages/editor/Editor'));
 const AdminPanel = lazy(() => import('./pages/admin/AdminPanel'));
 const FAQ = lazy(() => import('./pages/FAQ'));
 const ProfileSettings = lazy(() => import('./pages/profile/ProfileSettings'));
@@ -175,14 +174,6 @@ const AppLayout = () => {
         />
         <Route path="/social/:id" element={<SocialPage />} />
         <Route path="/login" element={<Auth />} />
-        <Route 
-          path="/editor" 
-          element={
-            <ProtectedRoute>
-              <Editor />
-            </ProtectedRoute>
-          } 
-        />
         <Route 
           path="/settings" 
           element={

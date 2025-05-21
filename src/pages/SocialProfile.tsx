@@ -5,15 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import Draggable from 'react-draggable';
 import { Resizable, ResizeCallback } from 're-resizable';
 import { Delete as DeleteIcon, Save as SaveIcon, ContentCopy as DuplicateIcon, Palette as PaletteIcon, GridOn as GridIcon, GridOff as GridOffIcon, OpenWith as MoveIcon, Download as DownloadIcon, FileUpload as UploadIcon, CodeRounded as CodeIcon, ColorLens as ThemeIcon, Edit as EditIcon, Share as ShareIcon, QrCode as QrCodeIcon } from '@mui/icons-material';
-import PhotoWidget from '../components/widgets/PhotoWidget';
-import TextWidget from '../components/widgets/TextWidget';
 import FamilyTreeWidget from '../components/widgets/FamilyTreeWidget';
-import VideoWidget from '../components/widgets/VideoWidget';
-import LinksWidget from '../components/widgets/LinksWidget';
 import ProfileInfoWidget from '../components/widgets/ProfileInfoWidget';
-import PhotoCarouselWidget from '../components/widgets/PhotoCarouselWidget';
 import SocialLinksWidget from '../components/widgets/SocialLinksWidget';
-import WidgetEditor, { Widget as EditorWidget, WidgetType as EditorWidgetType } from '../components/WidgetEditor';
 
 // Темы оформления
 const THEMES = {
@@ -222,37 +216,31 @@ export interface Widget {
 const WIDGET_TYPES: Record<WidgetType, {
   title: string;
   icon: string;
-  component: React.ComponentType<any>;
   defaultContent: any;
 }> = {
   'text': {
     title: 'Текст',
     icon: 'text_fields',
-    component: TextWidget,
     defaultContent: 'Новый текстовый блок'
   },
   'photo': {
     title: 'Фото',
     icon: 'photo',
-    component: PhotoWidget,
     defaultContent: { url: '', caption: '' }
   },
   'video': {
     title: 'Видео',
     icon: 'videocam',
-    component: VideoWidget,
     defaultContent: { url: '', title: '' }
   },
   'links': {
     title: 'Ссылки',
     icon: 'link',
-    component: LinksWidget,
     defaultContent: { links: [] }
   },
   'profile-info': {
     title: 'Информация профиля',
     icon: 'person',
-    component: ProfileInfoWidget,
     defaultContent: {
       name: '', 
       occupation: '',
@@ -262,7 +250,6 @@ const WIDGET_TYPES: Record<WidgetType, {
   'social-links': {
     title: 'Социальные сети',
     icon: 'share',
-    component: SocialLinksWidget,
     defaultContent: { links: [] }
   }
 };
@@ -293,150 +280,136 @@ const Widget: React.FC<{
   gridSize: number;
   snapToGrid: boolean;
 }> = ({ widget, isEditing, onUpdate, onDelete, onPositionChange, onDuplicate, theme, gridSize, snapToGrid }) => {
-  const config = WIDGET_TYPES[widget.type];
-  const Component = config.component;
-  const [rotation, setRotation] = useState(widget.position.rotation || 0);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-
-  const handleRotate = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (!isEditing) return;
-
-    const rect = e.currentTarget.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-
-    const onMouseMove = (e: MouseEvent) => {
-      const angle = Math.atan2(e.clientY - centerY, e.clientX - centerX);
-      const newRotation = angle * (180 / Math.PI);
-      setRotation(newRotation);
-      onPositionChange({ ...widget.position, rotation: newRotation });
-    };
-
-    const onMouseUp = () => {
-      document.removeEventListener('mousemove', onMouseMove);
-      document.removeEventListener('mouseup', onMouseUp);
-    };
-
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+  const nodeRef = useRef(null);
+  
+  // Простой рендеринг виджета в зависимости от типа
+  const renderWidgetContent = () => {
+    switch (widget.type) {
+      case 'profile-info':
+        return (
+          <ProfileInfoWidget
+            content={{
+              name: widget.content.name || '',
+              bio: widget.content.description || '',
+              avatar: widget.content.photo || '',
+              location: widget.content.location || ''
+            }}
+            onUpdate={onUpdate}
+            isEditing={isEditing}
+          />
+        );
+      
+      case 'social-links':
+        return (
+          <SocialLinksWidget
+            content={{
+              networks: widget.content.links || []
+            }}
+            onContentChange={onUpdate}
+            readOnly={!isEditing}
+          />
+        );
+        
+      // Заглушки для удаленных типов виджетов
+      case 'text':
+      case 'photo':
+      case 'video':
+      case 'links':
+      default:
+        return (
+          <Box p={2}>
+            <Typography variant="subtitle1">
+              {widget.title || 'Виджет'}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {isEditing ? 'Этот тип виджета больше не поддерживается' : ''}
+            </Typography>
+          </Box>
+        );
+    }
   };
+  
+  // Остальной код виджета
+  // ... существующий код виджета ...
 
   const handleOpenMenu = (event: React.MouseEvent<HTMLElement>) => {
-    if (isEditing) {
       setMenuAnchor(event.currentTarget);
-    }
   };
 
   const handleCloseMenu = () => {
     setMenuAnchor(null);
   };
 
-  // Функция для привязки к сетке
   const snapToGridFunc = (pos: { x: number, y: number }) => {
-    if (snapToGrid) {
+    if (!snapToGrid) return pos;
       return {
         x: Math.round(pos.x / gridSize) * gridSize,
         y: Math.round(pos.y / gridSize) * gridSize
       };
-    }
-    return pos;
-  };
-
-  const handleResizeStop: ResizeCallback = (event, direction, ref, delta) => {
-    const width = parseInt(ref.style.width);
-    const height = parseInt(ref.style.height);
-    
-    const snappedSize = {
-      width: snapToGrid ? Math.round(width / gridSize) * gridSize : width,
-      height: snapToGrid ? Math.round(height / gridSize) * gridSize : height
-    };
-    
-    onPositionChange({ 
-      ...widget.position, 
-      width: snappedSize.width, 
-      height: snappedSize.height 
-    });
   };
 
   return (
     <Draggable
-      handle=".widget-header"
-      disabled={!isEditing}
-      bounds="parent"
-      defaultPosition={{ x: widget.position.x, y: widget.position.y }}
-      grid={snapToGrid ? [gridSize, gridSize] : undefined}
+      nodeRef={nodeRef}
+      position={{ x: widget.position.x, y: widget.position.y }}
       onStop={(e, data) => {
-        const pos = snapToGridFunc({ x: data.x, y: data.y });
-        onPositionChange({ ...widget.position, x: pos.x, y: pos.y });
+        if (isEditing) {
+          const snappedPos = snapToGrid ? snapToGridFunc({ x: data.x, y: data.y }) : { x: data.x, y: data.y };
+          onPositionChange({
+            ...widget.position,
+            x: snappedPos.x,
+            y: snappedPos.y
+          });
+        }
       }}
+      disabled={!isEditing}
     >
-      <div style={{ 
+      <Box 
+        ref={nodeRef}
+        sx={{ 
         position: 'absolute',
-        transform: `rotate(${rotation}deg)`,
-        transformOrigin: 'center center',
-        zIndex: isEditing ? 1000 : 'auto',
-        width: widget.position.width,
-        height: widget.position.height
-      }}>
-        <Resizable
-          size={{ width: widget.position.width, height: widget.position.height }}
-          minWidth={200}
-          minHeight={100}
-          grid={snapToGrid ? [gridSize, gridSize] : undefined}
-          enable={{ top: isEditing, right: isEditing, bottom: isEditing, left: isEditing, topRight: isEditing, bottomRight: isEditing, bottomLeft: isEditing, topLeft: isEditing }}
-          onResizeStop={handleResizeStop}
+          width: `${widget.position.width}px`,
+          height: `${widget.position.height}px`,
+          transform: `rotate(${widget.position.rotation}deg)`,
+          zIndex: 10
+        }}
+      >
+        <WidgetContainer
+          theme={theme}
+          whileHover={{ scale: isEditing ? 1.01 : 1 }}
+          transition={{ duration: 0.2 }}
         >
-          <WidgetContainer theme={theme}>
           {isEditing && (
-            <>
-              <RotateHandle
-                onMouseDown={handleRotate}
-              >
-                <span className="material-icons" style={{ fontSize: 16 }}>rotate_right</span>
-              </RotateHandle>
-
-              <Box 
-                sx={{ 
-                  position: 'absolute',
-                  top: 8,
-                  right: 8,
-                    zIndex: 1000,
-                    display: 'flex',
-                    gap: 1
-                  }}
-                >
-                  <Tooltip title="Опции виджета">
+            <DeleteButton
+              color="error"
+              onClick={onDelete}
+              size="small"
+            >
+              <DeleteIcon fontSize="small" />
+            </DeleteButton>
+          )}
+          
+          <WidgetHeader theme={theme}>
+            <Typography variant="subtitle1" fontWeight="medium">
+              {widget.title}
+            </Typography>
+            
+            {isEditing && (
                     <IconButton
                       size="small"
+                sx={{ ml: 'auto' }}
                       onClick={handleOpenMenu}
-                      sx={{
-                        bgcolor: 'primary.main',
-                        color: 'white',
-                        '&:hover': {
-                          bgcolor: 'primary.dark',
-                        }
-                }}
               >
                       <MoveIcon fontSize="small" />
                     </IconButton>
-                  </Tooltip>
-
-                  <Tooltip title="Удалить виджет">
-                <IconButton
-                  size="small"
-                  onClick={onDelete}
-                  sx={{
-                    bgcolor: 'error.main',
-                    color: 'white',
-                    '&:hover': {
-                      bgcolor: 'error.dark',
-                    }
-                  }}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-                  </Tooltip>
-              </Box>
+            )}
+          </WidgetHeader>
+          
+          <WidgetContent>
+            {renderWidgetContent()}
+          </WidgetContent>
+        </WidgetContainer>
 
                 <Menu
                   anchorEl={menuAnchor}
@@ -444,309 +417,106 @@ const Widget: React.FC<{
                   onClose={handleCloseMenu}
                 >
                   <MenuItem onClick={() => {
+            handleCloseMenu();
                     onDuplicate();
-                    handleCloseMenu();
                   }}>
                     <DuplicateIcon fontSize="small" sx={{ mr: 1 }} />
                     Дублировать
                   </MenuItem>
-                  <MenuItem onClick={() => {
-                    onPositionChange({ ...widget.position, rotation: 0 });
-                    setRotation(0);
-                    handleCloseMenu();
-                  }}>
-                    <span className="material-icons" style={{ fontSize: 20, marginRight: 8 }}>rotate_left</span>
-                    Сбросить поворот
-                  </MenuItem>
                 </Menu>
-            </>
-          )}
-          
-            <WidgetHeader className="widget-header" theme={theme}>
-            <span className="material-icons" style={{ 
-              marginRight: '10px',
-              opacity: 0.7,
-              fontSize: '20px'
-            }}>
-              {config.icon}
-            </span>
-            <Typography variant="h6" sx={{ 
-              fontSize: '1.1rem',
-              fontWeight: 500,
-                color: theme.text
-            }}>
-              {config.title}
-            </Typography>
-          </WidgetHeader>
-
-          <WidgetContent>
-            <Component
-              content={widget.content}
-              onUpdate={onUpdate}
-              isEditing={isEditing}
-              onDelete={onDelete}
-            />
-          </WidgetContent>
-        </WidgetContainer>
-        </Resizable>
-      </div>
+      </Box>
     </Draggable>
   );
 };
 
-// Преобразование виджетов SocialProfile в формат EditorWidget
-const convertWidgetsForEditor = (widgets: Widget[]): EditorWidget[] => {
-  return widgets.map(widget => {
-    // Преобразуем тип WidgetType в EditorWidgetType
-    let editorType: EditorWidgetType;
-    
-    switch (widget.type) {
-      case 'text':
-        editorType = 'notion-block';
-        break;
-      case 'photo':
-        editorType = 'photo-carousel';
-        break;
-      case 'video':
-        editorType = 'notion-block'; // Fallback для видео
-        break;
-      case 'profile-info':
-        editorType = 'notion-profile';
-        break;
-      case 'social-links':
-        editorType = 'gallery-database';
-        break;
-      case 'links':
-        editorType = 'gallery-database';
-        break;
-      default:
-        editorType = 'notion-block';
-    }
-    
-    return {
-      id: widget.id,
-      type: editorType,
-      content: widget.content
-    };
-  });
-};
-
-// Преобразование виджетов EditorWidget обратно в формат SocialProfile
-const convertEditorWidgets = (editorWidgets: EditorWidget[]): Widget[] => {
-  return editorWidgets.map(editorWidget => {
-    // Преобразуем тип EditorWidgetType в WidgetType
-    let widgetType: WidgetType;
-    
-    switch (editorWidget.type) {
-      case 'notion-block':
-        widgetType = 'text';
-        break;
-      case 'photo-carousel':
-        widgetType = 'photo';
-        break;
-      case 'notion-profile':
-        widgetType = 'profile-info';
-        break;
-      case 'gallery-database':
-        widgetType = 'links';
-        break;
-      default:
-        widgetType = 'text';
-    }
-    
-    return {
-      id: editorWidget.id,
-      type: widgetType,
-      title: editorWidget.id, // Используем id как временный заголовок
-      content: editorWidget.content,
-      icon: 'default',
-      position: {
-        x: 0, 
-        y: 0,
-        width: 1,
-        height: 1,
-        rotation: 0
-      }
-    };
-  });
-};
-
 const SocialProfile: React.FC = () => {
-  const [loading, setLoading] = useState(true);
-  const [editing, setEditing] = useState(false);
   const [widgets, setWidgets] = useState<Widget[]>([]);
-  const [tabValue, setTabValue] = useState(0);
-  const [snackbar, setSnackbar] = useState({
+  const [gridSize, setGridSize] = useState<number>(20);
+  const [showGrid, setShowGrid] = useState<boolean>(false);
+  const [snapToGrid, setSnapToGrid] = useState<boolean>(true);
+  const [editing, setEditing] = useState<boolean>(false);
+  const [themeKey, setThemeKey] = useState<keyof typeof THEMES>('light');
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
+  const [widgetMenuAnchor, setWidgetMenuAnchor] = useState<null | HTMLElement>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [addWidgetMenuOpen, setAddWidgetMenuOpen] = useState<boolean>(false);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [snackbar, setSnackbar] = useState<{open: boolean, message: string, severity: 'success' | 'error'}>({
     open: false,
     message: '',
-    severity: 'success' as 'success' | 'error' | 'info' | 'warning'
+    severity: 'success'
   });
   
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const canvasRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const theme = THEMES[themeKey];
+  const muiTheme = useTheme();
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
   
-  // Загрузка исходных данных
+  // Загрузка данных
   useEffect(() => {
-    // Имитация загрузки данных
     const loadData = async () => {
-      setLoading(true);
-      
-      // Задержка для имитации загрузки
-      await new Promise(resolve => setTimeout(resolve, 800));
+      try {
+        // Здесь будет ваш реальный запрос к API
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Симуляция задержки загрузки
       
       // Тестовые виджеты
-      const sampleWidgets: Widget[] = [
+        const testWidgets: Widget[] = [
         {
           id: '1',
           type: 'profile-info',
           title: 'Профиль',
-          icon: 'person',
-          position: { x: 0, y: 0, width: 1, height: 1, rotation: 0 },
           content: {
-            name: 'Александр Иванов',
-            coverColor: '#F0F5FF',
-            avatar: 'https://i.pravatar.cc/300?img=8',
-            blocks: [
-              {
-                id: '101',
-                type: 'paragraph',
-                content: 'Профессиональный фотограф и дизайнер. Работаю над проектами в сфере цифрового искусства и визуальных коммуникаций.',
-                format: {}
-              },
-              {
-                id: '102',
-                type: 'heading-2',
-                content: 'Обо мне',
-                format: { bold: true }
-              },
-              {
-                id: '103',
-                type: 'paragraph',
-                content: 'Более 5 лет опыта в создании визуального контента для брендов и компаний разного масштаба. Специализируюсь на минималистичной эстетике и продуманных композициях.',
-                format: {}
-              }
-            ]
-          }
+              name: 'Иван Иванович Иванов',
+              birthDate: '15.06.1945',
+              deathDate: '23.04.2022',
+              photo: 'https://images.unsplash.com/photo-1566753323558-f4e0952af115?q=80&w=1000&auto=format&fit=crop',
+              description: 'Любящий отец, дедушка и друг. Ветеран труда. Посвятил свою жизнь семье и работе.'
+            },
+            icon: 'person',
+            position: { x: 50, y: 50, width: 400, height: 300, rotation: 0 }
         },
         {
           id: '2',
-          type: 'photo',
-          title: 'Фотографии',
-          icon: 'photo',
-          position: { x: 0, y: 1, width: 1, height: 1, rotation: 0 },
+            type: 'social-links',
+            title: 'Социальные сети',
           content: {
-            title: 'Мои работы',
-            photos: [
-              {
-                id: '201',
-                url: 'https://source.unsplash.com/random/800x600?nature',
-                caption: 'Природные пейзажи',
-                location: 'Карелия'
-              },
-              {
-                id: '202',
-                url: 'https://source.unsplash.com/random/800x600?city',
-                caption: 'Городская архитектура',
-                location: 'Москва'
-              },
-              {
-                id: '203',
-                url: 'https://source.unsplash.com/random/800x600?portrait',
-                caption: 'Портретная съемка',
-                location: 'Студия'
-              }
-            ]
+              links: [
+                { type: 'facebook', url: 'https://facebook.com', title: 'Facebook' },
+                { type: 'instagram', url: 'https://instagram.com', title: 'Instagram' },
+                { type: 'youtube', url: 'https://youtube.com', title: 'YouTube' }
+              ]
+            },
+            icon: 'share',
+            position: { x: 550, y: 50, width: 300, height: 200, rotation: 0 }
           }
-        },
-        {
-          id: '3',
-          type: 'links',
-          title: 'Проекты',
-          icon: 'link',
-          position: { x: 0, y: 2, width: 1, height: 1, rotation: 0 },
-          content: {
-            title: 'Мои проекты',
-            items: [
-              {
-                id: '301',
-                imageUrl: 'https://source.unsplash.com/random/300x200?web',
-                title: 'Редизайн личного сайта',
-                description: 'Обновление дизайна и функциональности моего портфолио',
-                date: '2023-05-15',
-                tags: ['Дизайн', 'Веб'],
-                properties: {
-                  'Категория': 'Веб-дизайн',
-                  'Рейтинг': '5'
-                }
-              },
-              {
-                id: '302',
-                imageUrl: 'https://source.unsplash.com/random/300x200?photography',
-                title: 'Фотовыставка "Минимализм"',
-                description: 'Серия работ на тему минимализма в городской среде',
-                date: '2023-03-10',
-                tags: ['Фото', 'Выставка'],
-                properties: {
-                  'Категория': 'Фотография',
-                  'Рейтинг': '4'
-                }
-              },
-              {
-                id: '303',
-                imageUrl: 'https://source.unsplash.com/random/300x200?branding',
-                title: 'Брендинг для стартапа',
-                description: 'Разработка визуальной идентичности IT-стартапа',
-                date: '2023-01-05',
-                tags: ['Брендинг', 'Логотип'],
-                properties: {
-                  'Категория': 'Брендинг',
-                  'Рейтинг': '5'
-                }
-              }
-            ],
-            properties: [
-              { name: 'Категория', type: 'select', options: ['Веб-дизайн', 'Фотография', 'Брендинг', 'UI/UX', 'Разное'] },
-              { name: 'Рейтинг', type: 'number' }
-            ]
-          }
-        },
-        {
-          id: '4',
-          type: 'text',
-          title: 'Навыки',
-          icon: 'format_list_bulleted',
-          position: { x: 0, y: 3, width: 1, height: 1, rotation: 0 },
-          content: {
-            blocks: [
-              {
-                id: '401',
-                type: 'heading-1',
-                content: 'Мои навыки',
-                format: { bold: true }
-              }
-            ]
-          }
-        }
-      ];
-      
-      setWidgets(sampleWidgets);
+        ];
+        
+        setWidgets(testWidgets);
+        setLoading(false);
+      } catch (error) {
+        console.error('Ошибка при загрузке данных:', error);
       setLoading(false);
+        setSnackbar({
+          open: true,
+          message: 'Ошибка при загрузке данных',
+          severity: 'error'
+        });
+      }
     };
     
     loadData();
   }, []);
   
-  // Обработка переключения вкладок
-  const handleTabChange = (_event: React.SyntheticEvent, newValue: number) => {
-    setTabValue(newValue);
+  // Добавление нового виджета
+  const handleAddWidget = (type: WidgetType) => {
+    // Логика добавления виджета
   };
   
-  // Обработка обновления виджетов из редактора
-  const handleUpdateWidgets = (updatedEditorWidgets: EditorWidget[]) => {
-    const convertedWidgets = convertEditorWidgets(updatedEditorWidgets);
-    setWidgets(convertedWidgets);
-    
-    // В реальном приложении здесь будет сохранение на сервер
+  // Сохранение профиля
+  const handleSaveProfile = () => {
+    // Логика сохранения профиля
+    setEditing(false);
     setSnackbar({
       open: true,
       message: 'Изменения сохранены',
@@ -754,47 +524,49 @@ const SocialProfile: React.FC = () => {
     });
   };
   
-  // Добавление нового виджета
-  const handleAddWidget = (type: WidgetType) => {
-    // Реализация добавления виджета
-  };
-  
-  // Сохранение профиля
-  const handleSaveProfile = () => {
-    // Имитация сохранения
-    setLoading(true);
-    
-    setTimeout(() => {
-      setLoading(false);
-      setEditing(false);
-      
-      setSnackbar({
-        open: true,
-        message: 'Профиль успешно сохранен',
-        severity: 'success'
-      });
-    }, 1000);
-  };
-  
-  if (loading) {
-  return (
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        height: 'calc(100vh - 64px)' 
-      }}>
-        <CircularProgress />
-      </Box>
+  // Обработчик обновления контента виджета
+  const handleUpdateWidgetContent = (id: string, content: any) => {
+    setWidgets(prevWidgets => 
+      prevWidgets.map(widget => 
+        widget.id === id ? { ...widget, content } : widget
+      )
     );
-  }
+  };
+  
+  // Обработчик удаления виджета
+  const handleDeleteWidget = (id: string) => {
+    setWidgets(prevWidgets => prevWidgets.filter(widget => widget.id !== id));
+  };
+  
+  // Обработчик изменения позиции виджета
+  const handlePositionChange = (id: string, position: Widget['position']) => {
+    setWidgets(prevWidgets => 
+      prevWidgets.map(widget => 
+        widget.id === id ? { ...widget, position } : widget
+      )
+    );
+  };
+  
+  // Обработчик дублирования виджета
+  const handleDuplicateWidget = (id: string) => {
+    const widgetToDuplicate = widgets.find(widget => widget.id === id);
+    if (widgetToDuplicate) {
+      const newWidget = {
+        ...widgetToDuplicate,
+        id: `${widgetToDuplicate.id}-copy-${Date.now()}`,
+        position: {
+          ...widgetToDuplicate.position,
+          x: widgetToDuplicate.position.x + 20,
+          y: widgetToDuplicate.position.y + 20
+        }
+      };
+      setWidgets(prevWidgets => [...prevWidgets, newWidget]);
+    }
+  };
   
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Container maxWidth="lg" sx={{ mt: 4 }}>
-        <Paper elevation={3} sx={{ p: 3, position: 'relative' }}>
-          {/* Верхняя панель */}
+    <Container maxWidth="lg" sx={{ py: 4 }}>
+      {/* Основная информация о странице памяти */}
         <Paper
             elevation={1} 
           sx={{
@@ -808,7 +580,7 @@ const SocialProfile: React.FC = () => {
           >
             <Box>
               <Typography variant="h5" sx={{ fontWeight: 'bold' }}>
-                Мой профиль
+            Страница памяти
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Персональная страница в стиле Notion
@@ -850,83 +622,48 @@ const SocialProfile: React.FC = () => {
             </Box>
           </Paper>
           
-          {/* Вкладки */}
-          <Paper sx={{ mb: 3, borderRadius: 2 }}>
-            <Tabs 
-              value={tabValue} 
-              onChange={handleTabChange}
-              variant={isMobile ? "scrollable" : "standard"}
-              scrollButtons={isMobile ? "auto" : false}
-              sx={{ borderBottom: 1, borderColor: 'divider' }}
-            >
-              <Tab label="Профиль" />
-              <Tab label="Проекты" />
-              <Tab label="Контакты" />
-              <Tab label="Аналитика" />
-            </Tabs>
-          </Paper>
-          
-          {/* Основной контент */}
-          <Box sx={{ width: '100%' }}>
-            <Box sx={{ display: tabValue === 0 ? 'block' : 'none' }}>
-              <WidgetEditor
-                widgets={convertWidgetsForEditor(widgets)}
-                onUpdateWidgets={handleUpdateWidgets}
+      {/* Основная область просмотра */}
+      <Box sx={{ position: 'relative', minHeight: '600px' }}>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '400px' }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <>
+            {/* Здесь будет просто просмотр виджетов, без вкладок */}
+            <Box sx={{ position: 'relative', height: '100%' }} ref={containerRef}>
+              {widgets.map(widget => (
+                <Widget 
+                  key={widget.id}
+                  widget={widget}
                 isEditing={editing}
-              />
+                  onUpdate={(content) => handleUpdateWidgetContent(widget.id, content)}
+                  onDelete={() => handleDeleteWidget(widget.id)}
+                  onPositionChange={(position) => handlePositionChange(widget.id, position)}
+                  onDuplicate={() => handleDuplicateWidget(widget.id)}
+                  theme={theme}
+                  gridSize={gridSize}
+                  snapToGrid={snapToGrid}
+                />
+              ))}
+              {showGrid && <Grid size={gridSize} visible={showGrid} theme={theme} />}
             </Box>
+          </>
+        )}
           </Box>
           
-          <Box sx={{ display: tabValue === 1 ? 'block' : 'none' }}>
-            <Paper sx={{ p: 3, borderRadius: 2 }}>
-              <Typography variant="h5" gutterBottom>
-                Проекты
-              </Typography>
-              <Typography>
-                Здесь будет список проектов (находится в разработке)
-              </Typography>
-            </Paper>
-          </Box>
-          
-          <Box sx={{ display: tabValue === 2 ? 'block' : 'none' }}>
-            <Paper sx={{ p: 3, borderRadius: 2 }}>
-              <Typography variant="h5" gutterBottom>
-                Контакты
-              </Typography>
-              <Typography>
-                Здесь будут контактные данные (находится в разработке)
-              </Typography>
-            </Paper>
-          </Box>
-          
-          <Box sx={{ display: tabValue === 3 ? 'block' : 'none' }}>
-            <Paper sx={{ p: 3, borderRadius: 2 }}>
-              <Typography variant="h5" gutterBottom>
-                Аналитика
-              </Typography>
-              <Typography>
-                Здесь будет аналитика профиля (находится в разработке)
-              </Typography>
-            </Paper>
-          </Box>
-          
-          {/* Уведомления */}
+      {/* Снэкбар для уведомлений */}
           <Snackbar
             open={snackbar.open}
             autoHideDuration={4000}
-            onClose={() => setSnackbar({ ...snackbar, open: false })}
-            anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
           >
-            <Alert 
-              onClose={() => setSnackbar({ ...snackbar, open: false })} 
-              severity={snackbar.severity}
-            >
+        <Alert severity={snackbar.severity} variant="filled">
               {snackbar.message}
             </Alert>
           </Snackbar>
-        </Paper>
       </Container>
-    </ThemeProvider>
   );
 };
 
