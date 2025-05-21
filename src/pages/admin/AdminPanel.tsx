@@ -944,8 +944,8 @@ const AdminPanel: React.FC = () => {
       // Обновляем статистику
       updateStats();
       
-      setSnackbar({
-        open: true,
+        setSnackbar({
+          open: true,
         message: 'Пользователь успешно удален',
         severity: 'success'
       });
@@ -959,8 +959,8 @@ const AdminPanel: React.FC = () => {
       });
     } catch (error) {
       console.error('Ошибка удаления пользователя:', error);
-      setSnackbar({
-        open: true,
+        setSnackbar({
+          open: true,
         message: 'Ошибка удаления пользователя',
         severity: 'error'
       });
@@ -1057,8 +1057,8 @@ const AdminPanel: React.FC = () => {
       // Обновляем статистику
       updateStats();
 
-      setSnackbar({
-        open: true,
+        setSnackbar({
+          open: true,
         message: 'Все пользователи успешно удалены',
         severity: 'success'
       });
@@ -1069,8 +1069,8 @@ const AdminPanel: React.FC = () => {
       setOpenClearAllDialog(false);
     } catch (error) {
       console.error('Ошибка при очистке данных:', error);
-      setSnackbar({
-        open: true,
+        setSnackbar({
+          open: true,
         message: 'Ошибка при очистке данных',
         severity: 'error'
       });
@@ -1272,7 +1272,7 @@ const AdminPanel: React.FC = () => {
         adminPanelDataLength: currentAdminData.length,
         usersDataLength: currentAdminData.length
       });
-      
+
       // Добавляем пользователя в список (без пароля для хранения в state)
       const userDataWithoutPassword = {
         id: newUserData.id,

@@ -107,7 +107,7 @@ const Auth: React.FC = () => {
       console.log(`Попытка входа с логином: "${username}"`);
       
       // Проверяем все хранилища пользователей
-      const adminPanelData = localStorage.getItem('adminPanelData');
+        const adminPanelData = localStorage.getItem('adminPanelData');
       const usersData = localStorage.getItem('users');
       
       const adminUsers = adminPanelData ? JSON.parse(adminPanelData) : [];
@@ -132,7 +132,7 @@ const Auth: React.FC = () => {
           exists: inAdmin || inUsers
         };
       });
-      
+        
       console.log('Проверка стандартных пользователей:', foundUsers);
       
       // Инициализируем тестовых пользователей, если их нет
@@ -227,33 +227,33 @@ const Auth: React.FC = () => {
                     <Typography variant="subtitle2" component="label" htmlFor="username" gutterBottom>
                       Логин
                     </Typography>
-                    <TextField
-                      fullWidth
+                  <TextField
+                    fullWidth
                       id="username"
-                      variant="outlined"
-                      value={username}
-                      onChange={(e) => setUsername(e.target.value)}
-                      InputProps={{
+                    variant="outlined"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value)}
+                    InputProps={{
                         startAdornment: <Lock color="action" sx={{ mr: 1 }} />,
-                      }}
-                    />
+                    }}
+                  />
                   </Box>
 
                   <Box sx={{ mb: 1 }}>
                     <Typography variant="subtitle2" component="label" htmlFor="password" gutterBottom>
                       Пароль
                     </Typography>
-                    <TextField
-                      fullWidth
+                  <TextField
+                    fullWidth
                       id="password"
-                      variant="outlined"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      InputProps={{
-                        startAdornment: <Lock color="action" sx={{ mr: 1 }} />,
-                      }}
-                    />
+                    variant="outlined"
+                    type="password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    InputProps={{
+                      startAdornment: <Lock color="action" sx={{ mr: 1 }} />,
+                    }}
+                  />
                   </Box>
 
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1, mb: 3 }}>
@@ -262,7 +262,7 @@ const Auth: React.FC = () => {
                     </MuiLink>
                   </Box>
 
-                  <Button
+                  <Button 
                     type="submit"
                     variant="contained"
                     color="primary"
@@ -274,10 +274,10 @@ const Auth: React.FC = () => {
                     {isLoading ? 'Вход...' : 'Войти'}
                   </Button>
 
-                  <Box sx={{ textAlign: 'center', mt: 2 }}>
-                    <Typography variant="body2" color="textSecondary">
-                      Нет аккаунта? Обратитесь к администратору для получения доступа.
-                    </Typography>
+                <Box sx={{ textAlign: 'center', mt: 2 }}>
+                  <Typography variant="body2" color="textSecondary">
+                    Нет аккаунта? Обратитесь к администратору для получения доступа.
+                  </Typography>
                   </Box>
                 </Box>
               </>

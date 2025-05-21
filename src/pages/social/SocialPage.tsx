@@ -22,8 +22,7 @@ import {
   AlertTitle,
   LinearProgress,
   Fab,
-  useMediaQuery,
-  Paper
+  useMediaQuery
 } from '@mui/material';
 import { 
   Add, 
@@ -49,7 +48,7 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import FamilyTreeWidget from '../../components/widgets/FamilyTreeWidget';
 import QRCode from 'react-qr-code';
 import { useAuth } from '../../contexts/AuthContext';
-import { Block as ConstructorBlock, BlockType } from '../constructor/types';
+import { Block as ConstructorBlock } from '../constructor/types';
 import Constructor from '../constructor/Constructor';
 
 // Типы виджетов
@@ -821,219 +820,6 @@ const QRCodeDialog: React.FC<QRCodeDialogProps> = ({
   );
 };
 
-// Function to render content based on block type
-const renderBlockContent = (block: ConstructorBlock) => {
-  switch (block.type) {
-    case BlockType.TEXT:
-      return (
-        <Box 
-          dangerouslySetInnerHTML={{ __html: block.content.text || '' }}
-          sx={{ width: '100%', height: '100%', overflow: 'auto' }}
-        />
-      );
-    case BlockType.PHOTO:
-      if (block.content.mediaItems && block.content.mediaItems.length > 0) {
-        return (
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%', overflow: 'auto' }}>
-            {block.content.mediaItems.map((item, index) => (
-              <Box key={index} sx={{ width: '100%', mb: 1 }}>
-                <img 
-                  src={item.url} 
-                  alt={item.title || `Photo ${index + 1}`} 
-                  style={{ width: '100%', height: 'auto', borderRadius: '4px' }} 
-                />
-                {item.title && <Typography variant="caption">{item.title}</Typography>}
-              </Box>
-            ))}
-          </Box>
-        );
-      } else if (block.content.images && block.content.images.length > 0) {
-        return (
-          <Box sx={{ height: '100%' }}>
-            <img 
-              src={block.content.images[0]} 
-              alt="Image" 
-              style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: '4px' }} 
-            />
-          </Box>
-        );
-      }
-      return <Box>No images</Box>;
-    case BlockType.VIDEO:
-      if (block.content.videoUrl) {
-        // Extract YouTube video ID from URL
-        const getYouTubeID = (url: string) => {
-          const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-          const match = url.match(regExp);
-          return (match && match[2].length === 11) ? match[2] : null;
-        };
-        
-        const videoID = getYouTubeID(block.content.videoUrl);
-        
-        if (videoID) {
-          return (
-            <Box sx={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <iframe
-                width="100%"
-                height="100%"
-                src={`https://www.youtube.com/embed/${videoID}`}
-                title="YouTube video player"
-                frameBorder="0"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
-                style={{ borderRadius: '4px', flexGrow: 1 }}
-              />
-            </Box>
-          );
-        }
-        
-        return (
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-            <Typography>Invalid video URL</Typography>
-          </Box>
-        );
-      }
-      return (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-          <Typography>No video provided</Typography>
-        </Box>
-      );
-    case BlockType.SOCIAL:
-      if (block.template === 'circle' && block.content.socialType && block.content.socialUrl) {
-        // Single social network in circle
-        let socialName = 'Social';
-        let bgColor = '#4a76a8'; // Default VK color
-        
-        if (block.content.socialType === 'vk') {
-          socialName = 'VK';
-          bgColor = '#4a76a8';
-        } else if (block.content.socialType === 'telegram') {
-          socialName = 'TG';
-          bgColor = '#0088cc';
-        } else if (block.content.socialType === 'ok') {
-          socialName = 'OK';
-          bgColor = '#ee8208';
-        }
-        
-        return (
-          <Box 
-            sx={{ 
-              width: '100%', 
-              height: '100%', 
-              display: 'flex', 
-              alignItems: 'center', 
-              justifyContent: 'center',
-              borderRadius: '50%',
-              backgroundColor: bgColor,
-              color: 'white',
-              cursor: 'pointer',
-              fontWeight: 'bold',
-              fontSize: '1.2rem'
-            }}
-            onClick={() => window.open(block.content.socialUrl, '_blank')}
-          >
-            {socialName}
-          </Box>
-        );
-      } else if (block.content.socialNetworks && block.content.socialNetworks.length > 0) {
-        // Multiple social networks
-        return (
-          <Box sx={{ 
-            display: 'flex', 
-            gap: 2, 
-            flexWrap: 'wrap', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            height: '100%'
-          }}>
-            {block.content.socialNetworks.map((network, index) => {
-              let socialName = 'VK';
-              let bgColor = '#4a76a8'; // Default VK color
-              
-              if (network.type === 'telegram') {
-                socialName = 'TG';
-                bgColor = '#0088cc';
-              } else if (network.type === 'ok') {
-                socialName = 'OK';
-                bgColor = '#ee8208';
-              }
-              
-              return (
-                <Box 
-                  key={index}
-                  sx={{ 
-                    width: 50, 
-                    height: 50, 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'center',
-                    borderRadius: '50%',
-                    backgroundColor: bgColor,
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontWeight: 'bold'
-                  }}
-                  onClick={() => window.open(network.url, '_blank')}
-                >
-                  {socialName}
-                </Box>
-              );
-            })}
-          </Box>
-        );
-      }
-      return (
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-          <Typography>No social links provided</Typography>
-        </Box>
-      );
-    case BlockType.PROFILE:
-      const profileInfo = block.content.profileInfo || {};
-      return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, height: '100%', overflow: 'auto' }}>
-          {profileInfo.fullName && <Typography variant="h6">{profileInfo.fullName}</Typography>}
-          {profileInfo.description && <Typography variant="body2">{profileInfo.description}</Typography>}
-          {profileInfo.photo && (
-            <Box sx={{ width: '100%', mb: 1 }}>
-              <img 
-                src={profileInfo.photo} 
-                alt={profileInfo.fullName || "Profile photo"} 
-                style={{ width: '100%', height: 'auto', borderRadius: '4px' }} 
-              />
-            </Box>
-          )}
-        </Box>
-      );
-    case BlockType.FAMILY_TREE:
-      return (
-        <Box 
-          sx={{ 
-            width: '100%', 
-            height: '100%', 
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            gap: 2,
-            p: 2,
-            overflow: 'auto'
-          }}
-        >
-          <FamilyRestroom sx={{ fontSize: 48, color: 'primary.main', opacity: 0.7 }} />
-          <Typography variant="h6" align="center">
-            Семейное древо
-          </Typography>
-          <Typography variant="body2" color="text.secondary" align="center">
-            Для полного просмотра семейного древа откройте страницу в режиме редактирования
-          </Typography>
-        </Box>
-      );
-    // Add more case handling for other block types as needed
-    default:
-      return <Box>Unknown block type</Box>;
-  }
-};
-
 // Главный компонент страницы
 const SocialPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -1152,66 +938,30 @@ const SocialPage: React.FC = () => {
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
           {profile.name || 'Страница памяти'}
-        </Typography>
-        
-        {isOwner && (
+          </Typography>
+                  
+                  {isOwner && (
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button
+                      <Button
               variant="outlined"
               startIcon={<QrCode />}
-              onClick={handleOpenQRCodeDialog}
+                    onClick={handleOpenQRCodeDialog}
             >
               QR-код
             </Button>
-          </Box>
+                    </Box>
         )}
-      </Box>
-      
-      {/* Memory page viewer with absolute positioning */}
-      <Box sx={{ 
-        position: 'relative', 
-        minHeight: '600px', 
-        backgroundColor: constructorBackgroundColor,
-        border: '1px solid rgba(0,0,0,0.1)',
-        borderRadius: '8px',
-        mb: 4,
-        overflow: 'hidden'
-      }}>
-        {constructorBlocks.map((block) => (
-          <Box 
-            key={block.id}
-            sx={{
-              position: 'absolute',
-              left: `${block.position.column * 80}px`,
-              top: `${block.position.row * 80}px`,
-              width: `${block.size.width * 80}px`,
-              height: `${block.size.height * 80}px`,
-              zIndex: block.isFixed ? 2 : 1,
-              '& ul, & ol, & li': {
-                listStyle: 'none',
-                margin: 0,
-                padding: 0
-              }
-            }}
-          >
-            <Paper
-              sx={{
-                backgroundColor: block.style.backgroundColor,
-                color: block.style.color,
-                borderRadius: block.template === 'circle' ? '50%' : block.style.borderRadius,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                p: 2,
-                height: '100%',
-                width: '100%',
-                boxSizing: 'border-box',
-                overflow: 'auto'
-              }}
-            >
-              {renderBlockContent(block)}
-            </Paper>
           </Box>
-        ))}
-      </Box>
+          
+      {/* Интегрируем конструктор прямо на страницу */}
+      <Constructor 
+        savedData={{
+          blocks: constructorBlocks,
+          backgroundColor: constructorBackgroundColor,
+          showOnMap
+        }}
+        userId={viewingId}
+      />
       
       {/* QR код диалог */}
       <QRCodeDialog

@@ -126,7 +126,7 @@ const initializeTestUsers = () => {
           username: defaultUser.username,
           password: defaultUser.password,
           name: defaultUser.name,
-          subscription: null
+        subscription: null 
         });
         needsUpdate = true;
       }
@@ -140,7 +140,7 @@ const initializeTestUsers = () => {
     
     // Также создаем/обновляем хранилище 'users' для совместимости
     console.log('Синхронизируем users с adminPanelData');
-    localStorage.setItem(USERS_LOGIN_KEY, JSON.stringify(users));
+      localStorage.setItem(USERS_LOGIN_KEY, JSON.stringify(users));
     
     // Создаем профили для стандартных пользователей, если их нет
     for (const user of MOCK_USERS) {
@@ -148,24 +148,24 @@ const initializeTestUsers = () => {
       const profileKey = `${PROFILE_PREFIX}${userId}`;
       const widgetsKey = `${WIDGETS_PREFIX}${userId}`;
       const settingsKey = `${SETTINGS_PREFIX}${userId}`;
-      
-      if (!localStorage.getItem(profileKey)) {
+    
+    if (!localStorage.getItem(profileKey)) {
         console.log(`Создаем профиль для пользователя: ${user.username}`);
-        localStorage.setItem(profileKey, JSON.stringify({
+      localStorage.setItem(profileKey, JSON.stringify({
           id: userId,
           name: user.name,
           bio: `Профиль пользователя ${user.name}`,
-          avatar: '',
-          theme: 'light',
-          isPublic: true
-        }));
-        
-        localStorage.setItem(widgetsKey, JSON.stringify([]));
-        localStorage.setItem(settingsKey, JSON.stringify({
-          theme: 'light',
-          notifications: true,
-          privacy: 'public'
-        }));
+        avatar: '',
+        theme: 'light',
+        isPublic: true
+      }));
+      
+      localStorage.setItem(widgetsKey, JSON.stringify([]));
+      localStorage.setItem(settingsKey, JSON.stringify({
+        theme: 'light',
+        notifications: true,
+        privacy: 'public'
+      }));
       }
     }
     
@@ -257,7 +257,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const adminUsers = localStorage.getItem(USERS_STORAGE_KEY);
         const loginUsers = localStorage.getItem(USERS_LOGIN_KEY);
-        
+      
         console.log('Состояние хранилищ:', {
           adminPanelDataExists: !!adminUsers,
           usersExists: !!loginUsers,
@@ -267,30 +267,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Загружаем пользователей из localStorage
         const storageUsers = loadUsersFromStorage();
-        
+      
         // Ищем пользователя по имени пользователя И паролю (без учета регистра для имени)
         const storageUser = storageUsers.find(
           u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
         );
+      
+      // Если пользователь найден
+      if (storageUser) {
+        mockUser = {
+          id: storageUser.id,
+          username: storageUser.username,
+          password: storageUser.password,
+          name: storageUser.name,
+          is_admin: false // Пользователи из localStorage НИКОГДА не могут быть админами
+        };
         
-        // Если пользователь найден
-        if (storageUser) {
-          mockUser = {
-            id: storageUser.id,
-            username: storageUser.username,
-            password: storageUser.password,
-            name: storageUser.name,
-            is_admin: false // Пользователи из localStorage НИКОГДА не могут быть админами
-          };
-          
           console.log('Пользователь найден в localStorage:', {
-            username: mockUser.username,
+          username: mockUser.username,
             id: mockUser.id,
             is_admin: mockUser.is_admin
-          });
-        } else {
+        });
+      } else {
           console.log('Пользователь НЕ найден ни в одном хранилище');
-        }
+      }
       } catch (e) {
         console.error('Ошибка при поиске пользователя в localStorage:', e);
       }
@@ -652,7 +652,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('Начало выхода из системы...');
       
       // Получаем текущие данные ПЕРЕД выходом
-      const adminPanelData = localStorage.getItem(USERS_STORAGE_KEY);
+    const adminPanelData = localStorage.getItem(USERS_STORAGE_KEY);
       const usersData = localStorage.getItem(USERS_LOGIN_KEY);
       const adminEditedFlag = localStorage.getItem('admin_edited_users');
       
@@ -689,19 +689,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           dataToPreserve[key] = localStorage.getItem(key) || '';
         }
       }
-      
-      // Удаляем только ключи, связанные с аутентификацией
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem('current_user_id');
-      localStorage.removeItem('current_user_name');
-      localStorage.removeItem('current_user_is_admin');
+    
+    // Удаляем только ключи, связанные с аутентификацией
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem('current_user_id');
+    localStorage.removeItem('current_user_name');
+    localStorage.removeItem('current_user_is_admin');
       localStorage.removeItem('current_user_username');
-      
+    
       // Восстанавливаем все сохраненные данные
       console.log('Восстанавливаем данные после очистки аутентификации:', Object.keys(dataToPreserve).length, 'ключей');
       Object.entries(dataToPreserve).forEach(([key, value]) => {
-        localStorage.setItem(key, value);
-      });
+      localStorage.setItem(key, value);
+    });
       
       // Проверяем, что данные действительно сохранены
       const finalAdminData = localStorage.getItem(USERS_STORAGE_KEY);
@@ -715,16 +715,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         usersDataLength: finalUserData ? JSON.parse(finalUserData).length : 0,
         adminEditedFlag: finalEditedFlag
       });
-      
-      // Очищаем состояние React
-      setUser(null);
-      setIsLoggedIn(false);
-      lastAuthCheckRef.current = 0;
-      authCheckPromiseRef.current = null;
+    
+    // Очищаем состояние React
+    setUser(null);
+    setIsLoggedIn(false);
+    lastAuthCheckRef.current = 0;
+    authCheckPromiseRef.current = null;
 
-      // Перенаправление на страницу входа
-      console.log('Перенаправление на страницу входа...');
-      window.location.href = '/login';
+    // Перенаправление на страницу входа
+    console.log('Перенаправление на страницу входа...');
+    window.location.href = '/login';
     } catch (e) {
       console.error('Ошибка при выходе из системы:', e);
       // В случае ошибки все равно перенаправляем на страницу входа
@@ -805,38 +805,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     // Настраиваем глобальный перехватчик для всех запросов axios только если не используем моки
     if (!MOCK_API) {
-      // Настраиваем глобальный перехватчик для всех запросов axios
-      const requestInterceptor = axios.interceptors.request.use(
-        (config) => {
-            const token = localStorage.getItem(TOKEN_KEY);
-          if (token && config.headers) {
-            config.headers['Authorization'] = `Bearer ${token}`;
-          }
-          return config;
-        },
-        (error) => Promise.reject(error)
-      );
+    // Настраиваем глобальный перехватчик для всех запросов axios
+    const requestInterceptor = axios.interceptors.request.use(
+      (config) => {
+          const token = localStorage.getItem(TOKEN_KEY);
+        if (token && config.headers) {
+          config.headers['Authorization'] = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => Promise.reject(error)
+    );
 
       // Настраиваем глобальный перехватчик для ответов с оптимизацией обработки 401
-      const responseInterceptor = axios.interceptors.response.use(
-        (response) => response,
-        async (error) => {
-            // Проверяем только на 401 статус один раз
-          if (error.response && error.response.status === 401) {
-              // Выходим только если до этого пользователь был авторизован
-              if (isLoggedIn) {
-            logout();
-              }
-          }
-          return Promise.reject(error);
+    const responseInterceptor = axios.interceptors.response.use(
+      (response) => response,
+      async (error) => {
+          // Проверяем только на 401 статус один раз
+        if (error.response && error.response.status === 401) {
+            // Выходим только если до этого пользователь был авторизован
+            if (isLoggedIn) {
+          logout();
+            }
         }
-      );
+        return Promise.reject(error);
+      }
+    );
 
-      // Очищаем перехватчики при размонтировании
-      return () => {
-        axios.interceptors.request.eject(requestInterceptor);
-        axios.interceptors.response.eject(responseInterceptor);
-      };
+    // Очищаем перехватчики при размонтировании
+    return () => {
+      axios.interceptors.request.eject(requestInterceptor);
+      axios.interceptors.response.eject(responseInterceptor);
+    };
     }
   }, [checkAuth, isLoggedIn, logout]);
 

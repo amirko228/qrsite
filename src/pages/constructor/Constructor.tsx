@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
   Box, 
   Container, 
@@ -311,12 +311,6 @@ const styles = {
     overflow: 'hidden',
     borderRight: '1px solid rgba(0, 0, 0, 0.1)',
     transition: 'transform 0.3s ease'
-  },
-  previewWrapper: {
-    width: '100%',
-    height: '100%',
-    position: 'relative',
-    overflow: 'hidden'
   }
 };
 
@@ -580,6 +574,14 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  // Function to get or create a ref for a block (memoized)
+  const getBlockRef = useCallback((blockId: string) => {
+    if (!draggableRefs.current[blockId]) {
+      draggableRefs.current[blockId] = React.createRef();
+    }
+    return draggableRefs.current[blockId];
+  }, []);
   
   // Получаем ключ для localStorage с учетом ID пользователя
   const getStorageKey = () => {
@@ -1442,11 +1444,9 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
   // Make sure we have a ref for each block
   useEffect(() => {
     blocks.forEach(block => {
-      if (!draggableRefs.current[block.id]) {
-        draggableRefs.current[block.id] = React.createRef();
-      }
+      getBlockRef(block.id); // Use the memoized function to ensure refs exist
     });
-  }, [blocks]);
+  }, [blocks, getBlockRef]);
   
   // Функция рендеринга содержимого текстового блока
   const renderTextBlockContent = (block: Block) => {
@@ -3224,10 +3224,8 @@ const extractYouTubeId = (url: string): string => {
             
             {/* Блоки с возможностью перетаскивания */}
             {blocks.map((block) => {
-              // Make sure we have a ref for this block
-              if (!draggableRefs.current[block.id]) {
-                draggableRefs.current[block.id] = React.createRef();
-              }
+              // Get the ref for this block using the memoized function
+              const blockRef = getBlockRef(block.id);
               
               return (
                 <Draggable
@@ -3241,10 +3239,10 @@ const extractYouTubeId = (url: string): string => {
                   onStart={handleDragStart}
                   onStop={(e, data) => handleDragStop(block.id, data)}
                   disabled={selectedBlockId === block.id || block.isFixed || isPreviewMode}
-                  nodeRef={draggableRefs.current[block.id]}
+                  nodeRef={blockRef}
                 >
                   <Box
-                    ref={draggableRefs.current[block.id]}
+                    ref={blockRef}
                     data-block-id={block.id}
                     sx={{
                       ...styles.draggableBlock,
@@ -3563,53 +3561,6 @@ const extractYouTubeId = (url: string): string => {
           </Button>
         </DialogContent>
       </Dialog>
-      
-      {/* Интерфейс для режима предпросмотра */}
-      {isPreviewMode && (
-        <Box sx={{ 
-          ...styles.previewWrapper,
-          backgroundColor,
-          position: 'relative',
-          // Ensure the preview container has enough height to contain all blocks
-          minHeight: '600px',
-          height: 'auto'
-        }}>
-          {blocks.map((block) => (
-            <Box 
-              key={block.id}
-              sx={{
-                position: 'absolute',
-                left: `${block.position.column * CELL_SIZE}px`,
-                top: `${block.position.row * CELL_SIZE}px`,
-                width: `${block.size.width * CELL_SIZE}px`,
-                height: `${block.size.height * CELL_SIZE}px`,
-                zIndex: block.isFixed ? 2 : 1,
-                '& ul, & ol, & li': {
-                  listStyle: 'none',
-                  margin: 0,
-                  padding: 0
-                }
-              }}
-            >
-              <Paper
-                sx={{
-                  backgroundColor: block.style.backgroundColor,
-                  color: block.style.color,
-                  borderRadius: block.template === 'circle' ? '50%' : block.style.borderRadius,
-                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                  p: 2,
-                  height: '100%',
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  overflow: 'auto'
-                }}
-              >
-                {renderBlockContent(block)}
-              </Paper>
-            </Box>
-          ))}
-        </Box>
-      )}
     </Box>
   );
 };
