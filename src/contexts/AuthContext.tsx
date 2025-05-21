@@ -57,69 +57,68 @@ const MOCK_USERS: MockUser[] = [
 // Функция для инициализации пользовательских данных для тестирования
 const initializeTestUsers = () => {
   try {
+    console.log('Начало инициализации тестовых пользователей...');
+
     // Проверяем, существуют ли пользователи в adminPanelData
     const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
-    const users = storedUsers ? JSON.parse(storedUsers) : [];
+    let users = storedUsers ? JSON.parse(storedUsers) : [];
     
-    // Добавляем тестового пользователя в adminPanelData, если нужно
+    // Обязательно добавляем предустановленных пользователей, чтобы гарантировать вход
     let needsUpdate = false;
-    if (users.length === 0 || !users.some((u: any) => u.username === 'test')) {
-      const testUser = { 
-        id: 3, 
-        username: 'test', 
-        password: 'test', 
-        name: 'Тестовый пользователь',
-        subscription: null 
-      };
-      
-      // Добавляем пользователя, только если его еще нет
-      if (!users.some((u: any) => u.username === 'test')) {
-        users.push(testUser);
+    
+    // Проверяем каждого из предустановленных пользователей
+    for (const defaultUser of MOCK_USERS) {
+      if (!users.some((u: any) => u.username === defaultUser.username)) {
+        console.log(`Добавляем стандартного пользователя: ${defaultUser.username}`);
+        users.push({
+          id: defaultUser.id,
+          username: defaultUser.username,
+          password: defaultUser.password,
+          name: defaultUser.name,
+          subscription: null
+        });
         needsUpdate = true;
       }
     }
     
     // Сохраняем обновленные данные, если были изменения
     if (needsUpdate) {
+      console.log('Обновляем список пользователей в adminPanelData:', users.length);
       localStorage.setItem(USERS_STORAGE_KEY, JSON.stringify(users));
-      console.log('Обновлен список пользователей в adminPanelData');
     }
     
     // Также создаем/обновляем хранилище 'users' для совместимости
-    const loginUsers = localStorage.getItem(USERS_LOGIN_KEY);
-    const loginUsersList = loginUsers ? JSON.parse(loginUsers) : [];
+    console.log('Синхронизируем users с adminPanelData');
+    localStorage.setItem(USERS_LOGIN_KEY, JSON.stringify(users));
     
-    // Синхронизируем с основным хранилищем
-    if (!loginUsers || loginUsersList.length === 0 || !loginUsersList.some((u: any) => u.username === 'test')) {
-      // Копируем пользователей из adminPanelData в users
-      localStorage.setItem(USERS_LOGIN_KEY, JSON.stringify(users));
-      console.log('Синхронизировано хранилище users с adminPanelData');
+    // Создаем профили для стандартных пользователей, если их нет
+    for (const user of MOCK_USERS) {
+      const userId = user.id.toString();
+      const profileKey = `${PROFILE_PREFIX}${userId}`;
+      const widgetsKey = `${WIDGETS_PREFIX}${userId}`;
+      const settingsKey = `${SETTINGS_PREFIX}${userId}`;
+      
+      if (!localStorage.getItem(profileKey)) {
+        console.log(`Создаем профиль для пользователя: ${user.username}`);
+        localStorage.setItem(profileKey, JSON.stringify({
+          id: userId,
+          name: user.name,
+          bio: `Профиль пользователя ${user.name}`,
+          avatar: '',
+          theme: 'light',
+          isPublic: true
+        }));
+        
+        localStorage.setItem(widgetsKey, JSON.stringify([]));
+        localStorage.setItem(settingsKey, JSON.stringify({
+          theme: 'light',
+          notifications: true,
+          privacy: 'public'
+        }));
+      }
     }
     
-    // Создаем тестовый профиль, если его нет
-    const profileKey = `${PROFILE_PREFIX}3`;
-    const widgetsKey = `${WIDGETS_PREFIX}3`;
-    const settingsKey = `${SETTINGS_PREFIX}3`;
-    
-    if (!localStorage.getItem(profileKey)) {
-      localStorage.setItem(profileKey, JSON.stringify({
-        id: '3',
-        name: 'Тестовый пользователь',
-        bio: 'Это тестовый профиль для демонстрации',
-        avatar: '',
-        theme: 'light',
-        isPublic: true
-      }));
-      
-      localStorage.setItem(widgetsKey, JSON.stringify([]));
-      localStorage.setItem(settingsKey, JSON.stringify({
-        theme: 'light',
-        notifications: true,
-        privacy: 'public'
-      }));
-      
-      console.log('Инициализирован тестовый профиль');
-    }
+    console.log('Инициализация тестовых пользователей завершена успешно');
   } catch (e) {
     console.error('Ошибка при инициализации тестовых пользователей:', e);
   }
@@ -187,47 +186,63 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Имитируем задержку сети
     await new Promise(resolve => setTimeout(resolve, 300));
     
-    // Поиск пользователя в мок-данных
-    let mockUser: MockUser | undefined = MOCK_USERS.find(u => u.username === username && u.password === password);
+    console.log(`Попытка входа с логином: "${username}" и паролем: "${password}"`);
     
-    // Если не нашли в предустановленных, ищем в localStorage
-    if (!mockUser) {
-      // Загружаем пользователей из localStorage
-      const storageUsers = loadUsersFromStorage();
-      
-      console.log('Поиск пользователя для авторизации:', {
-        username,
-        usersFound: storageUsers.length,
-        searchingIn: 'localStorage'
-      });
-      
-      // Ищем пользователя по имени пользователя И паролю
-      const storageUser = storageUsers.find(u => u.username === username && u.password === password);
-      
-      // Если пользователь найден
-      if (storageUser) {
-        mockUser = {
-          id: storageUser.id,
-          username: storageUser.username,
-          password: storageUser.password,
-          name: storageUser.name,
-          is_admin: false // Пользователи из localStorage НИКОГДА не могут быть админами
-        };
-        
-        console.log('Успешная авторизация пользователя из localStorage:', {
-          username: mockUser.username,
-          is_admin: mockUser.is_admin,
-          source: 'localStorage'
-        });
-      } else {
-        console.log('Пользователь не найден в localStorage');
-      }
-    } else {
-      console.log('Успешная авторизация пользователя из MOCK_USERS:', {
+    // Сначала ищем пользователя в предустановленных данных
+    let mockUser: MockUser | undefined = MOCK_USERS.find(
+      u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
+    );
+    
+    if (mockUser) {
+      console.log('Пользователь найден в MOCK_USERS:', {
         username: mockUser.username,
-        is_admin: mockUser.is_admin,
-        source: 'MOCK_USERS'
+        id: mockUser.id,
+        is_admin: mockUser.is_admin
       });
+    } else {
+      console.log('Пользователь НЕ найден в MOCK_USERS, проверяю localStorage');
+      
+      // Пробуем загрузить из обоих возможных хранилищ
+      try {
+        const adminUsers = localStorage.getItem(USERS_STORAGE_KEY);
+        const loginUsers = localStorage.getItem(USERS_LOGIN_KEY);
+        
+        console.log('Состояние хранилищ:', {
+          adminPanelDataExists: !!adminUsers,
+          usersExists: !!loginUsers,
+          adminUsersCount: adminUsers ? JSON.parse(adminUsers).length : 0,
+          loginUsersCount: loginUsers ? JSON.parse(loginUsers).length : 0
+        });
+        
+        // Загружаем пользователей из localStorage
+        const storageUsers = loadUsersFromStorage();
+        
+        // Ищем пользователя по имени пользователя И паролю (без учета регистра для имени)
+        const storageUser = storageUsers.find(
+          u => u.username.toLowerCase() === username.toLowerCase() && u.password === password
+        );
+        
+        // Если пользователь найден
+        if (storageUser) {
+          mockUser = {
+            id: storageUser.id,
+            username: storageUser.username,
+            password: storageUser.password,
+            name: storageUser.name,
+            is_admin: false // Пользователи из localStorage НИКОГДА не могут быть админами
+          };
+          
+          console.log('Пользователь найден в localStorage:', {
+            username: mockUser.username,
+            id: mockUser.id,
+            is_admin: mockUser.is_admin
+          });
+        } else {
+          console.log('Пользователь НЕ найден ни в одном хранилище');
+        }
+      } catch (e) {
+        console.error('Ошибка при поиске пользователя в localStorage:', e);
+      }
     }
     
     if (mockUser) {
@@ -242,7 +257,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         is_admin: mockUser.is_admin
       };
       
-      console.log('Авторизация завершена, возвращаем пользователя:', user);
+      console.log('Авторизация успешна, возвращаем пользователя:', user);
       
       return {
         success: true,
@@ -250,6 +265,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user
       };
     }
+    
+    console.log('Авторизация неуспешна, неверный логин или пароль');
     
     return {
       success: false,
@@ -480,6 +497,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             localStorage.setItem('current_user_id', userId);
             localStorage.setItem('current_user_name', result.user.name);
             localStorage.setItem('current_user_is_admin', result.user.is_admin.toString());
+            localStorage.setItem('current_user_username', result.user.username);
             
             setUser({ ...result.user, profile: userProfile });
             setIsLoggedIn(true);
@@ -487,8 +505,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             lastAuthCheckRef.current = Date.now();
             
             // Перенаправляем пользователя
+            console.log('Успешный вход, перенаправление пользователя', {
+              is_admin: result.user.is_admin,
+              username: result.user.username
+            });
+            
             if (result.user && !result.user.is_admin) {
-              window.location.href = `/social/${username}`;
+              window.location.href = `/social/${result.user.username}`;
             } else {
               window.location.href = '/social';
             }

@@ -103,28 +103,80 @@ const Auth: React.FC = () => {
       return;
     }
 
-    if (!validateUsername(username)) {
-      setError('Пожалуйста, введите корректный логин');
-      setIsLoading(false);
-      return;
-    }
-
     try {
       console.log(`Попытка входа с логином: "${username}"`);
       
-      // Проверка наличия пользователя test в локальном хранилище
-      if (username === 'test') {
-        const adminPanelData = localStorage.getItem('adminPanelData');
-        const users = adminPanelData ? JSON.parse(adminPanelData) : [];
-        const testUser = users.find((u: any) => u.username === 'test');
+      // Проверяем все хранилища пользователей
+      const adminPanelData = localStorage.getItem('adminPanelData');
+      const usersData = localStorage.getItem('users');
+      
+      const adminUsers = adminPanelData ? JSON.parse(adminPanelData) : [];
+      const loginUsers = usersData ? JSON.parse(usersData) : [];
+      
+      console.log('Проверка хранилищ пользователей:', {
+        adminPanelDataExists: !!adminPanelData,
+        usersDataExists: !!usersData,
+        adminUsersCount: adminUsers.length,
+        loginUsersCount: loginUsers.length
+      });
+      
+      // Проверяем наличие стандартных пользователей (admin, user, test)
+      const standardUsernames = ['admin', 'user', 'test'];
+      const foundUsers = standardUsernames.map(name => {
+        const inAdmin = adminUsers.some((u: any) => u.username === name);
+        const inUsers = loginUsers.some((u: any) => u.username === name);
+        return { 
+          username: name, 
+          inAdminPanel: inAdmin,
+          inUsersStorage: inUsers,
+          exists: inAdmin || inUsers
+        };
+      });
+      
+      console.log('Проверка стандартных пользователей:', foundUsers);
+      
+      // Инициализируем тестовых пользователей, если их нет
+      if (foundUsers.some(u => !u.exists)) {
+        console.log('Некоторые стандартные пользователи отсутствуют, выполняем инициализацию...');
         
-        console.log('Проверка пользователя test в хранилище:', {
-          found: !!testUser,
-          totalUsers: users.length,
-          storage: !!adminPanelData
+        // Создаем тестовых пользователей для обоих хранилищ
+        const defaultUsers = [
+          { id: 1, username: 'admin', password: 'admin', name: 'Администратор', is_admin: true },
+          { id: 2, username: 'user', password: 'user', name: 'Пользователь', is_admin: false },
+          { id: 3, username: 'test', password: 'test', name: 'Тестовый пользователь', is_admin: false }
+        ];
+        
+        // Добавляем отсутствующих пользователей
+        const updatedAdminUsers = [...adminUsers];
+        const updatedLoginUsers = [...loginUsers];
+        
+        for (const defaultUser of defaultUsers) {
+          if (!adminUsers.some((u: any) => u.username === defaultUser.username)) {
+            updatedAdminUsers.push({
+              ...defaultUser,
+              subscription: null
+            });
+          }
+          
+          if (!loginUsers.some((u: any) => u.username === defaultUser.username)) {
+            updatedLoginUsers.push({
+              ...defaultUser,
+              subscription: null
+            });
+          }
+        }
+        
+        // Сохраняем обновленные данные
+        localStorage.setItem('adminPanelData', JSON.stringify(updatedAdminUsers));
+        localStorage.setItem('users', JSON.stringify(updatedLoginUsers));
+        
+        console.log('Тестовые пользователи инициализированы:', {
+          adminCount: updatedAdminUsers.length,
+          usersCount: updatedLoginUsers.length
         });
       }
       
+      // Теперь пробуем авторизоваться
       const result = await login(username, password);
       
       console.log('Результат авторизации:', {
@@ -175,33 +227,33 @@ const Auth: React.FC = () => {
                     <Typography variant="subtitle2" component="label" htmlFor="username" gutterBottom>
                       Логин
                     </Typography>
-                  <TextField
-                    fullWidth
+                    <TextField
+                      fullWidth
                       id="username"
-                    variant="outlined"
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    InputProps={{
+                      variant="outlined"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      InputProps={{
                         startAdornment: <Lock color="action" sx={{ mr: 1 }} />,
-                    }}
-                  />
+                      }}
+                    />
                   </Box>
 
                   <Box sx={{ mb: 1 }}>
                     <Typography variant="subtitle2" component="label" htmlFor="password" gutterBottom>
                       Пароль
                     </Typography>
-                  <TextField
-                    fullWidth
+                    <TextField
+                      fullWidth
                       id="password"
-                    variant="outlined"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    InputProps={{
-                      startAdornment: <Lock color="action" sx={{ mr: 1 }} />,
-                    }}
-                  />
+                      variant="outlined"
+                      type="password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      InputProps={{
+                        startAdornment: <Lock color="action" sx={{ mr: 1 }} />,
+                      }}
+                    />
                   </Box>
 
                   <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1, mb: 3 }}>
@@ -210,23 +262,37 @@ const Auth: React.FC = () => {
                     </MuiLink>
                   </Box>
 
-                  <Button 
+                  {/* Подсказка с учетными данными */}
+                  <Alert severity="info" sx={{ mb: 3 }}>
+                    <Typography variant="body2">
+                      Для входа используйте одну из учетных записей:
+                    </Typography>
+                    <Box component="ul" sx={{ pl: 2, mt: 1, mb: 0 }}>
+                      <li>Администратор: логин <b>admin</b>, пароль <b>admin</b></li>
+                      <li>Пользователь: логин <b>user</b>, пароль <b>user</b></li>
+                      <li>Тестовый: логин <b>test</b>, пароль <b>test</b></li>
+                    </Box>
+                  </Alert>
+
+                  <Button
                     type="submit"
                     variant="contained"
                     color="primary"
                     fullWidth
                     size="large"
                     disabled={isLoading}
-                    sx={{ mb: 3 }}
                   >
                     {isLoading ? 'Вход...' : 'Войти'}
                   </Button>
-                </Box>
 
-                <Box sx={{ textAlign: 'center', mt: 2 }}>
-                  <Typography variant="body2" color="textSecondary">
-                    Нет аккаунта? Обратитесь к администратору для получения доступа.
-                  </Typography>
+                  <Box sx={{ textAlign: 'center', mt: 3 }}>
+                    <Typography variant="body2" color="textSecondary">
+                      Нет аккаунта?{' '}
+                      <MuiLink component={Link} to="/register" underline="hover">
+                        Регистрация
+                      </MuiLink>
+                    </Typography>
+                  </Box>
                 </Box>
               </>
             ) : (
