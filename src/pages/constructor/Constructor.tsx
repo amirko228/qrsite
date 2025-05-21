@@ -1046,7 +1046,11 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
     setIsDragging(false);
     
     // Если блок закреплен, не обрабатываем перетаскивание
-    if (currentBlock.isFixed) return;
+    if (currentBlock.isFixed) {
+      console.log(`Block ${id} is fixed, ignoring drag`);
+      setActiveBlockId(id);
+      return;
+    }
     
     console.log(`Drag stop for block ${id} at position x:${data.x}, y:${data.y}`);
     
@@ -1094,6 +1098,30 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
     
     console.log(`Starting auto-adjustment for blocks after moving ${id}`);
     
+    // Проверяем, не перекрывает ли перемещаемый блок закрепленные блоки
+    const checkFixedBlockOverlap = () => {
+      // Клонируем блоки для проверки
+      const testBlocks = JSON.parse(JSON.stringify(updatedBlocks));
+      const testMovedBlock = testBlocks.find((block: Block) => block.id === id);
+      
+      // Проверяем перекрытия с закрепленными блоками
+      for (const fixedBlock of testBlocks) {
+        if (fixedBlock.isFixed && fixedBlock.id !== id) {
+          const overlap = checkBlocksOverlap(testMovedBlock, fixedBlock);
+          if (overlap) {
+            return true;
+          }
+        }
+      }
+      return false;
+    };
+    
+    // Если блок перекрывает закрепленные блоки, выполняем автоматическую корректировку
+    const overlapsFixed = checkFixedBlockOverlap();
+    if (overlapsFixed) {
+      console.log(`Block ${id} overlaps with fixed blocks, will be auto-adjusted`);
+    }
+    
     // Автоматически корректируем позиции всех блоков, чтобы избежать наложений,
     // начиная с только что перемещенного блока
     const adjustedBlocks = handleAutoAdjustBlockPositions(updatedBlocks, id);
@@ -1124,7 +1152,12 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
     if (!movedBlock) return adjustedBlocks;
     
     // Сортируем блоки по их позиции (сначала по ряду, затем по колонке)
+    // и по приоритету (закрепленные блоки имеют приоритет)
     adjustedBlocks.sort((a: Block, b: Block) => {
+      // Закрепленные блоки имеют наивысший приоритет
+      if (a.isFixed && !b.isFixed) return -1;
+      if (!a.isFixed && b.isFixed) return 1;
+      
       // Сначала по ряду (сверху вниз)
       if (a.position.row !== b.position.row) {
         return a.position.row - b.position.row;
@@ -1143,9 +1176,9 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
       }
     }
     
-    // Добавляем закрепленные блоки в сетку (они не перемещаются)
+    // Добавляем все блоки кроме перемещаемого в сетку
     adjustedBlocks.forEach((block: Block) => {
-      if (block.isFixed) {
+      if (block.id !== movedBlockId) {
         for (let r = block.position.row; r < block.position.row + block.size.height; r++) {
           for (let c = block.position.column; c < block.position.column + block.size.width; c++) {
             if (r >= 0 && c >= 0 && r < 100 && c < GRID_COLUMNS) {
@@ -1156,61 +1189,89 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
       }
     });
     
-    // Найдем и обработаем все блоки, которые могут пересекаться с movedBlock
-    let conflicts = false;
-    for (const block of adjustedBlocks) {
-      // Пропускаем сам перемещаемый блок и закрепленные блоки
-      if (block.id === movedBlockId || block.isFixed) continue;
-      
-      // Проверяем, пересекаются ли блоки
-      const overlap = checkBlocksOverlap(movedBlock, block);
-      
-      if (overlap) {
-        conflicts = true;
-        
-        // Определяем направление смещения блока (вниз или вправо)
-        // Если ширина movedBlock >= половины GRID_COLUMNS, смещаем блок вниз
-        // иначе смещаем вправо, если есть место, иначе вниз
-        
-        let newRow = block.position.row;
-        let newColumn = block.position.column;
-        
-        if (movedBlock.size.width >= GRID_COLUMNS / 2 || 
-            movedBlock.position.column + movedBlock.size.width + block.size.width > GRID_COLUMNS) {
-          // Смещаем вниз, если блок широкий или нет места справа
-          newRow = movedBlock.position.row + movedBlock.size.height;
-        } else {
-          // Иначе смещаем вправо
-          newColumn = movedBlock.position.column + movedBlock.size.width;
-          
-          // Если после смещения вправо блок выходит за границу сетки, смещаем вниз
-          if (newColumn + block.size.width > GRID_COLUMNS) {
-            newColumn = 0; // Возвращаем к левому краю
-            newRow = movedBlock.position.row + movedBlock.size.height; // И смещаем вниз
-          }
-        }
-        
-        // Обновляем позицию блока
-        block.position.row = newRow;
-        block.position.column = newColumn;
-        
-        // Рекурсивно проверяем, не создали ли мы новые конфликты
-        return handleAutoAdjustBlockPositions(adjustedBlocks, block.id, recursionDepth + 1);
-      }
-    }
-    
-    // Размещаем перемещаемый блок в сетке
+    // Проверяем, есть ли конфликты с текущей позицией movedBlock
+    let hasConflict = false;
     for (let r = movedBlock.position.row; r < movedBlock.position.row + movedBlock.size.height; r++) {
       for (let c = movedBlock.position.column; c < movedBlock.position.column + movedBlock.size.width; c++) {
-        if (r >= 0 && c >= 0 && r < 100 && c < GRID_COLUMNS) {
-          grid[r][c] = true;
+        if (r >= 0 && c >= 0 && r < 100 && c < GRID_COLUMNS && grid[r][c]) {
+          hasConflict = true;
+          break;
         }
       }
+      if (hasConflict) break;
     }
     
-    if (!conflicts) {
-      console.log(`No overlaps found for block ${movedBlockId} at recursion depth ${recursionDepth}`);
+    if (!hasConflict) {
+      console.log(`No conflicts for block ${movedBlockId} at current position`);
+      return adjustedBlocks;
     }
+    
+    // Если есть конфликт, ищем ближайшую свободную позицию для movedBlock
+    const findNearestFreePosition = (block: Block, grid: boolean[][]) => {
+      const originalRow = block.position.row;
+      const originalColumn = block.position.column;
+      const width = block.size.width;
+      const height = block.size.height;
+      
+      // Проверяем позиции в порядке увеличения расстояния от исходной позиции
+      // Сначала проверяем исходную строку, перемещая вправо
+      for (let c = originalColumn + 1; c <= GRID_COLUMNS - width; c++) {
+        let positionAvailable = true;
+        for (let r = originalRow; r < originalRow + height; r++) {
+          for (let cc = c; cc < c + width; cc++) {
+            if (r >= 0 && cc >= 0 && r < 100 && cc < GRID_COLUMNS) {
+              if (grid[r][cc]) {
+                positionAvailable = false;
+                break;
+              }
+            }
+          }
+          if (!positionAvailable) break;
+        }
+        if (positionAvailable) {
+          return { row: originalRow, column: c };
+        }
+      }
+      
+      // Затем проверяем позиции по следующим строкам, начиная с левого края
+      for (let r = originalRow + 1; r < 100; r++) {
+        for (let c = 0; c <= GRID_COLUMNS - width; c++) {
+          let positionAvailable = true;
+          for (let rr = r; rr < r + height; rr++) {
+            for (let cc = c; cc < c + width; cc++) {
+              if (rr >= 0 && cc >= 0 && rr < 100 && cc < GRID_COLUMNS) {
+                if (grid[rr][cc]) {
+                  positionAvailable = false;
+                  break;
+                }
+              }
+            }
+            if (!positionAvailable) break;
+          }
+          if (positionAvailable) {
+            return { row: r, column: c };
+          }
+        }
+      }
+      
+      // Если ничего не нашли, возвращаем первую свободную позицию снизу
+      let lastRow = 0;
+      adjustedBlocks.forEach((b: Block) => {
+        const blockBottom = b.position.row + b.size.height;
+        if (blockBottom > lastRow) {
+          lastRow = blockBottom;
+        }
+      });
+      
+      return { row: lastRow + 1, column: 0 };
+    };
+    
+    // Находим новую позицию для перемещаемого блока
+    const newPosition = findNearestFreePosition(movedBlock, grid);
+    movedBlock.position.row = newPosition.row;
+    movedBlock.position.column = newPosition.column;
+    
+    console.log(`Found new position for block ${movedBlockId} at row: ${newPosition.row}, column: ${newPosition.column}`);
     
     return adjustedBlocks;
   };
@@ -3089,10 +3150,20 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
                         : activeBlockId === block.id
                         ? `2px dashed ${theme.palette.secondary.main}`
                         : block.isFixed ? `2px dashed #4caf50` : 'none',
-                      zIndex: selectedBlockId === block.id || activeBlockId === block.id ? 10 : 1,
+                      boxShadow: block.isFixed 
+                        ? '0 0 0 2px rgba(76, 175, 80, 0.3), 0 4px 8px rgba(0, 0, 0, 0.1)' 
+                        : 'none',
+                      zIndex: selectedBlockId === block.id || activeBlockId === block.id ? 10 : block.isFixed ? 5 : 1,
                       boxSizing: 'border-box',
                       cursor: block.isFixed || isPreviewMode ? 'default' : 'move',
                       opacity: block.isFixed ? 0.95 : 1,
+                      position: 'absolute',
+                      '&:hover': {
+                        boxShadow: block.isFixed
+                          ? '0 0 0 2px rgba(76, 175, 80, 0.5), 0 6px 12px rgba(0, 0, 0, 0.15)'
+                          : '0 5px 15px rgba(0, 0, 0, 0.15)',
+                        transform: block.isFixed ? 'translateY(-1px)' : 'translateY(-2px)'
+                      },
                       '&:hover .resize-handle': {
                         opacity: isPreviewMode ? 0 : 0.8,
                       }
