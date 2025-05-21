@@ -311,6 +311,12 @@ const styles = {
     overflow: 'hidden',
     borderRight: '1px solid rgba(0, 0, 0, 0.1)',
     transition: 'transform 0.3s ease'
+  },
+  previewWrapper: {
+    width: '100%',
+    height: '100%',
+    position: 'relative',
+    overflow: 'hidden'
   }
 };
 
@@ -3557,6 +3563,53 @@ const extractYouTubeId = (url: string): string => {
           </Button>
         </DialogContent>
       </Dialog>
+      
+      {/* Интерфейс для режима предпросмотра */}
+      {isPreviewMode && (
+        <Box sx={{ 
+          ...styles.previewWrapper,
+          backgroundColor,
+          position: 'relative',
+          // Ensure the preview container has enough height to contain all blocks
+          minHeight: '600px',
+          height: 'auto'
+        }}>
+          {blocks.map((block) => (
+            <Box 
+              key={block.id}
+              sx={{
+                position: 'absolute',
+                left: `${block.position.column * CELL_SIZE}px`,
+                top: `${block.position.row * CELL_SIZE}px`,
+                width: `${block.size.width * CELL_SIZE}px`,
+                height: `${block.size.height * CELL_SIZE}px`,
+                zIndex: block.isFixed ? 2 : 1,
+                '& ul, & ol, & li': {
+                  listStyle: 'none',
+                  margin: 0,
+                  padding: 0
+                }
+              }}
+            >
+              <Paper
+                sx={{
+                  backgroundColor: block.style.backgroundColor,
+                  color: block.style.color,
+                  borderRadius: block.template === 'circle' ? '50%' : block.style.borderRadius,
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                  p: 2,
+                  height: '100%',
+                  width: '100%',
+                  boxSizing: 'border-box',
+                  overflow: 'auto'
+                }}
+              >
+                {renderBlockContent(block)}
+              </Paper>
+            </Box>
+          ))}
+        </Box>
+      )}
     </Box>
   );
 };
