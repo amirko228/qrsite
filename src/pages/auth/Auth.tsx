@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Container, Box, Paper, Typography, TextField, Button, Alert, Grid, Link as MuiLink } from '@mui/material';
-import { Email, Lock, CheckCircle } from '@mui/icons-material';
+import { Container, Box, Paper, Typography, TextField, Button, Alert, Grid, Link as MuiLink, InputAdornment, IconButton } from '@mui/material';
+import { Email, Lock, CheckCircle, Visibility, VisibilityOff } from '@mui/icons-material';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { styled } from '@mui/material/styles';
 import { motion } from 'framer-motion';
@@ -37,6 +37,40 @@ const Auth: React.FC = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+
+  // Проверяем доступность localStorage при монтировании компонента
+  useEffect(() => {
+    try {
+      // Проверяем, доступен ли localStorage
+      localStorage.setItem('auth_test', 'test');
+      if (localStorage.getItem('auth_test') !== 'test') {
+        setError('Проблема доступа к локальному хранилищу. Возможно, оно отключено или заполнено.');
+      } else {
+        localStorage.removeItem('auth_test');
+      }
+      
+      // Проверяем наличие предустановленных пользователей в localStorage
+      const adminPanelData = localStorage.getItem('adminPanelData');
+      const users = adminPanelData ? JSON.parse(adminPanelData) : [];
+      const usersInfo = {
+        total: users.length,
+        admin: users.some((u: any) => u.username === 'admin'),
+        user: users.some((u: any) => u.username === 'user'),
+        test: users.some((u: any) => u.username === 'test')
+      };
+      console.log('Проверка пользователей в хранилище:', usersInfo);
+      
+      // Если нет пользователей, показываем подсказку
+      if (users.length === 0) {
+        console.info('Используйте для входа логин/пароль: admin/admin, user/user или test/test');
+      }
+      
+    } catch (e) {
+      console.error('Ошибка при проверке localStorage:', e);
+      setError('Проблема с локальным хранилищем. Проверьте настройки браузера.');
+    }
+  }, []);
 
   // Перенаправляем на нужную страницу, если уже авторизован
   useEffect(() => {
@@ -164,6 +198,16 @@ const Auth: React.FC = () => {
                   Войдите в свой аккаунт для доступа к профилю
                 </Typography>
 
+                {/* Информационный баннер */}
+                <Alert severity="info" sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2">Тестовые учетные записи:</Typography>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', mt: 1 }}>
+                    <Typography variant="body2"><b>Админ:</b> admin / admin</Typography>
+                    <Typography variant="body2"><b>Пользователь:</b> user / user</Typography>
+                    <Typography variant="body2"><b>Тест:</b> test / test</Typography>
+                  </Box>
+                </Alert>
+
                 {error && (
                   <Alert severity="error" sx={{ mb: 3 }}>
                     {error}
@@ -195,11 +239,21 @@ const Auth: React.FC = () => {
                     fullWidth
                       id="password"
                     variant="outlined"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     InputProps={{
                       startAdornment: <Lock color="action" sx={{ mr: 1 }} />,
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={() => setShowPassword(!showPassword)}
+                            edge="end"
+                          >
+                            {showPassword ? <VisibilityOff /> : <Visibility />}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
                     }}
                   />
                   </Box>
@@ -225,8 +279,28 @@ const Auth: React.FC = () => {
 
                 <Box sx={{ textAlign: 'center', mt: 2 }}>
                   <Typography variant="body2" color="textSecondary">
-                    Нет аккаунта? Обратитесь к администратору для получения доступа.
+                    Нет аккаунта? Используйте: admin/admin, user/user или test/test
                   </Typography>
+                </Box>
+                
+                <Box sx={{ textAlign: 'center', mt: 2 }}>
+                  <Button 
+                    size="small" 
+                    color="warning" 
+                    variant="outlined"
+                    onClick={() => {
+                      // Сбрасываем данные пользователей в localStorage
+                      localStorage.removeItem('adminPanelData');
+                      localStorage.removeItem('users');
+                      localStorage.removeItem('accessToken');
+                      
+                      // Перезагружаем страницу для повторной инициализации
+                      alert('Данные пользователей сброшены. Страница будет перезагружена.');
+                      window.location.reload();
+                    }}
+                  >
+                    Сбросить хранилище
+                  </Button>
                 </Box>
               </>
             ) : (

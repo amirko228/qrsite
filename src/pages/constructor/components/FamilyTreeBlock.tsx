@@ -706,7 +706,7 @@ const AddPersonDialog: React.FC<AddPersonDialogProps> = ({ open, onClose, onAdd,
       <Grid item xs={6}>
         <TextField
           fullWidth
-          label="Ссылка на профиль"
+          label="Ссылка на страницу"
           variant="outlined"
           value={socialUrl}
           onChange={(e) => setSocialUrl(e.target.value)}

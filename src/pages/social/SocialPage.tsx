@@ -37,7 +37,7 @@ import {
   Twitter, 
   AccountBox, 
   QrCode, 
-  Share,
+  Share, 
   FamilyRestroom,
   DragIndicator,
   AccountCircle
@@ -826,7 +826,7 @@ const SocialPage: React.FC = () => {
   const navigate = useNavigate();
   const { user, isLoggedIn } = useAuth();
   const theme = useTheme();
-  
+
   // Состояния для UI
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -838,7 +838,7 @@ const SocialPage: React.FC = () => {
     name: '',
     bio: '',
     avatar: '',
-    theme: 'light'
+      theme: 'light'
   });
   
   // Состояния для данных из конструктора
@@ -938,21 +938,21 @@ const SocialPage: React.FC = () => {
       <Box sx={{ mb: 4, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
         <Typography variant="h4" component="h1" sx={{ fontWeight: 'bold', color: theme.palette.primary.main }}>
           {profile.name || 'Страница памяти'}
-        </Typography>
-        
-        {isOwner && (
+          </Typography>
+                  
+                  {isOwner && (
           <Box sx={{ display: 'flex', gap: 2 }}>
-            <Button
+                      <Button
               variant="outlined"
               startIcon={<QrCode />}
-              onClick={handleOpenQRCodeDialog}
+                    onClick={handleOpenQRCodeDialog}
             >
               QR-код
             </Button>
-          </Box>
+                    </Box>
         )}
-      </Box>
-      
+          </Box>
+          
       {/* Интегрируем конструктор прямо на страницу */}
       <Constructor 
         savedData={{
@@ -965,7 +965,7 @@ const SocialPage: React.FC = () => {
       
       {/* QR код диалог */}
       <QRCodeDialog
-        open={isQRCodeDialogOpen}
+        open={isQRCodeDialogOpen} 
         onClose={handleCloseQRCodeDialog}
         profileUrl={getProfileUrl()}
         onCopyLink={handleCopyProfileLink}

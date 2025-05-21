@@ -32,9 +32,9 @@ export const BlockTemplates = {
     { id: 'separate', name: 'Отдельные иконки' }
   ],
   [BlockType.PROFILE]: [
-    { id: 'full-width', name: 'На всю ширину' },
-    { id: 'square', name: 'Квадрат со скошенными углами' },
-    { id: 'form', name: 'Форма с полями' }
+    { id: 'full-width', name: 'Страница памяти на всю ширину' },
+    { id: 'square', name: 'Карточка памяти квадратная' },
+    { id: 'form', name: 'Форма с информацией о человеке' }
   ],
   [BlockType.FAMILY_TREE]: [
     { id: 'standard', name: 'Стандартное древо' }

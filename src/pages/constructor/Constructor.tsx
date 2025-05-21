@@ -2316,7 +2316,7 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
 
   // Сохранение страницы
   const handleSave = () => {
-    console.log('Сохраняем страницу', { blocks, backgroundColor, showOnMap });
+    console.log('Сохраняем страницу памяти', { blocks, backgroundColor, showOnMap });
     
     // Перед сохранением, обработаем содержимое блоков для более удобного использования на странице памяти
     const processedBlocks = blocks.map(block => {
@@ -2351,7 +2351,7 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
         }
         
         if (!processedBlock.content.profileInfo.description) {
-          processedBlock.content.profileInfo.description = 'Описание профиля';
+          processedBlock.content.profileInfo.description = 'Описание страницы памяти';
         }
       }
       
