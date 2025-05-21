@@ -1072,10 +1072,10 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
     // Calculate row position (vertical snapping)
     const row = Math.max(0, Math.round(data.y / CELL_SIZE));
     
-    // Определяем стартовую колонку на основе типа блока
+    // Calculate column position based on actual drag position
     let column = Math.max(0, Math.min(GRID_COLUMNS - currentBlock.size.width, Math.round(data.x / CELL_SIZE)));
     
-    // Проверяем выравнивание для полноширинных блоков или блоков с особыми требованиями
+    // Проверяем только полноширинные блоки - их всегда принудительно выравниваем по левому краю
     const isFullWidth = currentBlock.size.width >= GRID_COLUMNS || 
                          currentBlock.type === BlockType.FAMILY_TREE || 
                          currentBlock.template === 'semicircle';
@@ -1083,19 +1083,9 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
     if (isFullWidth) {
       // Полноширинные блоки всегда начинаются с колонки 0
       column = 0;
-    } else {
-      // Определяем тип позиционирования блока
-      const positionType = getBlockPositionType(currentBlock.type, currentBlock.template);
-      
-      if (positionType === BlockPositionType.CENTER) {
-        // Центрированные блоки выравниваем по центру сетки
-        column = Math.floor((GRID_COLUMNS - currentBlock.size.width) / 2);
-      } else if (positionType === BlockPositionType.RIGHT) {
-        // Блоки с правым выравниванием располагаем у правого края
-        column = Math.max(0, GRID_COLUMNS - currentBlock.size.width);
-      }
-      // Для BlockPositionType.LEFT оставляем текущий расчет column
     }
+    // БОЛЬШЕ НЕ ПРИМЕНЯЕМ автоматическое выравнивание для других блоков - 
+    // Сохраняем позицию, заданную пользователем
     
     console.log(`Block ${id} will snap to grid position row:${row}, column:${column}`);
     
