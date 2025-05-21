@@ -112,12 +112,8 @@ const initializeMockData = (): User[] => {
   return mockData;
 };
 
-let persistentMockData: User[] | null = loadPersistentData();
-
-// Если данные не были загружены, инициализируем их
-if (!persistentMockData) {
-  persistentMockData = initializeMockData();
-}
+// Загружаем данные из localStorage или используем пустой массив, если данных нет
+let persistentMockData: User[] = loadPersistentData() || [];
 
 // Функция debounce для оптимизации поиска
 const debounce = <T extends (...args: any[]) => any>(func: T, wait: number) => {
@@ -775,19 +771,69 @@ const AdminPanel: React.FC = () => {
     dispatch({ type: 'SET_ACTION_LOADING', payload: true });
 
     try {
-      // Обновляем данные пользователя
-      const updatedUsers = state.users.map(user => {
+      console.log('Начало редактирования пользователя:', {
+        id: selectedUser.id,
+        oldName: selectedUser.name,
+        newName: userForm.name,
+        passwordChanged: !!userForm.password
+      });
+      
+      // Загружаем актуальные данные из обоих хранилищ
+      const adminPanelData = localStorage.getItem('adminPanelData');
+      const usersData = localStorage.getItem('users');
+      
+      let currentAdminData = adminPanelData ? JSON.parse(adminPanelData) : [];
+      let currentUsersData = usersData ? JSON.parse(usersData) : [];
+      
+      // Обновляем данные в обоих хранилищах
+      currentAdminData = currentAdminData.map((user: User) => {
         if (user.id === selectedUser.id) {
-          // Создаем копию пользователя с обновленным именем
+          // Обновляем имя пользователя
           const updatedUser = { ...user, name: userForm.name };
           
           // Если введен новый пароль, обновляем его
           if (userForm.password) {
-            // Используем приведение типов для обхода проверки TypeScript
             (updatedUser as any).password = userForm.password;
           }
           
           return updatedUser;
+        }
+        return user;
+      });
+      
+      currentUsersData = currentUsersData.map((user: User) => {
+        if (user.id === selectedUser.id) {
+          // Обновляем имя пользователя
+          const updatedUser = { ...user, name: userForm.name };
+          
+          // Если введен новый пароль, обновляем его
+          if (userForm.password) {
+            (updatedUser as any).password = userForm.password;
+          }
+          
+          return updatedUser;
+        }
+        return user;
+      });
+      
+      // Сохраняем изменения в обоих хранилищах
+      localStorage.setItem('adminPanelData', JSON.stringify(currentAdminData));
+      localStorage.setItem('users', JSON.stringify(currentAdminData)); // Синхронизируем оба хранилища
+      localStorage.setItem('admin_edited_users', 'true'); // Устанавливаем флаг редактирования
+      
+      // Обновляем глобальные данные
+      persistentMockData = currentAdminData;
+      
+      console.log('Данные после редактирования пользователя:', {
+        adminPanelDataLength: currentAdminData.length,
+        usersDataLength: currentAdminData.length
+      });
+
+      // Обновляем данные пользователя в UI
+      const updatedUsers = state.users.map(user => {
+        if (user.id === selectedUser.id) {
+          // Создаем копию пользователя с обновленным именем
+          return { ...user, name: userForm.name };
         }
         return user;
       });
@@ -800,7 +846,9 @@ const AdminPanel: React.FC = () => {
       }
 
       dispatch({ type: 'SET_USERS', payload: updatedUsers });
-      savePersistentData(updatedUsers);
+      
+      // Очищаем кеш
+      apiCache.clear();
       
       handleCloseEditDialog();
       updateStats();
@@ -841,8 +889,29 @@ const AdminPanel: React.FC = () => {
       // Симуляция API запроса
       await new Promise(resolve => setTimeout(resolve, 500));
       
-      // Загружаем актуальные данные
-      let currentData = loadPersistentData() || [];
+      console.log('Удаление пользователя. Начальное состояние:', {
+        selectedUserId: selectedUser.id,
+        selectedUserName: selectedUser.name,
+      });
+      
+      // Загружаем актуальные данные из обоих хранилищ
+      const adminPanelData = localStorage.getItem('adminPanelData');
+      const usersData = localStorage.getItem('users');
+      
+      console.log('Текущие данные хранилищ:', {
+        adminPanelDataExists: !!adminPanelData,
+        adminPanelLength: adminPanelData ? JSON.parse(adminPanelData).length : 0,
+        usersDataExists: !!usersData,
+        usersLength: usersData ? JSON.parse(usersData).length : 0
+      });
+      
+      // Обновляем данные в обоих хранилищах
+      let currentAdminData = adminPanelData ? JSON.parse(adminPanelData) : [];
+      let currentUsersData = usersData ? JSON.parse(usersData) : [];
+      
+      // Фильтруем из обоих хранилищ
+      currentAdminData = currentAdminData.filter((user: User) => user.id !== selectedUser.id);
+      currentUsersData = currentUsersData.filter((user: User) => user.id !== selectedUser.id);
       
       // Фильтруем пользователей в UI
       const filteredUsers = state.users.filter(user => user.id !== selectedUser.id);
@@ -853,8 +922,18 @@ const AdminPanel: React.FC = () => {
       });
       
       // Также удаляем из глобальных данных
-      persistentMockData = currentData.filter(user => user.id !== selectedUser.id);
-      savePersistentData(persistentMockData);
+      persistentMockData = currentAdminData || [];  // Защита от null
+      
+      // Сохраняем изменения в обоих хранилищах
+      localStorage.setItem('adminPanelData', JSON.stringify(currentAdminData));
+      localStorage.setItem('users', JSON.stringify(currentAdminData)); // Синхронизируем оба хранилища
+      localStorage.setItem('admin_edited_users', 'true'); // Устанавливаем флаг редактирования
+      
+      console.log('Данные после удаления:', {
+        adminPanelDataLength: currentAdminData.length,
+        usersDataLength: currentAdminData.length,
+        filteredUsersLength: filteredUsers.length
+      });
       
       // Очищаем кеш
       apiCache.clear();
@@ -865,8 +944,8 @@ const AdminPanel: React.FC = () => {
       // Обновляем статистику
       updateStats();
       
-        setSnackbar({
-          open: true,
+      setSnackbar({
+        open: true,
         message: 'Пользователь успешно удален',
         severity: 'success'
       });
@@ -876,12 +955,12 @@ const AdminPanel: React.FC = () => {
       console.log("Пользователь удален:", {
         id: selectedUser.id,
         name: selectedUser.name,
-        remainingTotal: persistentMockData.length
+        remainingTotal: persistentMockData ? persistentMockData.length : 0
       });
     } catch (error) {
       console.error('Ошибка удаления пользователя:', error);
-        setSnackbar({
-          open: true,
+      setSnackbar({
+        open: true,
         message: 'Ошибка удаления пользователя',
         severity: 'error'
       });
@@ -953,16 +1032,20 @@ const AdminPanel: React.FC = () => {
     dispatch({ type: 'SET_ACTION_LOADING', payload: true });
     
     try {
+      console.log('Начало полной очистки хранилища пользователей...');
+      
       // Очищаем всех пользователей
       persistentMockData = [];
       
       // Сохраняем пустой массив и устанавливаем флаг редактирования
-      savePersistentData(persistentMockData);
-      
-      // Синхронизируем оба хранилища
       localStorage.setItem('adminPanelData', JSON.stringify([]));
       localStorage.setItem('users', JSON.stringify([]));
       localStorage.setItem('admin_edited_users', 'true');
+      
+      console.log('Данные после очистки:', {
+        adminPanelData: JSON.parse(localStorage.getItem('adminPanelData') || '[]').length,
+        usersData: JSON.parse(localStorage.getItem('users') || '[]').length
+      });
       
       // Очищаем кеш и обновляем UI
       apiCache.clear();
@@ -1048,8 +1131,21 @@ const AdminPanel: React.FC = () => {
       // Симуляция API запроса
       await new Promise(resolve => setTimeout(resolve, 800));
       
-      // Загружаем актуальные данные
-      let currentData = loadPersistentData() || [];
+      console.log('Начало массового удаления пользователей:', {
+        selectedCount: state.selectedUsers.length,
+        selectedIds: state.selectedUsers
+      });
+      
+      // Загружаем актуальные данные из обоих хранилищ
+      const adminPanelData = localStorage.getItem('adminPanelData');
+      const usersData = localStorage.getItem('users');
+      
+      console.log('Текущие данные хранилищ:', {
+        adminPanelDataExists: !!adminPanelData,
+        adminPanelLength: adminPanelData ? JSON.parse(adminPanelData).length : 0,
+        usersDataExists: !!usersData,
+        usersLength: usersData ? JSON.parse(usersData).length : 0
+      });
       
       // Фильтруем пользователей в UI
       const filteredUsers = state.users.filter(user => !state.selectedUsers.includes(user.id));
@@ -1059,9 +1155,26 @@ const AdminPanel: React.FC = () => {
         payload: filteredUsers
       });
       
+      // Фильтруем данные в обоих хранилищах
+      let currentAdminData = adminPanelData ? JSON.parse(adminPanelData) : [];
+      let currentUsersData = usersData ? JSON.parse(usersData) : [];
+      
+      currentAdminData = currentAdminData.filter((user: User) => !state.selectedUsers.includes(user.id));
+      currentUsersData = currentUsersData.filter((user: User) => !state.selectedUsers.includes(user.id));
+      
       // Также удаляем из глобальных данных
-      persistentMockData = currentData.filter(user => !state.selectedUsers.includes(user.id));
-      savePersistentData(persistentMockData);
+      persistentMockData = currentAdminData || [];  // Защита от null
+      
+      // Сохраняем изменения в обоих хранилищах
+      localStorage.setItem('adminPanelData', JSON.stringify(currentAdminData));
+      localStorage.setItem('users', JSON.stringify(currentAdminData)); // Синхронизируем оба хранилища
+      localStorage.setItem('admin_edited_users', 'true'); // Устанавливаем флаг редактирования
+      
+      console.log('Данные после массового удаления:', {
+        adminPanelDataLength: currentAdminData.length,
+        usersDataLength: currentAdminData.length,
+        filteredUsersLength: filteredUsers.length
+      });
       
       // Очищаем кеш
       apiCache.clear();
@@ -1083,9 +1196,9 @@ const AdminPanel: React.FC = () => {
 
       handleCloseMultiDeleteDialog();
       
-      console.log("Массовое удаление:", {
+      console.log("Массовое удаление завершено:", {
         removedCount: state.selectedUsers.length,
-        remainingTotal: persistentMockData.length
+        remainingTotal: persistentMockData ? persistentMockData.length : 0
       });
     } catch (error) {
       console.error('Ошибка массового удаления пользователей:', error);
@@ -1118,6 +1231,12 @@ const AdminPanel: React.FC = () => {
     dispatch({ type: 'SET_ACTION_LOADING', payload: true });
 
     try {
+      console.log('Начало создания нового пользователя:', {
+        username: userForm.username,
+        name: userForm.name
+      });
+      
+      // Создаем нового пользователя
       const newUserData = {
         id: Date.now(),
         username: userForm.username,
@@ -1130,6 +1249,30 @@ const AdminPanel: React.FC = () => {
       const userProfile = createUserProfile(newUserData.id.toString(), userForm.name);
       console.log('Создан профиль пользователя:', userProfile);
 
+      // Загружаем актуальные данные из обоих хранилищ
+      const adminPanelData = localStorage.getItem('adminPanelData');
+      const usersData = localStorage.getItem('users');
+      
+      let currentAdminData = adminPanelData ? JSON.parse(adminPanelData) : [];
+      let currentUsersData = usersData ? JSON.parse(usersData) : [];
+      
+      // Добавляем пользователя в хранилища
+      currentAdminData.push(newUserData);
+      currentUsersData.push(newUserData);
+
+      // Сохраняем изменения в обоих хранилищах
+      localStorage.setItem('adminPanelData', JSON.stringify(currentAdminData));
+      localStorage.setItem('users', JSON.stringify(currentAdminData)); // Синхронизируем оба хранилища
+      localStorage.setItem('admin_edited_users', 'true'); // Устанавливаем флаг редактирования
+      
+      // Обновляем глобальные данные
+      persistentMockData = currentAdminData;
+      
+      console.log('Данные после создания пользователя:', {
+        adminPanelDataLength: currentAdminData.length,
+        usersDataLength: currentAdminData.length
+      });
+      
       // Добавляем пользователя в список (без пароля для хранения в state)
       const userDataWithoutPassword = {
         id: newUserData.id,
@@ -1141,8 +1284,8 @@ const AdminPanel: React.FC = () => {
       const updatedUsers = [...state.users, userDataWithoutPassword];
       dispatch({ type: 'SET_USERS', payload: updatedUsers });
       
-      // Сохраняем с паролем в localStorage для последующей аутентификации
-      savePersistentData([...state.users, newUserData]);
+      // Очищаем кеш
+      apiCache.clear();
 
       // Сбрасываем форму и закрываем диалог
       setUserForm({ name: '', username: '', password: '' });

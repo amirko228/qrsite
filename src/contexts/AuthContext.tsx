@@ -62,14 +62,56 @@ const initializeTestUsers = () => {
     // Проверяем наличие флага, указывающего на то, что данные уже были изменены администратором
     const adminEditedData = localStorage.getItem('admin_edited_users');
     
+    // Проверяем существующие данные в хранилище
+    const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+    const storedLoginUsers = localStorage.getItem(USERS_LOGIN_KEY);
+    
+    console.log('Проверка существующих данных:', {
+      adminEditedFlag: adminEditedData,
+      adminPanelDataExists: !!storedUsers,
+      usersDataExists: !!storedLoginUsers,
+      adminPanelDataLength: storedUsers ? JSON.parse(storedUsers).length : 0,
+      usersLength: storedLoginUsers ? JSON.parse(storedLoginUsers).length : 0
+    });
+    
     // Если администратор уже редактировал данные, не перезаписываем их
-    if (adminEditedData === 'true') {
+    if (adminEditedData === 'true' && (storedUsers || storedLoginUsers)) {
       console.log('Обнаружены пользовательские данные, измененные администратором. Пропускаем инициализацию.');
+      
+      // Синхронизируем данные между хранилищами, если они не совпадают
+      if (storedUsers && storedLoginUsers && storedUsers !== storedLoginUsers) {
+        console.log('Синхронизируем хранилища, так как они различаются');
+        localStorage.setItem(USERS_LOGIN_KEY, storedUsers);
+      } else if (storedUsers && !storedLoginUsers) {
+        console.log('Копируем данные из adminPanelData в users');
+        localStorage.setItem(USERS_LOGIN_KEY, storedUsers);
+      } else if (!storedUsers && storedLoginUsers) {
+        console.log('Копируем данные из users в adminPanelData');
+        localStorage.setItem(USERS_STORAGE_KEY, storedLoginUsers);
+      }
+      
       return;
     }
 
-    // Проверяем, существуют ли пользователи в adminPanelData
-    const storedUsers = localStorage.getItem(USERS_STORAGE_KEY);
+    // Если есть данные пользователей и нет флага редактирования - устанавливаем флаг
+    if ((storedUsers && JSON.parse(storedUsers).length > 0) || 
+        (storedLoginUsers && JSON.parse(storedLoginUsers).length > 0)) {
+      console.log('Обнаружены данные пользователей, устанавливаем флаг редактирования');
+      localStorage.setItem('admin_edited_users', 'true');
+      
+      // Синхронизируем данные между хранилищами
+      if (storedUsers && !storedLoginUsers) {
+        localStorage.setItem(USERS_LOGIN_KEY, storedUsers);
+      } else if (!storedUsers && storedLoginUsers) {
+        localStorage.setItem(USERS_STORAGE_KEY, storedLoginUsers);
+      }
+      
+      return;
+    }
+
+    console.log('Инициализируем стандартных пользователей...');
+    
+    // Загружаем существующих пользователей или создаем пустой массив
     let users = storedUsers ? JSON.parse(storedUsers) : [];
     
     // Обязательно добавляем предустановленных пользователей, чтобы гарантировать вход
@@ -606,68 +648,160 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Оптимизированный выход пользователя
   const logout = useCallback(() => {
-    // Сохраняем данные пользователей для админ-панели и профилей
-    const adminPanelData = localStorage.getItem(USERS_STORAGE_KEY);
-    const usersData = localStorage.getItem(USERS_LOGIN_KEY);
-    const adminEditedFlag = localStorage.getItem('admin_edited_users');
-    
-    // Сохраняем все ключи профилей и виджетов перед очисткой
-    const keysToPreserve: Record<string, string> = {};
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (
-        key.startsWith(PROFILE_PREFIX) || 
-        key.startsWith(WIDGETS_PREFIX) || 
-        key.startsWith(SETTINGS_PREFIX) || 
-        key === USERS_STORAGE_KEY ||
-        key === USERS_LOGIN_KEY ||
-        key === 'admin_edited_users'
-      )) {
-        keysToPreserve[key] = localStorage.getItem(key) || '';
+    try {
+      console.log('Начало выхода из системы...');
+      
+      // Получаем текущие данные ПЕРЕД выходом
+      const adminPanelData = localStorage.getItem(USERS_STORAGE_KEY);
+      const usersData = localStorage.getItem(USERS_LOGIN_KEY);
+      const adminEditedFlag = localStorage.getItem('admin_edited_users');
+      
+      console.log('Состояние данных перед выходом:', {
+        adminPanelDataExists: !!adminPanelData,
+        adminPanelDataLength: adminPanelData ? JSON.parse(adminPanelData).length : 0,
+        usersDataExists: !!usersData,
+        usersDataLength: usersData ? JSON.parse(usersData).length : 0,
+        adminEditedFlag
+      });
+      
+      // Создаем копии данных, которые нужно сохранить
+      const dataToPreserve: Record<string, string> = {};
+      
+      // Сохраняем данные пользователей в обоих хранилищах
+      if (adminPanelData) {
+        dataToPreserve[USERS_STORAGE_KEY] = adminPanelData;
+        dataToPreserve[USERS_LOGIN_KEY] = adminPanelData; // Синхронизируем оба хранилища
       }
-    }
-    
-    console.log('Выход пользователя: очистка данных аутентификации');
-    console.log('Сохраняем редактирования администратора:', !!adminEditedFlag);
-    
-    // Удаляем только ключи, связанные с аутентификацией
-    localStorage.removeItem(TOKEN_KEY);
-    localStorage.removeItem('current_user_id');
-    localStorage.removeItem('current_user_name');
-    localStorage.removeItem('current_user_is_admin');
-    localStorage.removeItem('current_user_username');
-    
-    // Восстанавливаем сохраненные данные (профили и пр.)
-    Object.entries(keysToPreserve).forEach(([key, value]) => {
-      localStorage.setItem(key, value);
-    });
-    
-    // Очищаем состояние React
-    setUser(null);
-    setIsLoggedIn(false);
-    lastAuthCheckRef.current = 0;
-    authCheckPromiseRef.current = null;
+      
+      // Сохраняем флаг редактирования
+      if (adminEditedFlag) {
+        dataToPreserve['admin_edited_users'] = adminEditedFlag;
+      }
+      
+      // Сохраняем все профили пользователей
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && (
+          key.startsWith(PROFILE_PREFIX) || 
+          key.startsWith(WIDGETS_PREFIX) || 
+          key.startsWith(SETTINGS_PREFIX)
+        )) {
+          dataToPreserve[key] = localStorage.getItem(key) || '';
+        }
+      }
+      
+      // Удаляем только ключи, связанные с аутентификацией
+      localStorage.removeItem(TOKEN_KEY);
+      localStorage.removeItem('current_user_id');
+      localStorage.removeItem('current_user_name');
+      localStorage.removeItem('current_user_is_admin');
+      localStorage.removeItem('current_user_username');
+      
+      // Восстанавливаем все сохраненные данные
+      console.log('Восстанавливаем данные после очистки аутентификации:', Object.keys(dataToPreserve).length, 'ключей');
+      Object.entries(dataToPreserve).forEach(([key, value]) => {
+        localStorage.setItem(key, value);
+      });
+      
+      // Проверяем, что данные действительно сохранены
+      const finalAdminData = localStorage.getItem(USERS_STORAGE_KEY);
+      const finalUserData = localStorage.getItem(USERS_LOGIN_KEY);
+      const finalEditedFlag = localStorage.getItem('admin_edited_users');
+      
+      console.log('Состояние данных после восстановления:', {
+        adminPanelDataExists: !!finalAdminData,
+        adminPanelDataLength: finalAdminData ? JSON.parse(finalAdminData).length : 0,
+        usersDataExists: !!finalUserData,
+        usersDataLength: finalUserData ? JSON.parse(finalUserData).length : 0,
+        adminEditedFlag: finalEditedFlag
+      });
+      
+      // Очищаем состояние React
+      setUser(null);
+      setIsLoggedIn(false);
+      lastAuthCheckRef.current = 0;
+      authCheckPromiseRef.current = null;
 
-    // Перенаправление на страницу входа
-    console.log('Перенаправление на страницу входа...');
-    window.location.href = '/login';
+      // Перенаправление на страницу входа
+      console.log('Перенаправление на страницу входа...');
+      window.location.href = '/login';
+    } catch (e) {
+      console.error('Ошибка при выходе из системы:', e);
+      // В случае ошибки все равно перенаправляем на страницу входа
+      window.location.href = '/login';
+    }
   }, []);
 
   // Настраиваем axios для всех запросов с токеном один раз при загрузке
   useEffect(() => {
+    // Усиленная синхронизация хранилищ пользователей 
+    try {
+      console.log('Запуск приложения: синхронизация хранилищ пользователей...');
+      
+      const adminPanelData = localStorage.getItem(USERS_STORAGE_KEY);
+      const usersData = localStorage.getItem(USERS_LOGIN_KEY);
+      const adminEditedFlag = localStorage.getItem('admin_edited_users');
+      
+      // Логи для отладки
+      console.log('Состояние данных при запуске:', {
+        adminPanelDataExists: !!adminPanelData,
+        adminPanelDataLength: adminPanelData ? JSON.parse(adminPanelData).length : 0,
+        usersDataExists: !!usersData, 
+        usersDataLength: usersData ? JSON.parse(usersData).length : 0,
+        adminEditedFlag
+      });
+      
+      // Реализуем приоритетную синхронизацию хранилищ
+      if (adminPanelData && usersData) {
+        // Если оба хранилища существуют, но данные отличаются
+        const adminData = JSON.parse(adminPanelData);
+        const userData = JSON.parse(usersData);
+        
+        if (adminData.length !== userData.length) {
+          console.log('Хранилища имеют разное количество пользователей, синхронизируем...');
+          
+          // Приоритет у adminPanelData, если флаг редактирования установлен
+          if (adminEditedFlag === 'true' && adminData.length > 0) {
+            localStorage.setItem(USERS_LOGIN_KEY, adminPanelData);
+            console.log('Скопированы данные из adminPanelData в users');
+          } 
+          // Иначе используем данные из users, если они есть
+          else if (userData.length > 0) {
+            localStorage.setItem(USERS_STORAGE_KEY, usersData);
+            console.log('Скопированы данные из users в adminPanelData');
+          }
+          // Если оба пустые, устанавливаем флаг для инициализации
+          else {
+            localStorage.removeItem('admin_edited_users');
+            console.log('Оба хранилища пусты, сбрасываем флаг редактирования');
+          }
+        } else {
+          console.log('Хранилища синхронизированы, количество пользователей:', adminData.length);
+          // Устанавливаем флаг, если есть пользователи
+          if (adminData.length > 0 && adminEditedFlag !== 'true') {
+            localStorage.setItem('admin_edited_users', 'true');
+            console.log('Установлен флаг редактирования, т.к. обнаружены пользователи');
+          }
+        }
+      }
+      // Если одно из хранилищ отсутствует, копируем данные
+      else if (adminPanelData && !usersData) {
+        localStorage.setItem(USERS_LOGIN_KEY, adminPanelData);
+        console.log('Восстановлено хранилище users из adminPanelData');
+      }
+      else if (!adminPanelData && usersData) {
+        localStorage.setItem(USERS_STORAGE_KEY, usersData);
+        console.log('Восстановлено хранилище adminPanelData из users');
+      }
+    } catch (e) {
+      console.error('Ошибка при синхронизации хранилищ:', e);
+    }
+    
+    // Затем запускаем инициализацию пользователей
+    initializeTestUsers();
+    
     // Первоначальная проверка аутентификации
     checkAuth();
-    
-    // Синхронизация хранилищ пользователей 
-    const adminEditedFlag = localStorage.getItem('admin_edited_users');
-    if (adminEditedFlag === 'true') {
-      // Если администратор редактировал данные, синхронизируем хранилища
-      const adminPanelData = localStorage.getItem(USERS_STORAGE_KEY);
-      if (adminPanelData) {
-        localStorage.setItem(USERS_LOGIN_KEY, adminPanelData);
-        console.log('Синхронизированы хранилища пользователей при запуске (adminPanelData -> users)');
-      }
-    }
     
     // Настраиваем глобальный перехватчик для всех запросов axios только если не используем моки
     if (!MOCK_API) {
