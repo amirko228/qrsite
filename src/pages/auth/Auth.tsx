@@ -262,18 +262,6 @@ const Auth: React.FC = () => {
                     </MuiLink>
                   </Box>
 
-                  {/* Подсказка с учетными данными */}
-                  <Alert severity="info" sx={{ mb: 3 }}>
-                    <Typography variant="body2">
-                      Для входа используйте одну из учетных записей:
-                    </Typography>
-                    <Box component="ul" sx={{ pl: 2, mt: 1, mb: 0 }}>
-                      <li>Администратор: логин <b>admin</b>, пароль <b>admin</b></li>
-                      <li>Пользователь: логин <b>user</b>, пароль <b>user</b></li>
-                      <li>Тестовый: логин <b>test</b>, пароль <b>test</b></li>
-                    </Box>
-                  </Alert>
-
                   <Button
                     type="submit"
                     variant="contained"
@@ -281,16 +269,14 @@ const Auth: React.FC = () => {
                     fullWidth
                     size="large"
                     disabled={isLoading}
+                    sx={{ mb: 3 }}
                   >
                     {isLoading ? 'Вход...' : 'Войти'}
                   </Button>
 
-                  <Box sx={{ textAlign: 'center', mt: 3 }}>
+                  <Box sx={{ textAlign: 'center', mt: 2 }}>
                     <Typography variant="body2" color="textSecondary">
-                      Нет аккаунта?{' '}
-                      <MuiLink component={Link} to="/register" underline="hover">
-                        Регистрация
-                      </MuiLink>
+                      Нет аккаунта? Обратитесь к администратору для получения доступа.
                     </Typography>
                   </Box>
                 </Box>
