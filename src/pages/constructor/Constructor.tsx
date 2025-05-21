@@ -545,6 +545,13 @@ const PhotoGalleryBlock: React.FC<{
   );
 };
 
+// Функция для извлечения ID видео из URL YouTube
+const extractYouTubeId = (url: string): string => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : '';
+};
+
 const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId }) => {
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
@@ -1057,22 +1064,29 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
     // Calculate row position (vertical snapping)
     const row = Math.max(0, Math.round(data.y / CELL_SIZE));
     
-    // Determine the appropriate column position based on block type/width
-    const positionType = getBlockPositionType(currentBlock.type, currentBlock.template);
-    let column: number;
+    // Определяем стартовую колонку на основе типа блока
+    let column = Math.max(0, Math.min(GRID_COLUMNS - currentBlock.size.width, Math.round(data.x / CELL_SIZE)));
     
-    if (positionType === BlockPositionType.FULL || currentBlock.size.width >= GRID_COLUMNS) {
-      // Full width blocks always start at column 0
+    // Проверяем выравнивание для полноширинных блоков или блоков с особыми требованиями
+    const isFullWidth = currentBlock.size.width >= GRID_COLUMNS || 
+                         currentBlock.type === BlockType.FAMILY_TREE || 
+                         currentBlock.template === 'semicircle';
+                       
+    if (isFullWidth) {
+      // Полноширинные блоки всегда начинаются с колонки 0
       column = 0;
-    } else if (positionType === BlockPositionType.CENTER) {
-      // Center aligned blocks are centered in the grid
-      column = Math.floor((GRID_COLUMNS - currentBlock.size.width) / 2);
-    } else if (positionType === BlockPositionType.RIGHT) {
-      // Right aligned blocks are aligned to the right edge
-      column = Math.max(0, GRID_COLUMNS - currentBlock.size.width);
     } else {
-      // Left aligned blocks (default)
-      column = Math.max(0, Math.min(GRID_COLUMNS - currentBlock.size.width, Math.round(data.x / CELL_SIZE)));
+      // Определяем тип позиционирования блока
+      const positionType = getBlockPositionType(currentBlock.type, currentBlock.template);
+      
+      if (positionType === BlockPositionType.CENTER) {
+        // Центрированные блоки выравниваем по центру сетки
+        column = Math.floor((GRID_COLUMNS - currentBlock.size.width) / 2);
+      } else if (positionType === BlockPositionType.RIGHT) {
+        // Блоки с правым выравниванием располагаем у правого края
+        column = Math.max(0, GRID_COLUMNS - currentBlock.size.width);
+      }
+      // Для BlockPositionType.LEFT оставляем текущий расчет column
     }
     
     console.log(`Block ${id} will snap to grid position row:${row}, column:${column}`);
@@ -1085,51 +1099,32 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
       return;
     }
     
-    // Создаем копию блоков
-    const updatedBlocks = blocks.map(block => 
-      block.id === id ? { 
-        ...block, 
-        position: { 
-          row, 
-          column
-        } 
-      } : block
-    );
+    // Создаем копию блоков с глубоким клонированием
+    const updatedBlocks = JSON.parse(JSON.stringify(blocks));
+    const blockIndex = updatedBlocks.findIndex((b: Block) => b.id === id);
     
-    console.log(`Starting auto-adjustment for blocks after moving ${id}`);
-    
-    // Проверяем, не перекрывает ли перемещаемый блок закрепленные блоки
-    const checkFixedBlockOverlap = () => {
-      // Клонируем блоки для проверки
-      const testBlocks = JSON.parse(JSON.stringify(updatedBlocks));
-      const testMovedBlock = testBlocks.find((block: Block) => block.id === id);
+    if (blockIndex !== -1) {
+      // Обновляем позицию блока
+      updatedBlocks[blockIndex].position = { row, column };
       
-      // Проверяем перекрытия с закрепленными блоками
-      for (const fixedBlock of testBlocks) {
-        if (fixedBlock.isFixed && fixedBlock.id !== id) {
-          const overlap = checkBlocksOverlap(testMovedBlock, fixedBlock);
-          if (overlap) {
-            return true;
-          }
-        }
+      // Проверяем наложения с другими блоками
+      const hasOverlaps = updatedBlocks.some((otherBlock: Block) => {
+        if (otherBlock.id === id) return false; // Пропускаем сам блок
+        return checkBlocksOverlap(updatedBlocks[blockIndex], otherBlock);
+      });
+      
+      console.log(`Block ${id} has overlaps after drag: ${hasOverlaps}`);
+      
+      // Выполняем автокорректировку, если есть наложения или блок имеет особые требования к позиционированию
+      if (hasOverlaps || isFullWidth) {
+        console.log(`Starting auto-adjustment for blocks after moving ${id}`);
+        const adjustedBlocks = handleAutoAdjustBlockPositions(updatedBlocks, id);
+        setBlocks(adjustedBlocks);
+      } else {
+        // Если наложений нет, просто обновляем состояние
+        setBlocks(updatedBlocks);
       }
-      return false;
-    };
-    
-    // Если блок перекрывает закрепленные блоки, выполняем автоматическую корректировку
-    const overlapsFixed = checkFixedBlockOverlap();
-    if (overlapsFixed) {
-      console.log(`Block ${id} overlaps with fixed blocks, will be auto-adjusted`);
     }
-    
-    // Автоматически корректируем позиции всех блоков, чтобы избежать наложений,
-    // начиная с только что перемещенного блока
-    const adjustedBlocks = handleAutoAdjustBlockPositions(updatedBlocks, id);
-    
-    console.log(`Auto-adjustment complete, updating block positions`);
-    
-    // Обновляем состояние блоков
-    setBlocks(adjustedBlocks);
 
     // Визуально выделяем перетащенный блок
     setActiveBlockId(id);
@@ -1151,8 +1146,9 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
     
     if (!movedBlock) return adjustedBlocks;
     
-    // Сортируем блоки по их позиции (сначала по ряду, затем по колонке)
-    // и по приоритету (закрепленные блоки имеют приоритет)
+    // Сортируем блоки по их приоритету и позиции
+    // 1. Закрепленные блоки имеют наивысший приоритет
+    // 2. Затем сортируем по позиции сверху вниз, слева направо
     adjustedBlocks.sort((a: Block, b: Block) => {
       // Закрепленные блоки имеют наивысший приоритет
       if (a.isFixed && !b.isFixed) return -1;
@@ -1176,9 +1172,22 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
       }
     }
     
-    // Добавляем все блоки кроме перемещаемого в сетку
+    // Добавляем все закрепленные блоки в сетку (их позиции неизменяемы)
     adjustedBlocks.forEach((block: Block) => {
-      if (block.id !== movedBlockId) {
+      if (block.isFixed) {
+        for (let r = block.position.row; r < block.position.row + block.size.height; r++) {
+          for (let c = block.position.column; c < block.position.column + block.size.width; c++) {
+            if (r >= 0 && c >= 0 && r < 100 && c < GRID_COLUMNS) {
+              grid[r][c] = true;
+            }
+          }
+        }
+      }
+    });
+    
+    // Добавляем все незакрепленные блоки, кроме перемещаемого, в сетку
+    adjustedBlocks.forEach((block: Block) => {
+      if (!block.isFixed && block.id !== movedBlockId) {
         for (let r = block.position.row; r < block.position.row + block.size.height; r++) {
           for (let c = block.position.column; c < block.position.column + block.size.width; c++) {
             if (r >= 0 && c >= 0 && r < 100 && c < GRID_COLUMNS) {
@@ -1201,6 +1210,18 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
       if (hasConflict) break;
     }
     
+    // Также проверяем явное перекрытие с другими блоками
+    if (!hasConflict) {
+      for (const block of adjustedBlocks) {
+        if (block.id !== movedBlockId) {
+          if (checkBlocksOverlap(movedBlock, block)) {
+            hasConflict = true;
+            break;
+          }
+        }
+      }
+    }
+    
     if (!hasConflict) {
       console.log(`No conflicts for block ${movedBlockId} at current position`);
       return adjustedBlocks;
@@ -1213,14 +1234,22 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
       const width = block.size.width;
       const height = block.size.height;
       
-      // Проверяем позиции в порядке увеличения расстояния от исходной позиции
-      // Сначала проверяем исходную строку, перемещая вправо
-      for (let c = originalColumn + 1; c <= GRID_COLUMNS - width; c++) {
+      // Для блоков определенных типов сохраняем горизонтальное выравнивание
+      let fixedColumn = originalColumn;
+      if (block.type === BlockType.FAMILY_TREE || 
+          block.template === 'semicircle' ||
+          (block.size.width === GRID_COLUMNS)) {
+        fixedColumn = 0; // Полноширинные блоки всегда начинаются с левого края
+      }
+      
+      // Сначала пытаемся найти позицию с сохранением текущего столбца
+      // Это важно для сохранения расположения, выбранного пользователем
+      for (let r = originalRow; r < originalRow + 20; r++) {
         let positionAvailable = true;
-        for (let r = originalRow; r < originalRow + height; r++) {
-          for (let cc = c; cc < c + width; cc++) {
-            if (r >= 0 && cc >= 0 && r < 100 && cc < GRID_COLUMNS) {
-              if (grid[r][cc]) {
+        for (let rr = r; rr < r + height; rr++) {
+          for (let cc = fixedColumn; cc < fixedColumn + width; cc++) {
+            if (rr >= 0 && cc >= 0 && rr < 100 && cc < GRID_COLUMNS) {
+              if (grid[rr][cc]) {
                 positionAvailable = false;
                 break;
               }
@@ -1229,14 +1258,23 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
           if (!positionAvailable) break;
         }
         if (positionAvailable) {
-          return { row: originalRow, column: c };
+          return { row: r, column: fixedColumn };
         }
       }
       
-      // Затем проверяем позиции по следующим строкам, начиная с левого края
-      for (let r = originalRow + 1; r < 100; r++) {
-        for (let c = 0; c <= GRID_COLUMNS - width; c++) {
+      // Если не удалось найти позицию с тем же столбцом,
+      // проверяем доступные позиции в порядке увеличения расстояния
+      const maxSearchDistance = 20; // Ограничиваем область поиска
+      
+      for (let distance = 1; distance <= maxSearchDistance; distance++) {
+        // Проверяем позиции ниже оригинальной со смещением влево/вправо
+        for (let offsetCol = -distance; offsetCol <= distance; offsetCol++) {
+          const c = originalColumn + offsetCol;
+          if (c < 0 || c + width > GRID_COLUMNS) continue; // Пропускаем позиции за границами сетки
+          
+          const r = originalRow + distance;
           let positionAvailable = true;
+          
           for (let rr = r; rr < r + height; rr++) {
             for (let cc = c; cc < c + width; cc++) {
               if (rr >= 0 && cc >= 0 && rr < 100 && cc < GRID_COLUMNS) {
@@ -1248,13 +1286,14 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
             }
             if (!positionAvailable) break;
           }
+          
           if (positionAvailable) {
             return { row: r, column: c };
           }
         }
       }
       
-      // Если ничего не нашли, возвращаем первую свободную позицию снизу
+      // Если ничего не нашли выше, ищем место внизу страницы
       let lastRow = 0;
       adjustedBlocks.forEach((b: Block) => {
         const blockBottom = b.position.row + b.size.height;
@@ -1263,7 +1302,8 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
         }
       });
       
-      return { row: lastRow + 1, column: 0 };
+      // Возвращаем позицию внизу с сохранением колонки, если возможно
+      return { row: lastRow + 1, column: Math.min(originalColumn, GRID_COLUMNS - width) };
     };
     
     // Находим новую позицию для перемещаемого блока
@@ -1272,6 +1312,24 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
     movedBlock.position.column = newPosition.column;
     
     console.log(`Found new position for block ${movedBlockId} at row: ${newPosition.row}, column: ${newPosition.column}`);
+    
+    // Повторно проверяем, нет ли конфликтов после перемещения
+    // Это дополнительная проверка для надежности
+    let stillHasConflict = false;
+    for (const block of adjustedBlocks) {
+      if (block.id !== movedBlockId) {
+        if (checkBlocksOverlap(movedBlock, block)) {
+          stillHasConflict = true;
+          break;
+        }
+      }
+    }
+    
+    // Если после корректировки все еще есть конфликт, рекурсивно вызываем функцию
+    if (stillHasConflict) {
+      console.log(`Block ${movedBlockId} still has conflicts, trying again with recursion`);
+      return handleAutoAdjustBlockPositions(adjustedBlocks, movedBlockId, recursionDepth + 1);
+    }
     
     return adjustedBlocks;
   };
@@ -1284,7 +1342,7 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
     const block2Right = block2.position.column + block2.size.width;
     const block2Bottom = block2.position.row + block2.size.height;
     
-    // Проверяем пересечение
+    // Проверяем пересечение с небольшим запасом для надежности
     return !(
       block1.position.column >= block2Right || // block1 справа от block2
       block1Right <= block2.position.column || // block1 слева от block2
@@ -2379,8 +2437,44 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
   const handleSave = () => {
     console.log('Сохраняем страницу', { blocks, backgroundColor, showOnMap });
     
+    // Выполняем финальную проверку и корректировку позиций блоков перед сохранением
+    const finalizedBlocks = [...blocks];
+    
+    // Сортируем блоки по позиции для более предсказуемой обработки
+    finalizedBlocks.sort((a, b) => {
+      if (a.position.row !== b.position.row) {
+        return a.position.row - b.position.row;
+      }
+      return a.position.column - b.position.column;
+    });
+    
+    // Выполняем последнюю проверку на наложения
+    for (let i = 0; i < finalizedBlocks.length; i++) {
+      const currentBlock = finalizedBlocks[i];
+      let hasOverlap = false;
+      
+      // Проверяем наложение с предыдущими блоками
+      for (let j = 0; j < i; j++) {
+        if (checkBlocksOverlap(currentBlock, finalizedBlocks[j])) {
+          hasOverlap = true;
+          break;
+        }
+      }
+      
+      // Если есть наложение, применяем автокорректировку
+      if (hasOverlap) {
+        console.log(`Block ${currentBlock.id} has overlaps before saving, adjusting...`);
+        const adjustedBlocks = handleAutoAdjustBlockPositions([...finalizedBlocks], currentBlock.id);
+        // Обновляем только позицию текущего блока
+        const adjustedBlock = adjustedBlocks.find(b => b.id === currentBlock.id);
+        if (adjustedBlock) {
+          currentBlock.position = adjustedBlock.position;
+        }
+      }
+    }
+    
     // Перед сохранением, обработаем содержимое блоков для более удобного использования на странице памяти
-    const processedBlocks = blocks.map(block => {
+    const processedBlocks = finalizedBlocks.map(block => {
       const processedBlock = { ...block };
       
       // Обработка содержимого для текстовых блоков
@@ -2432,6 +2526,9 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
       const storageKey = getStorageKey();
       localStorage.setItem(storageKey, JSON.stringify(pageData));
       console.log(`Данные успешно сохранены в localStorage с ключом ${storageKey}`);
+      
+      // Обновляем состояние блоков с финальными позициями
+      setBlocks(processedBlocks);
       
       // Показываем уведомление об успешном сохранении
       alert('Страница успешно сохранена');
@@ -2604,11 +2701,11 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
   };
 
   // Функция для извлечения ID видео из URL YouTube
-  const extractYouTubeId = (url: string): string => {
-    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
-    const match = url.match(regExp);
-    return (match && match[2].length === 11) ? match[2] : '';
-  };
+const extractYouTubeId = (url: string): string => {
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+  const match = url.match(regExp);
+  return (match && match[2].length === 11) ? match[2] : '';
+};
 
   // Обработчик добавления/изменения соц. сетей
   const handleAddSocialNetwork = (blockId: string, type?: SocialNetworkType) => {
@@ -2928,6 +3025,8 @@ const Constructor: React.FC<ConstructorProps> = ({ handleBack, savedData, userId
       console.log('ОТМЕНА: Завершена');
     }
   };
+  
+  // Этот блок уже объявлен выше
 
   return (
     <Box sx={styles.root}>
